@@ -40,7 +40,7 @@ Install with Developer Mode and the Tizen CLI:
 tizen install -n JellyPass.wgt -t YOUR_TV_TARGET
 ```
 
-The upstream application/package identifier is currently retained so a WGT signed with the same Samsung certificate can update the existing sideloaded Jellyfin installation. Change it only when a side-by-side installation is explicitly required.
+JellyPass uses its own `JellyPass1.JellyPass` application identity. It is a fresh application rather than an update to the sideloaded Jellyfin package. Keep the existing app installed until `JellyPass.wgt` has been signed successfully, then uninstall Jellyfin and install JellyPass.
 
 ## Authentication roadmap
 

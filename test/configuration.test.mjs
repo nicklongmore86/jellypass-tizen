@@ -29,6 +29,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     const gulpfile = fs.readFileSync(path.join(root, 'gulpfile.babel.js'), 'utf8');
     const adapter = fs.readFileSync(path.join(root, 'tizen.js'), 'utf8');
     const styles = fs.readFileSync(path.join(root, 'jellypass.css'), 'utf8');
+    const manifest = fs.readFileSync(path.join(root, 'config.xml'), 'utf8');
 
     assert.match(gulpfile, /\.\.\/jellypass\.css/);
     assert.match(gulpfile, /\.\.\/jellypass\.js/);
@@ -37,4 +38,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnQuick/);
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
+    assert.match(manifest, /id="JellyPass1\.JellyPass"/);
+    assert.match(manifest, /package="JellyPass1"/);
+    assert.doesNotMatch(manifest, /AprZAARz4r\.Jellyfin/);
 });
