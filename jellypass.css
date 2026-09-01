@@ -1,0 +1,14 @@
+/* App-owned login policy. This loads before Jellyfin Web and does not depend on server branding. */
+#loginPage .manualLoginForm,
+#loginPage .readOnlyContent,
+#loginPage .btnManual,
+#loginPage .btnQuick,
+#loginPage .btnForgotPassword {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+#loginPage .visualLoginForm {
+    margin-inline: auto;
+    max-width: 72rem;
+}

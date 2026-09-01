@@ -1,124 +1,51 @@
-<h1 align="center">Jellyfin for Tizen</h1>
-<h3 align="center">Part of the <a href="https://jellyfin.org">Jellyfin Project</a></h3>
+# JellyPass for Tizen
 
----
+JellyPass for Tizen is a household-scoped Samsung TV client built from the official [Jellyfin Tizen](https://github.com/jellyfin/jellyfin-tizen) wrapper and [Jellyfin Web](https://github.com/jellyfin/jellyfin-web).
 
-<p align="center">
-<img alt="Logo Banner" src="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/branding/SVG/banner-logo-solid.svg?sanitize=true"/>
-</p>
+The first build targets the Farmhouse household at `https://jelly-farmhouse.starrgroup.io`. It locks the client to that server, removes multi-server navigation, and suppresses Quick Connect, manual login, and password-recovery actions before Jellyfin Web renders.
 
-## Build Process
-_Also look [Wiki](https://github.com/jellyfin/jellyfin-tizen/wiki)._
+This repository remains a GitHub fork of `jellyfin/jellyfin-tizen` so upstream wrapper changes can be merged. JellyPass-specific behavior is intentionally kept in a small set of files:
 
-### Prerequisites
-* Tizen Studio 4.6+ with IDE or Tizen Studio 4.6+ with CLI. See [Installing TV SDK](https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk/installing-tv-sdk.html).
-* Git
-* Node.js 20+
+- `jellypass.config.json` defines the non-secret household server.
+- `jellypass.css` and `jellypass.js` enforce the household login surface in the packaged client.
+- `scripts/configure-jellypass.mjs` locks the generated Jellyfin Web configuration to the household server.
+- `scripts/build.sh` checks out the pinned Jellyfin Web revision and produces the unsigned Tizen application tree.
 
-### Getting Started
+## Build
 
-1. Install prerequisites.
-2. Install Certificate Manager using Tizen Studio Package Manager. See [Installing Required Extensions](https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk/installing-tv-sdk.html#Installing-Required-Extensions).
-3. Setup Tizen certificate in Certificate Manager. See [Creating Certificates](https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk/creating-certificates.html).
-   > If you have installation problems with the Tizen certificate, try creating a Samsung certificate. In this case, you will also need a Samsung account.
-4. Clone or download [Jellyfin Web repository](https://github.com/jellyfin/jellyfin-web).
+Requirements:
 
-   > It is recommended that the web version match the server version.
+- Node.js 20 or newer (the build pins npm 10 for Jellyfin Web compatibility)
+- Git
+- Tizen Studio 4.6 or newer with the Samsung TV extensions
+- A Samsung author/distributor certificate for each target television
 
-   ```sh
-   git clone -b release-10.10.z https://github.com/jellyfin/jellyfin-web.git
-   ```
-   > Replace `release-10.10.z` with the name of the branch you want to build.
-
-   > You can also use `git checkout` to switch branches.
-5. Clone or download Jellyfin Tizen (this) repository.
-   ```sh
-   git clone https://github.com/jellyfin/jellyfin-tizen.git
-   ```
-
-### Build Jellyfin Web
+Build the pinned Jellyfin Web 10.11.11 client and prepare `www/`:
 
 ```sh
-cd jellyfin-web
-npm ci --no-audit
-USE_SYSTEM_FONTS=1 npm run build:production
+npm run build:full
 ```
 
-> You should get `jellyfin-web/dist/` directory.
-
-> `USE_SYSTEM_FONTS=1` is required to discard unused fonts and to reduce the size of the app. (Since Jellyfin Web 10.9)
-
-> Use `npm run build:development` if you want to debug the app.
-
-If any changes are made to `jellyfin-web/`, the `jellyfin-web/dist/` directory will need to be rebuilt using the command above.
-
-### Prepare Interface
+Package the prepared application with the certificate profile currently selected in Tizen Studio:
 
 ```sh
-cd jellyfin-tizen
-JELLYFIN_WEB_DIR=../jellyfin-web/dist npm ci --no-audit
+npm run package:wgt
 ```
 
-> You should get `jellyfin-tizen/www/` directory.
+The WGT is written to `artifacts/`. Certificate profiles, private keys, device DUIDs, WGT artifacts, and local build caches must never be committed.
 
-> The `JELLYFIN_WEB_DIR` environment variable can be used to override the location of `jellyfin-web`.
-
-> Add `DISCARD_UNUSED_FONTS=1` environment variable to discard unused fonts and to reduce the size of the app. (Until Jellyfin Web 10.9)  
-> Don't use it with Jellyfin Web 10.9+. Instead, use `USE_SYSTEM_FONTS=1` environment variable when building Jellyfin Web.
-
-If any changes are made to `jellyfin-web/dist/`, the `jellyfin-tizen/www/` directory will need to be rebuilt using the command above.
-
-### Build WGT
-
-> Make sure you select the appropriate Certificate Profile in Tizen Certificate Manager. This determines which devices you can install the widget on.
+Install with Developer Mode and the Tizen CLI:
 
 ```sh
-tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e "node_modules/*" -e "package*.json" -e "yarn.lock"
-tizen package -t wgt -o . -- .buildResult
+tizen install -n JellyPass.wgt -t YOUR_TV_TARGET
 ```
 
-> You should get `Jellyfin.wgt`.
+The upstream application/package identifier is currently retained so a WGT signed with the same Samsung certificate can update the existing sideloaded Jellyfin installation. Change it only when a side-by-side installation is explicitly required.
 
-## Deployment
+## Authentication roadmap
 
-### Deploy to Emulator
+This first build changes discovery and login presentation only. It does not embed a Jellyfin API key or permanent household credential. Passwordless household SSO will use one-time device enrollment and a revocable JellyPass-issued device credential in a later phase.
 
-1. Run emulator.
-2. Install package.
-   ```sh
-   tizen install -n Jellyfin.wgt -t T-samsung-5.5-x86
-   ```
-   > Specify target with `-t` option. Use `sdb devices` to list them.
+## License and attribution
 
-### Deploy to TV
-
-1. Run TV.
-2. Activate Developer Mode on TV. See [Enable Developer Mode on the TV](https://developer.samsung.com/smarttv/develop/getting-started/using-sdk/tv-device.html#Connecting-the-TV-and-SDK).
-3. Connect to TV with one of the following options:
-   * Device Manager from `Tools -> Device Manager` in Tizen Studio.
-
-   * sdb:
-      ```sh
-      sdb connect YOUR_TV_IP
-      ```
-4. If you are using a Samsung certificate, allow installs onto your TV using your certificate with one of the following options:
-   > If you need to change or create a new Samsung certificate (see [Getting-Started](#getting-started) step 3), you will need to [re-build WGT](#build-wgt) once you have the Samsung certificate you'll use for the install.
-
-   * Device Manager from `Tools -> Device Manager` in Tizen Studio:
-      * Right-click on the connected device, and select `Permit to install applications`.
-
-   * Tizen CLI:
-      ```sh
-      tizen install-permit -t UE65NU7400
-      ```
-      > Specify target with `-t` option. Use `sdb devices` to list them.
-
-   * sdb:
-      ```sh
-      sdb push ~/SamsungCertificate/<PROFILE_NAME>/*.xml /home/developer
-      ```
-5. Install package.
-   ```sh
-   tizen install -n Jellyfin.wgt -t UE65NU7400
-   ```
-   > Specify target with `-t` option. Use `sdb devices` to list them.
+JellyPass for Tizen is an independent downstream project and is not affiliated with or endorsed by the Jellyfin project. It is distributed under the GNU General Public License v2.0, consistent with the upstream Tizen client. See `LICENSE`.

@@ -97,6 +97,12 @@ function modifyIndex() {
 
             const injectTarget = apploader.parentNode;
 
+            // Load JellyPass policy before the Jellyfin application renders.
+            const jellypassStyle = this.createElement('link');
+            jellypassStyle.setAttribute('rel', 'stylesheet');
+            jellypassStyle.setAttribute('href', '../jellypass.css');
+            this.head.appendChild(jellypassStyle);
+
             // inject webapis.js
             const webapis = this.createElement('script');
             webapis.setAttribute('src', '$WEBAPIS/webapis/webapis.js');
@@ -112,6 +118,11 @@ function modifyIndex() {
             tizen.setAttribute('src', '../tizen.js');
             tizen.setAttribute('defer', '');
             injectTarget.insertBefore(tizen, apploader);
+
+            const jellypass = this.createElement('script');
+            jellypass.setAttribute('src', '../jellypass.js');
+            jellypass.setAttribute('defer', '');
+            injectTarget.insertBefore(jellypass, apploader);
 
             return this;
         }))

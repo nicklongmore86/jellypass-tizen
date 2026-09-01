@@ -1,4 +1,9 @@
 *.wgt
 www
 .*
+!.github
+!.gitignore
+!.jellyfin-web-ref
 node_modules
+.cache
+artifacts
