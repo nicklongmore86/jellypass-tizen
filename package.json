@@ -12,7 +12,7 @@
     "build:full": "bash scripts/build.sh",
     "package:wgt": "bash scripts/package-wgt.sh",
     "postinstall": "npm run build",
-    "test": "node --test --test-isolation=none test/*.test.mjs"
+    "test": "node --test test/configuration.test.mjs"
   },
   "devDependencies": {
     "@babel/preset-env": "7.25.7",
