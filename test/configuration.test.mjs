@@ -127,8 +127,14 @@ test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without loggi
     assert.match(bootstrap, /TV Genres/);
     assert.match(bootstrap, /See More/);
     assert.match(bootstrap, /previewApi/);
-    assert.match(bootstrap, /Powered by Jellyseerr/);
-    assert.match(bootstrap, /linear-gradient\(135deg, #4f46e5, #9333ea\)/);
+    assert.match(bootstrap, /class="brand-mark"/);
+    assert.match(bootstrap, /id="requestsHomeTab"/);
+    assert.match(bootstrap, /id="requestsFavoritesTab"/);
+    assert.match(bootstrap, /id="requestsTopTab"/);
+    assert.match(bootstrap, /background: #0e1013/);
+    assert.match(bootstrap, /#00a4dc/);
+    assert.doesNotMatch(bootstrap, /#4f46e5|#7e22ce|#9333ea|#c084fc|#6366f1/);
+    assert.match(bootstrap, /params\.user \|\| 'Living Room'/);
     assert.match(bootstrap, /id="globalSearch"/);
     assert.match(bootstrap, /\.type-badge/);
     assert.match(bootstrap, /scrollIntoView/);
