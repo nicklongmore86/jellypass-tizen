@@ -1,14 +1,21 @@
-# JellyPass for Tizen
+# JellyQuest for Tizen
 
-JellyPass for Tizen is a household-scoped Samsung TV client built from the official [Jellyfin Tizen](https://github.com/jellyfin/jellyfin-tizen) wrapper and [Jellyfin Web](https://github.com/jellyfin/jellyfin-web).
+JellyQuest is a household-scoped Samsung TV experience for streaming and requesting media. It is built from the official [Jellyfin Tizen](https://github.com/jellyfin/jellyfin-tizen) wrapper and [Jellyfin Web](https://github.com/jellyfin/jellyfin-web), with Jellyseerr integration planned as the request experience.
 
-The first build targets the Farmhouse household at `https://jelly-farmhouse.starrgroup.io`. It locks the client to that server, removes multi-server navigation, and suppresses Quick Connect, manual login, and password-recovery actions before Jellyfin Web renders.
+The first build targets the Farmhouse household at `https://jelly-farmhouse.starrgroup.io`. It locks the client to that server, removes multi-server navigation, and suppresses Quick Connect, manual login, and password-recovery actions before Jellyfin Web renders. Only the household's public Jellyfin profiles are presented by the JellyPass gateway.
 
-This repository remains a GitHub fork of `jellyfin/jellyfin-tizen` so upstream wrapper changes can be merged. JellyPass-specific behavior is intentionally kept in a small set of files:
+The responsibilities stay deliberately separated:
 
-- `jellypass.config.json` defines the non-secret household server.
-- `jellypass.css` and `jellypass.js` enforce the household login surface in the packaged client.
-- `scripts/configure-jellypass.mjs` locks the generated Jellyfin Web configuration to the household server.
+- JellyQuest owns the Samsung TV experience for streaming and requesting.
+- Jellyfin remains the streaming server and player.
+- Jellyseerr remains the request application and request system of record.
+- JellyPass remains the per-user visibility and tagging service.
+
+This repository remains a GitHub fork of `jellyfin/jellyfin-tizen` so upstream wrapper changes can be merged. JellyQuest-specific behavior is intentionally kept in a small set of files:
+
+- `jellyquest.config.json` defines the non-secret household server.
+- `jellyquest.css` and `jellyquest.js` enforce the household login surface in the packaged client.
+- `scripts/configure-jellyquest.mjs` locks the generated Jellyfin Web configuration to the household server.
 - `scripts/build.sh` checks out the pinned Jellyfin Web revision and produces the unsigned Tizen application tree.
 
 ## Build
@@ -37,15 +44,15 @@ The WGT is written to `artifacts/`. Certificate profiles, private keys, device D
 Install with Developer Mode and the Tizen CLI:
 
 ```sh
-tizen install -n JellyPass.wgt -t YOUR_TV_TARGET
+tizen install -n JellyQuest.wgt -t YOUR_TV_TARGET
 ```
 
-JellyPass uses its own `JellyPass1.JellyPass` application identity. It is a fresh application rather than an update to the sideloaded Jellyfin package. Keep the existing app installed until `JellyPass.wgt` has been signed successfully, then uninstall Jellyfin and install JellyPass.
+JellyQuest uses its own `JellyQuest.JellyQuest` application identity. It installs as a fresh application rather than updating Jellyfin or the earlier JellyPass-branded client.
 
 ## Authentication roadmap
 
-This first build changes discovery and login presentation only. It does not embed a Jellyfin API key or permanent household credential. Passwordless household SSO will use one-time device enrollment and a revocable JellyPass-issued device credential in a later phase.
+This first build changes discovery and login presentation only. It does not embed a Jellyfin API key, Jellyseerr API key, or permanent household credential. Passwordless household SSO will use one-time device enrollment and a revocable JellyPass-issued device credential in a later phase.
 
 ## License and attribution
 
-JellyPass for Tizen is an independent downstream project and is not affiliated with or endorsed by the Jellyfin project. It is distributed under the GNU General Public License v2.0, consistent with the upstream Tizen client. See `LICENSE`.
+JellyQuest for Tizen is an independent downstream project and is not affiliated with or endorsed by the Jellyfin or Jellyseerr projects. It is distributed under the GNU General Public License v2.0, consistent with the upstream Tizen client. See `LICENSE`.

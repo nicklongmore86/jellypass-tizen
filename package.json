@@ -1,14 +1,14 @@
 {
-  "name": "jellypass-tizen",
-  "version": "0.2.0",
-  "description": "Household-scoped JellyPass client for Samsung Smart TV (Tizen)",
+  "name": "jellyquest-tizen",
+  "version": "0.3.0",
+  "description": "Household streaming and requesting client for Samsung Smart TV (Tizen)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nicklongmore86/jellypass-tizen.git"
+    "url": "git+https://github.com/nicklongmore86/jellyquest-tizen.git"
   },
   "scripts": {
     "build": "gulp && npm run configure",
-    "configure": "node scripts/configure-jellypass.mjs",
+    "configure": "node scripts/configure-jellyquest.mjs",
     "build:full": "bash scripts/build.sh",
     "package:wgt": "bash scripts/package-wgt.sh",
     "postinstall": "npm run build",

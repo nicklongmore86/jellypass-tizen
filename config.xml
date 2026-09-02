@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="https://starrgroup.io/jellypass/tizen" version="0.2.0" viewmodes="fullscreen">
+<widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="https://starrgroup.io/jellyquest/tizen" version="0.3.0" viewmodes="fullscreen">
     <access origin="*" subdomains="true"></access>
-    <tizen:application id="JellyPass1.JellyPass" package="JellyPass1" required_version="2.3"/>
-    <author href="https://github.com/nicklongmore86/jellypass-tizen">JellyPass</author>
+    <tizen:application id="JellyQuest.JellyQuest" package="JellyQuest" required_version="2.3"/>
+    <author href="https://github.com/nicklongmore86/jellyquest-tizen">JellyQuest</author>
     <content src="index.html"/>
-    <description>JellyPass household access for Samsung Smart TV (Tizen).</description>
+    <description>Household streaming and requesting for Samsung Smart TV (Tizen).</description>
     <feature name="http://tizen.org/feature/screen.size.all"/>
     <icon src="icon.png"/>
     <tizen:metadata key="http://tizen.org/metadata/app_ui_type/base_screen_resolution" value="fullscreen"/>
-    <name>JellyPass</name>
+    <name>JellyQuest</name>
     <tizen:privilege name="http://developer.samsung.com/privilege/productinfo"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <tizen:profile name="tv"/>

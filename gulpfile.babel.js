@@ -97,11 +97,11 @@ function modifyIndex() {
 
             const injectTarget = apploader.parentNode;
 
-            // Load JellyPass policy before the Jellyfin application renders.
-            const jellypassStyle = this.createElement('link');
-            jellypassStyle.setAttribute('rel', 'stylesheet');
-            jellypassStyle.setAttribute('href', '../jellypass.css');
-            this.head.appendChild(jellypassStyle);
+            // Load JellyQuest policy before the Jellyfin application renders.
+            const jellyquestStyle = this.createElement('link');
+            jellyquestStyle.setAttribute('rel', 'stylesheet');
+            jellyquestStyle.setAttribute('href', '../jellyquest.css');
+            this.head.appendChild(jellyquestStyle);
 
             // inject webapis.js
             const webapis = this.createElement('script');
@@ -119,10 +119,10 @@ function modifyIndex() {
             tizen.setAttribute('defer', '');
             injectTarget.insertBefore(tizen, apploader);
 
-            const jellypass = this.createElement('script');
-            jellypass.setAttribute('src', '../jellypass.js');
-            jellypass.setAttribute('defer', '');
-            injectTarget.insertBefore(jellypass, apploader);
+            const jellyquest = this.createElement('script');
+            jellyquest.setAttribute('src', '../jellyquest.js');
+            jellyquest.setAttribute('defer', '');
+            injectTarget.insertBefore(jellyquest, apploader);
 
             return this;
         }))

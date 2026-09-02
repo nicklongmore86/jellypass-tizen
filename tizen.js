@@ -24,7 +24,7 @@
     var AppInfo = {
         deviceId: getDeviceId(),
         deviceName: 'Samsung Smart TV',
-        appName: 'JellyPass for Tizen',
+        appName: 'JellyQuest for Tizen',
         appVersion: tizen.application.getCurrentApplication().appInfo.version
     };
 

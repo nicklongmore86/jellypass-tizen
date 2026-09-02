@@ -34,5 +34,5 @@
     }
 
     window.addEventListener('viewshow', enforceHouseholdLogin);
-    console.info('[JellyPass] Farmhouse household policy loaded');
+    console.info('[JellyQuest] Farmhouse household policy loaded');
 })();

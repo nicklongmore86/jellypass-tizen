@@ -19,14 +19,14 @@ cd "${project_dir}"
 tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e "node_modules/*" -e "package*.json" -e scripts -e test
 tizen package -t wgt -o "${artifact_dir}" -- .buildResult
 
-generated_wgt="$(find "${artifact_dir}" -maxdepth 1 -type f -name '*.wgt' ! -name 'JellyPass.wgt' -print -quit)"
+generated_wgt="$(find "${artifact_dir}" -maxdepth 1 -type f -name '*.wgt' ! -name 'JellyQuest.wgt' -print -quit)"
 if [[ -n "${generated_wgt}" ]]; then
-    mv "${generated_wgt}" "${artifact_dir}/JellyPass.wgt"
+    mv "${generated_wgt}" "${artifact_dir}/JellyQuest.wgt"
 fi
 
-[[ -f "${artifact_dir}/JellyPass.wgt" ]] || {
+[[ -f "${artifact_dir}/JellyQuest.wgt" ]] || {
     echo "Tizen packaging completed without producing a WGT artifact." >&2
     exit 1
 }
 
-echo "Packaged ${artifact_dir}/JellyPass.wgt"
+echo "Packaged ${artifact_dir}/JellyQuest.wgt"

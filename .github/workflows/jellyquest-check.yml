@@ -1,4 +1,4 @@
-name: JellyPass checks
+name: JellyQuest checks
 
 on:
   push:

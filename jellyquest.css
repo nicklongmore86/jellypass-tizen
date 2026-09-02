@@ -1,4 +1,4 @@
-/* App-owned login policy. This loads before Jellyfin Web and does not depend on server branding. */
+/* JellyQuest login policy. This loads before Jellyfin Web and does not depend on server branding. */
 #loginPage .manualLoginForm,
 #loginPage .readOnlyContent,
 #loginPage .btnManual,
