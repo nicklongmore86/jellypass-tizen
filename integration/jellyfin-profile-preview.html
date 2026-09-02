@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>JellyQuest Profile Switcher Preview</title>
+  <link rel="stylesheet" href="jellyquest.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { background: #101010; color: #fff; height: 100%; margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+    .skinHeader { background: rgba(20, 20, 20, .94); box-shadow: 0 .2rem .8rem #000; height: 8rem; padding: 1.25rem 2.5rem; }
+    .headerTop { align-items: center; display: flex; height: 3.5rem; }
+    .pageTitle { align-items: center; background: linear-gradient(135deg, #00a4dc, #aa5cc3); -webkit-background-clip: text; color: transparent; display: inline-flex; font-size: 2.25rem; font-weight: 800; height: 2.2rem; margin: 0; padding-right: .35rem; }
+    .tabs { color: #ddd; display: flex; font-size: 1.25rem; justify-content: center; margin-top: .7rem; }
+    .tabs span { margin: 0 1.5rem; }
+    .tabs .active { border-bottom: .22rem solid #00a4dc; padding-bottom: .45rem; }
+    main { padding: 3rem 3.5rem; }
+    h2 { font-size: 1.8rem; font-weight: 500; }
+    .home-row { display: flex; }
+    .home-card { background: linear-gradient(145deg, #374957, #171e24); border-radius: .5rem; height: 16rem; margin-right: 1.2rem; width: 11rem; }
+    .hint { background: #202020; border-left: .3rem solid #00a4dc; bottom: 2rem; color: #ddd; font-size: 1.15rem; left: 3.5rem; padding: .8rem 1rem; position: absolute; }
+  </style>
+</head>
+<body>
+  <header class="skinHeader">
+    <div class="headerTop"><h3 class="pageTitle pageTitleWithDefaultLogo">Jellyfin</h3><button class="headerSearchButton" type="button" aria-label="Search"></button><button class="headerUserButton" type="button" aria-label="Settings"></button></div>
+    <div class="tabs"><span class="active">Home</span><span>Favorites</span><span>Requests</span></div>
+  </header>
+  <main class="skinBody">
+    <h2>Latest Movies</h2>
+    <div class="home-row"><div class="home-card"></div><div class="home-card"></div><div class="home-card"></div><div class="home-card"></div><div class="home-card"></div><div class="home-card"></div></div>
+  </main>
+  <nav class="libraryMenuOptions" hidden>
+    <a class="lnkMediaFolder" data-itemid="preview-movies" href="jellyfin-movies-preview.html#/movies?topParentId=preview-movies"><span class="material-icons navMenuOptionIcon movie"></span><span class="sectionName">Movies</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-shows" href="jellyfin-shows-preview.html#/tv?topParentId=preview-shows"><span class="material-icons navMenuOptionIcon tv"></span><span class="sectionName">Shows</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-live" href="#/livetv?topParentId=preview-live"><span class="material-icons navMenuOptionIcon live_tv"></span><span class="sectionName">Live TV</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-sports" href="jellyfin-sports-preview.html#/movies?topParentId=preview-sports"><span class="material-icons navMenuOptionIcon movie"></span><span class="sectionName">Sports</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-photos" href="#/homevideos?topParentId=preview-photos"><span class="material-icons navMenuOptionIcon photo"></span><span class="sectionName">Photos</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-books" href="#/list?topParentId=preview-books"><span class="material-icons navMenuOptionIcon book"></span><span class="sectionName">Books</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-videos" href="#/homevideos?topParentId=preview-videos"><span class="material-icons navMenuOptionIcon photo"></span><span class="sectionName">Videos</span></a>
+  </nav>
+  <div class="hint">Focus the Jellyfin logo and press OK. Use Up/Down to choose a profile.</div>
+  <script>
+    (function () {
+      var users = [
+        { Id: '11111111111111111111111111111111', Name: 'Living Room', HasPassword: false },
+        { Id: '22222222222222222222222222222222', Name: 'Nick', HasPassword: false },
+        { Id: '33333333333333333333333333333333', Name: 'Guest', HasPassword: false },
+        { Id: '44444444444444444444444444444444', Name: 'Kids', HasPassword: false }
+      ];
+      var currentId = localStorage.getItem('jellyquest-preview-user') || users[0].Id;
+      function currentUser() {
+        return users.filter(function (user) { return user.Id === currentId; })[0] || users[0];
+      }
+      window.ApiClient = {
+        getPublicUsers: function () { return Promise.resolve(users); },
+        getCurrentUser: function () { return Promise.resolve(currentUser()); },
+        getUserImageUrl: function () { return ''; },
+        authenticateUserByName: function (name) {
+          var user = users.filter(function (candidate) { return candidate.Name === name; })[0];
+          currentId = user.Id;
+          localStorage.setItem('jellyquest-preview-user', currentId);
+          return Promise.resolve({ User: user, AccessToken: 'preview' });
+        }
+      };
+      window.alert = function () {};
+      window.addEventListener('load', function () {
+        document.querySelector('.pageTitle').focus();
+      });
+    })();
+  </script>
+  <script src="jellyquest.js"></script>
+</body>
+</html>

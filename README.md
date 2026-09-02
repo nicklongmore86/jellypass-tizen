@@ -73,7 +73,13 @@ npm run preview:tv
 Open the printed simulator URL. Only the static `integration/` preview assets
 are served. Keyboard arrow/Enter keys and the on-screen
 remote exercise the same D-pad focus code as the TV. Preview mode uses mock
-media and never creates a Jellyseerr request.
+media and never creates a Jellyseerr request. Use **Home** in the simulator
+toolbar to exercise the injected profile and library navigation with mock
+household profiles. **Movies** and **Movie Detail** provide TV-sized design
+previews for the library grid and contextual collection treatment. **Shows**
+and **Show Detail** preview series browsing, season selection, and episode
+progress. **Sports** and **Event Detail** preview spoiler-safe event browsing,
+resume actions, and game-chapter navigation.
 
 JellyQuest uses its own `JellyQuest.JellyQuest` application identity. It installs as a fresh application rather than updating Jellyfin or the earlier JellyPass-branded client.
 

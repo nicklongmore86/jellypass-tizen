@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>JellyQuest Sports Event Preview</title>
+  <link rel="stylesheet" href="jellyquest.css">
+  <link rel="stylesheet" href="jellyfin-media-preview.css">
+</head>
+<body>
+  <header class="skinHeader">
+    <div class="headerTop"><h3 class="pageTitle pageTitleWithDefaultLogo">Jellyfin</h3><button class="headerSearchButton" type="button"></button><button class="headerUserButton" type="button"></button></div>
+    <div class="tabs"><span>Home</span><span>Favorites</span><span>Requests</span></div>
+  </header>
+  <main class="skinBody jqDetailWorkspace jqSportsDetailWorkspace">
+    <section class="jqDetailHero jqSportsHero">
+      <div class="jqDetailCopy">
+        <div class="jqDetailEyebrow">Pro Football · Week 12</div>
+        <h1 class="jqDetailTitle">Chicago at Green Bay</h1>
+        <div class="jqDetailMeta"><span>November 27, 2026</span><span>3h 06m</span><span>1080p</span><span>English</span></div>
+        <p class="jqDetailOverview">Recorded from the national broadcast at Green Bay. Resume without revealing the final score or game outcome.</p>
+        <div class="jqActions"><button class="jqAction primary" autofocus>▶ Resume 1:12:34</button><button class="jqAction">Start Over</button><button class="jqAction">Highlights</button><button class="jqAction">＋ My List</button></div>
+        <div class="jqSpoilerSafe">◉ Scores and outcome hidden</div>
+      </div>
+    </section>
+    <section class="jqChapterSection">
+      <div class="jqSectionHeading"><h2>Game Chapters</h2><span>Jump without scrubbing</span></div>
+      <div class="jqChapterRow">
+        <a class="jqChapterCard" href="#chapter=pregame"><div class="jqChapterImage"><span class="jqChapterName">Pregame</span></div><span class="jqChapterTime">00:00</span></a>
+        <a class="jqChapterCard" href="#chapter=first"><div class="jqChapterImage"><span class="jqChapterName">First Half</span></div><span class="jqChapterTime">18:42</span></a>
+        <a class="jqChapterCard" href="#chapter=halftime"><div class="jqChapterImage"><span class="jqChapterName">Halftime</span></div><span class="jqChapterTime">1:31:08</span></a>
+        <a class="jqChapterCard" href="#chapter=second"><div class="jqChapterImage"><span class="jqChapterName">Second Half</span></div><span class="jqChapterTime">1:48:21</span></a>
+        <a class="jqChapterCard" href="#chapter=postgame"><div class="jqChapterImage"><span class="jqChapterName">Postgame</span></div><span class="jqChapterTime">2:57:36</span></a>
+      </div>
+    </section>
+  </main>
+  <nav class="libraryMenuOptions" hidden>
+    <a class="lnkMediaFolder" data-itemid="preview-movies" href="jellyfin-movies-preview.html#/movies?topParentId=preview-movies"><span class="navMenuOptionIcon movie"></span><span class="sectionName">Movies</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-shows" href="jellyfin-shows-preview.html#/tv?topParentId=preview-shows"><span class="navMenuOptionIcon tv"></span><span class="sectionName">Shows</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-live" href="#/livetv"><span class="navMenuOptionIcon live_tv"></span><span class="sectionName">Live TV</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-sports" href="jellyfin-sports-preview.html#/movies?topParentId=preview-sports"><span class="navMenuOptionIcon movie"></span><span class="sectionName">Sports</span></a>
+  </nav>
+  <script>
+    window.ApiClient = { getPublicUsers: function(){ return Promise.resolve([{Id:'1',Name:'Living Room',HasPassword:false}]); }, getCurrentUser: function(){ return Promise.resolve({Id:'1',Name:'Living Room'}); }, getUserImageUrl: function(){ return ''; }, authenticateUserByName: function(){ return Promise.resolve({User:{Id:'1'}}); } };
+    window.alert = function(){};
+    window.addEventListener('load', function(){ var first=document.querySelector('.jqAction.primary'); if(first) first.focus(); });
+  </script>
+  <script src="jellyquest.js"></script>
+  <script src="jellyfin-media-preview.js"></script>
+</body>
+</html>

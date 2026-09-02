@@ -8,7 +8,7 @@
     * { box-sizing: border-box; }
     html, body { background: #080808; color: #fff; height: 100%; margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
     #stage { left: 50%; position: absolute; top: 1rem; transform-origin: top left; }
-    iframe { border: .2rem solid #444; height: 1080px; width: 1920px; }
+    iframe { border: .2rem solid #444; display: block; height: 1080px; width: 1920px; }
     #remote { align-items: center; background: #171717; bottom: 0; display: flex; height: 5rem; justify-content: center; left: 0; position: fixed; right: 0; z-index: 2; }
     #remote span { color: #aaa; margin-right: 1rem; }
     #remote button { background: #333; border: .1rem solid #666; border-radius: .35rem; color: #fff; font-size: 1.1rem; margin: .2rem; min-width: 3rem; padding: .55rem .8rem; }
@@ -19,6 +19,7 @@
   <div id="stage"><iframe id="tv" src="jellyseerr-login.html?preview=1" title="1920 by 1080 JellyQuest preview"></iframe></div>
   <div id="remote">
     <span>Samsung remote simulator — keyboard arrows also work</span>
+    <button id="requestsView">Requests UI</button><button id="profilesView">Home</button><button id="moviesView">Movies</button><button id="movieDetailView">Movie Detail</button><button id="showsView">Shows</button><button id="showDetailView">Show Detail</button><button id="sportsView">Sports</button><button id="sportDetailView">Event Detail</button>
     <button data-key="37">←</button><button data-key="38">↑</button><button data-key="40">↓</button><button data-key="39">→</button>
     <button data-key="13">OK</button><button data-key="10009">Back</button>
   </div>
@@ -28,15 +29,41 @@
       var tv = document.getElementById('tv');
       function sizeStage() {
         var scale = Math.min((window.innerWidth - 32) / 1920, (window.innerHeight - 112) / 1080);
-        stage.style.transform = 'translateX(-50%) scale(' + scale + ')';
+        stage.style.transform = 'scale(' + scale + ') translateX(-50%)';
       }
       function sendKey(code) {
+        var target = tv.contentDocument.activeElement || tv.contentWindow;
         var event = new tv.contentWindow.Event('keydown', { bubbles: true, cancelable: true });
         Object.defineProperty(event, 'keyCode', { value: code });
-        tv.contentWindow.dispatchEvent(event);
+        target.dispatchEvent(event);
+        if (code === 13 && !event.defaultPrevented && typeof target.click === 'function') target.click();
       }
       Array.prototype.forEach.call(document.querySelectorAll('[data-key]'), function (button) {
         button.addEventListener('click', function () { sendKey(Number(button.getAttribute('data-key'))); });
+      });
+      document.getElementById('requestsView').addEventListener('click', function () {
+        tv.src = 'jellyseerr-login.html?preview=1';
+      });
+      document.getElementById('profilesView').addEventListener('click', function () {
+        tv.src = 'jellyfin-profile-preview.html';
+      });
+      document.getElementById('moviesView').addEventListener('click', function () {
+        tv.src = 'jellyfin-movies-preview.html#/movies?topParentId=preview-movies';
+      });
+      document.getElementById('movieDetailView').addEventListener('click', function () {
+        tv.src = 'jellyfin-movie-detail-preview.html#/details?id=movie-1';
+      });
+      document.getElementById('showsView').addEventListener('click', function () {
+        tv.src = 'jellyfin-shows-preview.html#/tv?topParentId=preview-shows';
+      });
+      document.getElementById('showDetailView').addEventListener('click', function () {
+        tv.src = 'jellyfin-show-detail-preview.html#/details?id=show-1';
+      });
+      document.getElementById('sportsView').addEventListener('click', function () {
+        tv.src = 'jellyfin-sports-preview.html#/movies?topParentId=preview-sports';
+      });
+      document.getElementById('sportDetailView').addEventListener('click', function () {
+        tv.src = 'jellyfin-sport-detail-preview.html#/details?id=sport-1';
       });
       window.addEventListener('keydown', function (event) {
         if ([13, 37, 38, 39, 40, 10009].indexOf(event.keyCode) !== -1) {
