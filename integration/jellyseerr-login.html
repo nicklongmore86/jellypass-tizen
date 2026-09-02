@@ -11,24 +11,31 @@
     body { font-size: 20px; }
     button, input { font: inherit; }
     button { color: #fff; }
-    body:before { background: linear-gradient(135deg, #1f2937 0%, #111827 55%); content: ''; height: 20rem; left: 17rem; pointer-events: none; position: fixed; right: 0; top: 0; }
+    body:before { background: linear-gradient(135deg, #1f2937 0%, #111827 55%); content: ''; height: 20rem; left: 3.75rem; pointer-events: none; position: fixed; right: 0; top: 0; }
     button:focus, input:focus { border-color: #c4b5fd !important; box-shadow: 0 0 0 .18rem #6366f1, 0 .35rem 1rem rgba(0, 0, 0, .55); outline: none; }
-    header { background: linear-gradient(180deg, #1f2937 0%, #131928 100%); border-right: .08rem solid #374151; bottom: 0; display: flex; flex-direction: column; left: 0; padding: 1.5rem 1rem; position: fixed; top: 0; width: 17rem; z-index: 4; }
-    .brand { background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; color: transparent; font-size: 2.1rem; font-weight: 800; letter-spacing: -.04rem; margin: .7rem .75rem 3rem; white-space: nowrap; }
-    .brand small { color: #9ca3af; display: block; font-size: .85rem; font-weight: 600; letter-spacing: .16rem; margin-top: .25rem; text-transform: uppercase; }
-    .nav { align-items: center; background: transparent; border: .12rem solid transparent; border-radius: .45rem; display: flex; font-size: 1.25rem; font-weight: 600; margin: 0 0 .8rem; padding: .8rem .9rem; text-align: left; width: 100%; }
-    .nav-icon { color: #9ca3af; display: inline-block; font-size: 1.35rem; margin-right: .85rem; text-align: center; width: 1.6rem; }
-    .nav.active { background: linear-gradient(135deg, #4f46e5, #9333ea); color: #fff; }
+    header { background: rgba(14,14,16,.96); bottom: 0; box-shadow: .25rem 0 1rem rgba(0,0,0,.35); display: flex; flex-direction: column; left: 0; overflow: hidden; padding: .5rem 0; position: fixed; top: 5.25rem; transition: width .16s ease, box-shadow .16s ease; width: 3.75rem; z-index: 4; }
+    header:focus-within, header:hover, header.is-expanded { box-shadow: .65rem 0 2rem rgba(0,0,0,.7); width: 16rem; }
+    header > .nav:first-child { margin-top: auto; }
+    header > .nav:last-child { margin-bottom: auto; }
+    .brand { background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; color: transparent; flex: 0 0 auto; font-size: 2rem; font-weight: 800; letter-spacing: -.04rem; margin-right: 2rem; white-space: nowrap; }
+    .brand small { color: #9ca3af; display: inline; font-size: .72rem; font-weight: 600; letter-spacing: .1rem; margin-left: .65rem; text-transform: uppercase; }
+    .nav { align-items: center; background: transparent; border: 0; border-radius: 0; color: rgba(255,255,255,.78); display: flex; flex: 0 0 3.4rem; font-size: 1.25rem; font-weight: 600; height: 3.4rem; overflow: hidden; padding: 0 .82rem; text-align: left; width: 100%; }
+    .nav-icon { color: #9ca3af; display: inline-block; flex: 0 0 2.1rem; font-size: 1.35rem; margin-right: .8rem; text-align: center; width: 2.1rem; }
+    .nav-label { opacity: 0; overflow: hidden; text-overflow: ellipsis; transition: opacity .1s ease; white-space: nowrap; }
+    header:focus-within .nav-label, header:hover .nav-label, header.is-expanded .nav-label { opacity: 1; }
+    .nav.active { background: rgba(255,255,255,.12); color: #fff; }
     .nav.active .nav-icon { color: #fff; }
-    .nav.back { color: #d1d5db; margin-top: auto; }
-    #topbar { align-items: center; background: rgba(31, 41, 55, .78); border-bottom: .08rem solid rgba(75, 85, 99, .55); display: none; height: 5.25rem; left: 17rem; padding: 0 2rem; position: fixed; right: 0; top: 0; z-index: 3; }
+    .nav:focus { background: #fff; color: #111; outline: none; }
+    .nav:focus .nav-icon { color: #111; }
+    .nav.back { color: #d1d5db; }
+    #topbar { align-items: center; background: rgba(31, 41, 55, .96); border-bottom: .08rem solid rgba(75, 85, 99, .55); display: none; height: 5.25rem; left: 3.75rem; padding: 0 2rem; position: fixed; right: 0; top: 0; z-index: 3; }
     #topPageTitle { color: #f3f4f6; font-size: 1.45rem; font-weight: 700; min-width: 15rem; }
     #globalSearchForm { display: flex; flex: 1; justify-content: center; }
     #globalSearch { background: rgba(17, 24, 39, .78); border: .1rem solid #4b5563; border-radius: .5rem; color: #fff; font-size: 1.15rem; max-width: 38rem; padding: .75rem 1rem; width: 100%; }
-    .profile-dot { align-items: center; background: linear-gradient(135deg, #4f46e5, #9333ea); border-radius: 50%; display: flex; font-size: .9rem; font-weight: 800; height: 2.8rem; justify-content: center; margin-left: 1.5rem; width: 2.8rem; }
-    #status { align-items: center; display: flex; font-size: 1.4rem; height: 100%; justify-content: center; margin-left: 17rem; padding: 2rem; position: relative; text-align: center; }
+    .profile-dot { align-items: center; background: linear-gradient(135deg, #4f46e5, #9333ea); border: .1rem solid transparent; border-radius: 50%; display: flex; flex: 0 0 2.8rem; font-size: .9rem; font-weight: 800; height: 2.8rem; justify-content: center; margin-left: 1.5rem; padding: 0; width: 2.8rem; }
+    #status { align-items: center; display: flex; font-size: 1.4rem; height: 100%; justify-content: center; margin-left: 3.75rem; padding: 2rem; position: relative; text-align: center; }
     #retry { background: linear-gradient(135deg, #4f46e5, #9333ea); border: .12rem solid transparent; border-radius: .45rem; display: none; margin: 1.25rem auto 0; padding: .7rem 1.1rem; }
-    #app { display: none; height: 100%; margin-left: 17rem; overflow-y: auto; padding: 6.6rem 2rem 5rem; position: relative; scroll-behavior: smooth; }
+    #app { display: none; height: 100%; margin-left: 3.75rem; overflow-y: auto; padding: 6.6rem 2rem 5rem; position: relative; scroll-behavior: smooth; }
     h2 { font-size: 1.85rem; font-weight: 500; margin: 0 0 1.2rem; }
     .search-row { display: flex; margin-bottom: 1.5rem; max-width: 58rem; }
     #searchInput { background: #1f2937; border: .12rem solid #4b5563; border-radius: .4rem 0 0 .4rem; color: #fff; flex: 1; font-size: 1.35rem; min-width: 0; padding: .9rem 1.1rem; }
@@ -71,19 +78,19 @@
   </style>
 </head>
 <body>
-  <header>
-    <div class="brand">JellyQuest<small>Powered by Jellyseerr</small></div>
-    <button class="nav active" id="discoverNav" type="button"><span class="nav-icon">✦</span>Discover</button>
-    <button class="nav" id="moviesNav" type="button"><span class="nav-icon">▰</span>Movies</button>
-    <button class="nav" id="tvNav" type="button"><span class="nav-icon">▣</span>TV Shows</button>
-    <button class="nav" id="searchNav" type="button"><span class="nav-icon">⌕</span>Search</button>
-    <button class="nav" id="requestsNav" type="button"><span class="nav-icon">◷</span>My Requests</button>
-    <button class="nav back" id="back" type="button"><span class="nav-icon">←</span>Back to Jellyfin</button>
+  <header aria-label="Requests navigation">
+    <button class="nav active" id="discoverNav" type="button"><span class="nav-icon">✦</span><span class="nav-label">Discover</span></button>
+    <button class="nav" id="moviesNav" type="button"><span class="nav-icon">▰</span><span class="nav-label">Movies</span></button>
+    <button class="nav" id="tvNav" type="button"><span class="nav-icon">▣</span><span class="nav-label">TV Shows</span></button>
+    <button class="nav" id="searchNav" type="button"><span class="nav-icon">⌕</span><span class="nav-label">Search</span></button>
+    <button class="nav" id="requestsNav" type="button"><span class="nav-icon">◷</span><span class="nav-label">My Requests</span></button>
+    <button class="nav back" id="back" type="button"><span class="nav-icon">←</span><span class="nav-label">Back to Jellyfin</span></button>
   </header>
   <div id="topbar">
+    <div class="brand">JellyQuest<small>Powered by Jellyseerr</small></div>
     <div id="topPageTitle">Discover</div>
     <form id="globalSearchForm"><input id="globalSearch" type="search" maxlength="100" placeholder="Search movies and TV shows…" autocomplete="off"></form>
-    <div class="profile-dot">JQ</div>
+    <button class="profile-dot" id="requestsProfile" type="button" aria-label="Return to Jellyfin profile">JQ</button>
   </div>
   <main id="status">
     <div>
@@ -190,6 +197,8 @@
         }
         if (isSafeReturnUrl(params.return)) {
           window.location.replace(params.return);
+        } else if (isPreview) {
+          window.location.href = 'jellyfin-profile-preview.html';
         } else {
           window.history.back();
         }
@@ -224,14 +233,100 @@
           .filter(isVisible);
       }
 
+      function focusFrom(current, target, direction) {
+        var opposite = { left: 'right', right: 'left', up: 'down', down: 'up' }[direction];
+        if (!target) return;
+        target._jellyquestReturnFocus = target._jellyquestReturnFocus || {};
+        target._jellyquestReturnFocus[opposite] = current;
+        target.focus();
+        try {
+          target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        } catch (error) {
+          target.scrollIntoView(false);
+        }
+      }
+
+      function nearestByAxis(current, candidates, axis) {
+        var rect = current.getBoundingClientRect();
+        var origin = axis === 'x' ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
+        candidates.sort(function (left, right) {
+          var leftRect = left.getBoundingClientRect();
+          var rightRect = right.getBoundingClientRect();
+          var leftPoint = axis === 'x' ? leftRect.left + leftRect.width / 2 : leftRect.top + leftRect.height / 2;
+          var rightPoint = axis === 'x' ? rightRect.left + rightRect.width / 2 : rightRect.top + rightRect.height / 2;
+          return Math.abs(leftPoint - origin) - Math.abs(rightPoint - origin);
+        });
+        return candidates[0] || null;
+      }
+
+      function workspaceEntryTarget() {
+        if (activeView === 'search') return document.getElementById('searchInput');
+        if (activeView === 'requests') return document.querySelector('#requestCards .card');
+        if (activeCategory) {
+          return document.querySelector('#categoryCards .card, #categoryCards .option-card')
+            || document.getElementById('categoryBack');
+        }
+        return document.querySelector('#discoverView .card, #discoverView .option-card');
+      }
+
+      function completeMove(event, current, target, direction) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        focusFrom(current, target, direction);
+      }
+
+      function visibleCards(root) {
+        return Array.prototype.slice.call(root.querySelectorAll('.card, .option-card')).filter(isVisible);
+      }
+
+      function visualRows(cards) {
+        var rows = [];
+        cards.slice().sort(function (left, right) {
+          var leftRect = left.getBoundingClientRect();
+          var rightRect = right.getBoundingClientRect();
+          return Math.abs(leftRect.top - rightRect.top) < 12 ? leftRect.left - rightRect.left : leftRect.top - rightRect.top;
+        }).forEach(function (card) {
+          var rect = card.getBoundingClientRect();
+          var centerY = rect.top + rect.height / 2;
+          var row = rows.filter(function (candidate) { return Math.abs(candidate.y - centerY) < 20; })[0];
+          if (!row) {
+            row = { y: centerY, cards: [] };
+            rows.push(row);
+          }
+          row.cards.push(card);
+          row.cards.sort(function (left, right) { return left.getBoundingClientRect().left - right.getBoundingClientRect().left; });
+        });
+        return rows.sort(function (left, right) { return left.y - right.y; });
+      }
+
+      function gridTarget(current, direction, cards, topTargets, leftTarget) {
+        var rows = visualRows(cards);
+        var rowIndex = -1;
+        var column = -1;
+        rows.some(function (row, index) {
+          var found = row.cards.indexOf(current);
+          if (found === -1) return false;
+          rowIndex = index;
+          column = found;
+          return true;
+        });
+        if (rowIndex === -1) return null;
+        if (direction === 'left') return column > 0 ? rows[rowIndex].cards[column - 1] : leftTarget;
+        if (direction === 'right') return column < rows[rowIndex].cards.length - 1 ? rows[rowIndex].cards[column + 1] : null;
+        if (direction === 'up') {
+          return rowIndex > 0
+            ? rows[rowIndex - 1].cards[Math.min(column, rows[rowIndex - 1].cards.length - 1)]
+            : nearestByAxis(current, topTargets.filter(Boolean), 'x');
+        }
+        if (direction === 'down' && rowIndex < rows.length - 1) {
+          return rows[rowIndex + 1].cards[Math.min(column, rows[rowIndex + 1].cards.length - 1)];
+        }
+        return null;
+      }
+
       function moveFocus(direction, event) {
         var elements = focusableElements();
         var current = document.activeElement;
-        var currentRect;
-        var currentX;
-        var currentY;
-        var best = null;
-        var bestScore = Infinity;
 
         if (!elements.length) return;
         if (elements.indexOf(current) === -1) {
@@ -239,50 +334,110 @@
           event.preventDefault();
           return;
         }
-        if (current.tagName === 'INPUT' && (direction === 'left' || direction === 'right')) return;
-
-        currentRect = current.getBoundingClientRect();
-        currentX = currentRect.left + currentRect.width / 2;
-        currentY = currentRect.top + currentRect.height / 2;
-
-        elements.forEach(function (candidate) {
-          var rect;
-          var x;
-          var y;
-          var dx;
-          var dy;
-          var primary;
-          var secondary;
-          var score;
-          if (candidate === current) return;
-          rect = candidate.getBoundingClientRect();
-          x = rect.left + rect.width / 2;
-          y = rect.top + rect.height / 2;
-          dx = x - currentX;
-          dy = y - currentY;
-          if ((direction === 'left' && dx >= -2) ||
-              (direction === 'right' && dx <= 2) ||
-              (direction === 'up' && dy >= -2) ||
-              (direction === 'down' && dy <= 2)) return;
-          primary = direction === 'left' || direction === 'right' ? Math.abs(dx) : Math.abs(dy);
-          secondary = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
-          score = primary * 10 + secondary;
-          if (score < bestScore) {
-            bestScore = score;
-            best = candidate;
-          }
-        });
-
-        if (best) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          best.focus();
-          try {
-            best.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-          } catch (error) {
-            best.scrollIntoView(false);
-          }
+        var remembered = current._jellyquestReturnFocus && current._jellyquestReturnFocus[direction];
+        if (remembered && document.body.contains(remembered) && isVisible(remembered)) {
+          completeMove(event, current, remembered, direction);
+          return;
         }
+
+        var railElements = elements.filter(function (element) { return element.classList.contains('nav'); });
+        var headerElements = elements.filter(function (element) { return element.id === 'globalSearch' || element.id === 'requestsProfile'; });
+        var workspaceElements = elements.filter(function (element) { return app.contains(element); });
+        var railIndex = railElements.indexOf(current);
+        var headerIndex = headerElements.indexOf(current);
+        var activeRail = document.querySelector('.nav.active') || document.getElementById('discoverNav');
+        var target = null;
+
+        if (modal.style.display === 'flex') {
+          var modalButtons = elements.filter(function (element) { return element.tagName === 'BUTTON'; });
+          var modalIndex = modalButtons.indexOf(current);
+          if (direction === 'left' && modalIndex > 0) target = modalButtons[modalIndex - 1];
+          if (direction === 'right' && modalIndex < modalButtons.length - 1) target = modalButtons[modalIndex + 1];
+          completeMove(event, current, target, direction);
+          return;
+        }
+
+        if (railIndex !== -1) {
+          if (direction === 'up') target = railIndex > 0 ? railElements[railIndex - 1] : document.getElementById('requestsProfile');
+          if (direction === 'down' && railIndex < railElements.length - 1) target = railElements[railIndex + 1];
+          if (direction === 'right') target = workspaceEntryTarget() || document.getElementById('globalSearch');
+          completeMove(event, current, target, direction);
+          return;
+        }
+
+        if (headerIndex !== -1) {
+          if (direction === 'left' && headerIndex > 0) target = headerElements[headerIndex - 1];
+          if (direction === 'right' && headerIndex < headerElements.length - 1) target = headerElements[headerIndex + 1];
+          if (direction === 'down') target = nearestByAxis(current, [workspaceEntryTarget()].filter(Boolean), 'x');
+          completeMove(event, current, target, direction);
+          return;
+        }
+
+        if (current.id === 'searchInput' && direction === 'right') {
+          completeMove(event, current, document.getElementById('searchButton'), direction);
+          return;
+        }
+        if (current.id === 'searchButton' && direction === 'left') {
+          completeMove(event, current, document.getElementById('searchInput'), direction);
+          return;
+        }
+        if ((current.id === 'searchInput' || current.id === 'searchButton') && direction === 'up') {
+          completeMove(event, current, document.getElementById('globalSearch'), direction);
+          return;
+        }
+
+        var mediaRow = current.closest ? current.closest('.media-row') : null;
+        if (mediaRow && (current.classList.contains('card') || current.classList.contains('option-card'))) {
+          var discoverRows = Array.prototype.slice.call(document.querySelectorAll('#discoverRows .media-row')).filter(isVisible);
+          var discoverRowIndex = discoverRows.indexOf(mediaRow);
+          var rowCards = visibleCards(mediaRow);
+          var cardIndex = rowCards.indexOf(current);
+          if (direction === 'left') target = cardIndex > 0 ? rowCards[cardIndex - 1] : activeRail;
+          if (direction === 'right') target = cardIndex < rowCards.length - 1 ? rowCards[cardIndex + 1] : mediaRow.querySelector('.see-more');
+          if (direction === 'up') {
+            target = discoverRowIndex > 0
+              ? visibleCards(discoverRows[discoverRowIndex - 1])[Math.min(cardIndex, visibleCards(discoverRows[discoverRowIndex - 1]).length - 1)]
+              : nearestByAxis(current, headerElements.slice(), 'x');
+          }
+          if (direction === 'down' && discoverRowIndex < discoverRows.length - 1) {
+            var nextCards = visibleCards(discoverRows[discoverRowIndex + 1]);
+            target = nextCards[Math.min(cardIndex, nextCards.length - 1)];
+          }
+          completeMove(event, current, target, direction);
+          return;
+        }
+
+        if (current.classList.contains('see-more') && mediaRow) {
+          var rows = Array.prototype.slice.call(document.querySelectorAll('#discoverRows .media-row')).filter(isVisible);
+          var rowIndex = rows.indexOf(mediaRow);
+          if (direction === 'left') target = visibleCards(mediaRow).slice(-1)[0];
+          if (direction === 'up') target = rowIndex > 0 ? rows[rowIndex - 1].querySelector('.see-more') : nearestByAxis(current, headerElements.slice(), 'x');
+          if (direction === 'down' && rowIndex < rows.length - 1) target = rows[rowIndex + 1].querySelector('.see-more');
+          completeMove(event, current, target, direction);
+          return;
+        }
+
+        if (current.id === 'categoryBack') {
+          if (direction === 'down' || direction === 'right') target = document.querySelector('#categoryCards .card, #categoryCards .option-card');
+          if (direction === 'up') target = document.getElementById('globalSearch');
+          if (direction === 'left') target = activeRail;
+          completeMove(event, current, target, direction);
+          return;
+        }
+
+        if (current.classList.contains('card') || current.classList.contains('option-card')) {
+          var container = current.closest('.cards');
+          var topTargets = activeCategory
+            ? [document.getElementById('categoryBack')]
+            : activeView === 'search'
+              ? [document.getElementById('searchInput'), document.getElementById('searchButton')]
+              : headerElements;
+          target = gridTarget(current, direction, visibleCards(container), topTargets, activeRail);
+          completeMove(event, current, target, direction);
+          return;
+        }
+
+        completeMove(event, current, null, direction);
       }
 
       function handleDirectionalKey(event) {
@@ -495,6 +650,11 @@
             ? createOptionCard(category, item)
             : createCard(item));
         });
+        if (category.key === categories[0].key && activeView === 'discover'
+            && (document.activeElement === document.body || document.activeElement === document.getElementById('discoverNav'))) {
+          var firstCard = scroller.querySelector('.card, .option-card');
+          if (firstCard) firstCard.focus();
+        }
       }
 
       function loadDiscover() {
@@ -757,6 +917,7 @@
       }
 
       document.getElementById('back').addEventListener('click', backToJellyQuest);
+      document.getElementById('requestsProfile').addEventListener('click', backToJellyQuest);
       document.getElementById('discoverNav').addEventListener('click', function () { showView('discover'); });
       document.getElementById('moviesNav').addEventListener('click', function () { openCategory('popular-movies', 'movies'); });
       document.getElementById('tvNav').addEventListener('click', function () { openCategory('popular-tv', 'tv'); });

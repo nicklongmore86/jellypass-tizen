@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JellyQuest Favorites Preview</title>
+  <link rel="stylesheet" href="jellyquest.css">
+  <link rel="stylesheet" href="jellyfin-media-preview.css">
+</head>
+<body>
+  <header class="skinHeader">
+    <div class="headerTop"><h3 class="pageTitle pageTitleWithDefaultLogo">Jellyfin</h3><button class="headerSearchButton" type="button"></button><button class="headerUserButton" type="button"></button></div>
+    <div class="tabs"><span>Home</span><span class="active">Favorites</span><span>Requests</span></div>
+  </header>
+  <main class="skinBody jqMediaWorkspace">
+    <div class="jqLibraryToolbar">
+      <h1 class="jqLibraryTitle">Favorites <span class="jqLibraryCount">14 titles</span></h1>
+      <div class="jqLibraryControls"><button class="jqFilter active">All</button><button class="jqFilter">Movies</button><button class="jqFilter">Shows</button><button class="jqSort" type="button" data-sort-options="recent:Recently added|name:Name|date:Release date|rating:Community rating|runtime:Runtime">Recently added <span aria-hidden="true">▾</span></button></div>
+    </div>
+    <div class="jqMovieGrid">
+      <a class="jqMovieCard" href="jellyfin-movie-detail-preview.html#/details?id=movie-1" autofocus><div class="jqPoster"><span class="jqPosterArt">Beyond<br>the Horizon</span></div><div class="jqMovieName">Beyond the Horizon</div><div class="jqMovieMeta">Movie · 2026</div></a>
+      <a class="jqMovieCard jqShowCard" href="jellyfin-show-detail-preview.html#/details?id=show-1"><div class="jqPoster"><span class="jqPosterArt">Harbor<br>Lights</span></div><div class="jqMovieName">Harbor Lights</div><div class="jqMovieMeta">Show · 3 seasons</div></a>
+      <a class="jqMovieCard" href="jellyfin-movie-detail-preview.html#/details?id=movie-3"><div class="jqPoster"><span class="jqPosterArt">Ember</span></div><div class="jqMovieName">Ember</div><div class="jqMovieMeta">Movie · 2024</div></a>
+      <a class="jqMovieCard jqShowCard" href="jellyfin-show-detail-preview.html#/details?id=show-4"><div class="jqPoster"><span class="jqPosterArt">Found</span></div><div class="jqMovieName">Found</div><div class="jqMovieMeta">Show · 1 season</div></a>
+      <a class="jqMovieCard" href="jellyfin-movie-detail-preview.html#/details?id=movie-5"><div class="jqPoster"><span class="jqPosterArt">Silent<br>City</span></div><div class="jqMovieName">Silent City</div><div class="jqMovieMeta">Movie · 2023</div></a>
+      <a class="jqMovieCard jqShowCard" href="jellyfin-show-detail-preview.html#/details?id=show-6"><div class="jqPoster"><span class="jqPosterArt">Tomorrow<br>Road</span></div><div class="jqMovieName">Tomorrow Road</div><div class="jqMovieMeta">Show · 2 seasons</div></a>
+      <a class="jqMovieCard" href="jellyfin-movie-detail-preview.html#/details?id=movie-7"><div class="jqPoster"><span class="jqPosterArt">Red<br>Line</span></div><div class="jqMovieName">Red Line</div><div class="jqMovieMeta">Movie · 2024</div></a>
+      <a class="jqMovieCard jqShowCard" href="jellyfin-show-detail-preview.html#/details?id=show-8"><div class="jqPoster"><span class="jqPosterArt">Under<br>Glass</span></div><div class="jqMovieName">Under Glass</div><div class="jqMovieMeta">Show · 1 season</div></a>
+      <a class="jqMovieCard" href="jellyfin-movie-detail-preview.html#/details?id=movie-9"><div class="jqPoster"><span class="jqPosterArt">Deep<br>Winter</span></div><div class="jqMovieName">Deep Winter</div><div class="jqMovieMeta">Movie · 2026</div></a>
+      <a class="jqMovieCard jqShowCard" href="jellyfin-show-detail-preview.html#/details?id=show-10"><div class="jqPoster"><span class="jqPosterArt">After<br>Hours</span></div><div class="jqMovieName">After Hours</div><div class="jqMovieMeta">Show · 2 seasons</div></a>
+      <a class="jqMovieCard" href="jellyfin-movie-detail-preview.html#/details?id=movie-11"><div class="jqPoster"><span class="jqPosterArt">Night<br>Train</span></div><div class="jqMovieName">Night Train</div><div class="jqMovieMeta">Movie · 2023</div></a>
+      <a class="jqMovieCard jqShowCard" href="jellyfin-show-detail-preview.html#/details?id=show-12"><div class="jqPoster"><span class="jqPosterArt">Cold<br>Front</span></div><div class="jqMovieName">Cold Front</div><div class="jqMovieMeta">Show · 1 season</div></a>
+      <a class="jqMovieCard" href="jellyfin-movie-detail-preview.html#/details?id=movie-13"><div class="jqPoster"><span class="jqPosterArt">Gravity</span></div><div class="jqMovieName">Gravity</div><div class="jqMovieMeta">Movie · 2021</div></a>
+      <a class="jqMovieCard jqShowCard" href="jellyfin-show-detail-preview.html#/details?id=show-14"><div class="jqPoster"><span class="jqPosterArt">Wake</span></div><div class="jqMovieName">Wake</div><div class="jqMovieMeta">Show · 2 seasons</div></a>
+    </div>
+  </main>
+  <nav class="libraryMenuOptions" hidden>
+    <a class="lnkMediaFolder" data-itemid="preview-movies" href="jellyfin-movies-preview.html#/movies?topParentId=preview-movies"><span class="navMenuOptionIcon movie"></span><span class="sectionName">Movies</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-shows" href="jellyfin-shows-preview.html#/tv?topParentId=preview-shows"><span class="navMenuOptionIcon tv"></span><span class="sectionName">Shows</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-live" href="#/livetv"><span class="navMenuOptionIcon live_tv"></span><span class="sectionName">Live TV</span></a>
+    <a class="lnkMediaFolder" data-itemid="preview-sports" href="jellyfin-sports-preview.html#/movies?topParentId=preview-sports"><span class="navMenuOptionIcon movie"></span><span class="sectionName">Sports</span></a>
+  </nav>
+  <script>
+    window.ApiClient = { getPublicUsers: function(){ return Promise.resolve([{Id:'1',Name:'Living Room',HasPassword:false}]); }, getCurrentUser: function(){ return Promise.resolve({Id:'1',Name:'Living Room'}); }, getUserImageUrl: function(){ return ''; }, authenticateUserByName: function(){ return Promise.resolve({User:{Id:'1'}}); } };
+    window.alert = function(){};
+    window.addEventListener('load', function(){ var first=document.querySelector('.jqMovieCard'); if(first) first.focus(); });
+  </script>
+  <script src="jellyquest.js"></script>
+  <script src="jellyfin-media-preview.js"></script>
+</body>
+</html>

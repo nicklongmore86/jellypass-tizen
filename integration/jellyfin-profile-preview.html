@@ -13,6 +13,7 @@
     .pageTitle { align-items: center; background: linear-gradient(135deg, #00a4dc, #aa5cc3); -webkit-background-clip: text; color: transparent; display: inline-flex; font-size: 2.25rem; font-weight: 800; height: 2.2rem; margin: 0; padding-right: .35rem; }
     .tabs { color: #ddd; display: flex; font-size: 1.25rem; justify-content: center; margin-top: .7rem; }
     .tabs span { margin: 0 1.5rem; }
+    .tabs span:focus { color: #fff; outline: .16rem solid #00a4dc; outline-offset: .35rem; }
     .tabs .active { border-bottom: .22rem solid #00a4dc; padding-bottom: .45rem; }
     main { padding: 3rem 3.5rem; }
     h2 { font-size: 1.8rem; font-weight: 500; }
@@ -21,7 +22,7 @@
     .hint { background: #202020; border-left: .3rem solid #00a4dc; bottom: 2rem; color: #ddd; font-size: 1.15rem; left: 3.5rem; padding: .8rem 1rem; position: absolute; }
   </style>
 </head>
-<body>
+<body class="jqHomePreview">
   <header class="skinHeader">
     <div class="headerTop"><h3 class="pageTitle pageTitleWithDefaultLogo">Jellyfin</h3><button class="headerSearchButton" type="button" aria-label="Search"></button><button class="headerUserButton" type="button" aria-label="Settings"></button></div>
     <div class="tabs"><span class="active">Home</span><span>Favorites</span><span>Requests</span></div>
@@ -70,5 +71,6 @@
     })();
   </script>
   <script src="jellyquest.js"></script>
+  <script src="jellyfin-media-preview.js"></script>
 </body>
 </html>

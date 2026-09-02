@@ -13,32 +13,54 @@
     #remote span { color: #aaa; margin-right: 1rem; }
     #remote button { background: #333; border: .1rem solid #666; border-radius: .35rem; color: #fff; font-size: 1.1rem; margin: .2rem; min-width: 3rem; padding: .55rem .8rem; }
     #remote button:focus { border-color: #fff; outline: .15rem solid #00a4dc; }
+    #exitNotice { align-items: center; background: #080808; bottom: 5rem; display: flex; flex-direction: column; justify-content: center; left: 0; position: fixed; right: 0; top: 0; z-index: 3; }
+    #exitNotice[hidden] { display: none; }
+    #exitNotice strong { font-size: 2rem; margin-bottom: 1rem; }
+    #exitNotice button { background: #fff; border: 0; border-radius: .35rem; color: #111; font-size: 1.1rem; padding: .7rem 1rem; }
   </style>
 </head>
 <body>
   <div id="stage"><iframe id="tv" src="jellyseerr-login.html?preview=1" title="1920 by 1080 JellyQuest preview"></iframe></div>
+  <div id="exitNotice" hidden><strong>JellyQuest exited</strong><button id="relaunch" type="button">Relaunch preview</button></div>
   <div id="remote">
     <span>Samsung remote simulator — keyboard arrows also work</span>
-    <button id="requestsView">Requests UI</button><button id="profilesView">Home</button><button id="moviesView">Movies</button><button id="movieDetailView">Movie Detail</button><button id="showsView">Shows</button><button id="showDetailView">Show Detail</button><button id="sportsView">Sports</button><button id="sportDetailView">Event Detail</button>
+    <button id="requestsView">Requests UI</button><button id="profilesView">Home</button><button id="favoritesView">Favorites</button><button id="moviesView">Movies</button><button id="movieDetailView">Movie Detail</button><button id="showsView">Shows</button><button id="showDetailView">Show Detail</button><button id="sportsView">Sports</button><button id="sportDetailView">Event Detail</button>
     <button data-key="37">←</button><button data-key="38">↑</button><button data-key="40">↓</button><button data-key="39">→</button>
-    <button data-key="13">OK</button><button data-key="10009">Back</button>
+    <button data-key="13">OK</button><button data-key="10009">Back / Return</button><button data-key="10182">Exit</button>
   </div>
   <script>
     (function () {
       var stage = document.getElementById('stage');
       var tv = document.getElementById('tv');
+      var lastTvFocus = null;
+      function rememberTvFocus() {
+        var active = tv.contentDocument && tv.contentDocument.activeElement;
+        if (active && active !== tv.contentDocument.body && active !== tv.contentDocument.documentElement) {
+          lastTvFocus = active;
+        }
+      }
+      function bindTvFocus() {
+        lastTvFocus = null;
+        tv.contentDocument.addEventListener('focusin', rememberTvFocus, true);
+        window.setTimeout(rememberTvFocus, 0);
+      }
       function sizeStage() {
         var scale = Math.min((window.innerWidth - 32) / 1920, (window.innerHeight - 112) / 1080);
         stage.style.transform = 'scale(' + scale + ') translateX(-50%)';
       }
       function sendKey(code) {
-        var target = tv.contentDocument.activeElement || tv.contentWindow;
+        var active = tv.contentDocument.activeElement;
+        var target = lastTvFocus && tv.contentDocument.contains(lastTvFocus)
+          ? lastTvFocus
+          : active || tv.contentWindow;
         var event = new tv.contentWindow.Event('keydown', { bubbles: true, cancelable: true });
         Object.defineProperty(event, 'keyCode', { value: code });
         target.dispatchEvent(event);
         if (code === 13 && !event.defaultPrevented && typeof target.click === 'function') target.click();
+        if (code === 10182 && !event.defaultPrevented) document.getElementById('exitNotice').hidden = false;
       }
       Array.prototype.forEach.call(document.querySelectorAll('[data-key]'), function (button) {
+        button.addEventListener('mousedown', function (event) { event.preventDefault(); });
         button.addEventListener('click', function () { sendKey(Number(button.getAttribute('data-key'))); });
       });
       document.getElementById('requestsView').addEventListener('click', function () {
@@ -46,6 +68,9 @@
       });
       document.getElementById('profilesView').addEventListener('click', function () {
         tv.src = 'jellyfin-profile-preview.html';
+      });
+      document.getElementById('favoritesView').addEventListener('click', function () {
+        tv.src = 'jellyfin-favorites-preview.html#/favorites';
       });
       document.getElementById('moviesView').addEventListener('click', function () {
         tv.src = 'jellyfin-movies-preview.html#/movies?topParentId=preview-movies';
@@ -65,13 +90,23 @@
       document.getElementById('sportDetailView').addEventListener('click', function () {
         tv.src = 'jellyfin-sport-detail-preview.html#/details?id=sport-1';
       });
+      document.getElementById('relaunch').addEventListener('click', function () {
+        document.getElementById('exitNotice').hidden = true;
+        tv.contentWindow.location.reload();
+      });
+      window.addEventListener('message', function (event) {
+        if (event.source === tv.contentWindow && event.data && event.data.type === 'jellyquest-preview-exit') {
+          document.getElementById('exitNotice').hidden = false;
+        }
+      });
       window.addEventListener('keydown', function (event) {
-        if ([13, 37, 38, 39, 40, 10009].indexOf(event.keyCode) !== -1) {
+        if ([13, 37, 38, 39, 40, 10009, 10182].indexOf(event.keyCode) !== -1) {
           event.preventDefault();
           sendKey(event.keyCode);
         }
       });
       window.addEventListener('resize', sizeStage);
+      tv.addEventListener('load', bindTvFocus);
       sizeStage();
     })();
   </script>
