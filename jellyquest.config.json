@@ -1,5 +1,6 @@
 {
   "household": "farmhouse",
   "productName": "JellyQuest Farmhouse",
-  "serverUrl": "https://jelly-farmhouse.starrgroup.io"
+  "serverUrl": "https://jelly-farmhouse.starrgroup.io",
+  "requestsUrl": "https://jellyseerr.starrgroup.io"
 }

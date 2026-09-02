@@ -13,10 +13,22 @@ const server = new URL(jellyquest.serverUrl);
 if (server.protocol !== 'https:' || server.pathname !== '/' || server.search || server.hash) {
     throw new Error('JellyQuest serverUrl must be an HTTPS origin without a path, query, or fragment');
 }
+const requests = new URL(jellyquest.requestsUrl);
+if (requests.protocol !== 'https:' || requests.pathname !== '/' || requests.search || requests.hash) {
+    throw new Error('JellyQuest requestsUrl must be an HTTPS origin without a path, query, or fragment');
+}
 
 const webConfig = JSON.parse(fs.readFileSync(webConfigPath, 'utf8'));
 webConfig.multiserver = false;
 webConfig.servers = [server.origin];
+webConfig.menuLinks = (webConfig.menuLinks ?? []).filter((link) =>
+    link?.name !== 'Requests' && link?.url !== requests.origin
+);
+webConfig.menuLinks.unshift({
+    name: 'Requests',
+    icon: 'add_circle',
+    url: requests.origin
+});
 fs.writeFileSync(webConfigPath, `${JSON.stringify(webConfig, null, 2)}\n`);
 
 const webRef = fs.readFileSync(path.join(root, '.jellyfin-web-ref'), 'utf8').trim();
@@ -24,6 +36,7 @@ fs.writeFileSync(path.join(outputDirectory, 'jellyquest-build.json'), `${JSON.st
     household: jellyquest.household,
     productName: jellyquest.productName,
     serverUrl: server.origin,
+    requestsUrl: requests.origin,
     jellyfinWebRef: webRef
 }, null, 2)}\n`);
 

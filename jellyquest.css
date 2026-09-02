@@ -12,3 +12,60 @@
     margin-inline: auto;
     max-width: 72rem;
 }
+
+body.jellyquest-requests-open {
+    overflow: hidden !important;
+}
+
+.jellyquestRequests {
+    background: #101010;
+    display: grid;
+    grid-template-rows: 4.5rem 1fr;
+    inset: 0;
+    position: fixed;
+    z-index: 999999;
+}
+
+.jellyquestRequests[hidden] {
+    display: none !important;
+}
+
+.jellyquestRequestsToolbar {
+    align-items: center;
+    background: #161616;
+    box-shadow: 0 .15rem .5rem rgb(0 0 0 / 45%);
+    display: flex;
+    gap: 1.25rem;
+    padding: 0 1.25rem;
+    z-index: 1;
+}
+
+.jellyquestRequestsToolbar h1 {
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.jellyquestRequestsClose {
+    background: transparent;
+    border: .12rem solid transparent;
+    border-radius: .35rem;
+    color: #fff;
+    font: inherit;
+    font-size: 1.15rem;
+    padding: .65rem 1rem;
+}
+
+.jellyquestRequestsClose:focus {
+    background: #00a4dc;
+    border-color: #fff;
+    outline: none;
+}
+
+.jellyquestRequestsFrame {
+    background: #101010;
+    border: 0;
+    height: 100%;
+    width: 100%;
+}

@@ -18,6 +18,8 @@ This repository remains a GitHub fork of `jellyfin/jellyfin-tizen` so upstream w
 - `scripts/configure-jellyquest.mjs` locks the generated Jellyfin Web configuration to the household server.
 - `scripts/build.sh` checks out the pinned Jellyfin Web revision and produces the unsigned Tizen application tree.
 
+After a household user signs in, the Jellyfin navigation drawer includes **Requests**. JellyQuest opens the configured Jellyseerr site in a full-screen in-app view; Jellyseerr continues to own authentication, discovery, request creation, approvals, and request history. The Tizen package contains no Jellyseerr API key.
+
 ## Build
 
 Requirements:

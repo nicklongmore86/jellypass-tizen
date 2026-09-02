@@ -20,8 +20,14 @@ test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     const config = JSON.parse(fs.readFileSync(path.join(outputDirectory, 'config.json'), 'utf8'));
     assert.equal(config.multiserver, false);
     assert.deepEqual(config.servers, ['https://jelly-farmhouse.starrgroup.io']);
+    assert.deepEqual(config.menuLinks, [{
+        name: 'Requests',
+        icon: 'add_circle',
+        url: 'https://jellyseerr.starrgroup.io'
+    }]);
     const metadata = JSON.parse(fs.readFileSync(path.join(outputDirectory, 'jellyquest-build.json'), 'utf8'));
     assert.equal(metadata.household, 'farmhouse');
+    assert.equal(metadata.requestsUrl, 'https://jellyseerr.starrgroup.io');
     assert.match(metadata.jellyfinWebRef, /^[a-f0-9]{40}$/);
 });
 
@@ -29,6 +35,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     const gulpfile = fs.readFileSync(path.join(root, 'gulpfile.babel.js'), 'utf8');
     const adapter = fs.readFileSync(path.join(root, 'tizen.js'), 'utf8');
     const styles = fs.readFileSync(path.join(root, 'jellyquest.css'), 'utf8');
+    const policy = fs.readFileSync(path.join(root, 'jellyquest.js'), 'utf8');
     const manifest = fs.readFileSync(path.join(root, 'config.xml'), 'utf8');
 
     assert.match(gulpfile, /\.\.\/jellyquest\.css/);
@@ -38,6 +45,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnQuick/);
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
+    assert.match(styles, /\.jellyquestRequestsFrame/);
+    assert.match(policy, /openRequests/);
+    assert.doesNotMatch(policy, /api[_-]?key/i);
     assert.match(manifest, /id="JellyQuest\.JellyQuest"/);
     assert.match(manifest, /package="JellyQuest"/);
     assert.doesNotMatch(manifest, /AprZAARz4r\.Jellyfin/);

@@ -167,6 +167,10 @@
                 url: url,
                 target: target
             });
+            if (window.JellyQuest && window.JellyQuest.openRequests(url)) {
+                return;
+            }
+            window.open(url, target || '_blank');
         },
 
         updateMediaSession: function (mediaInfo) {
