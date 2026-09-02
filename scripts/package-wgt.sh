@@ -17,8 +17,9 @@ command -v tizen >/dev/null 2>&1 || {
 
 mkdir -p "${artifact_dir}"
 rm -f "${artifact_path}"
+rm -rf "${project_dir}/.buildResult"
 cd "${project_dir}"
-tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e "node_modules/*" -e "package*.json" -e scripts -e test
+tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e "node_modules/*" -e "package*.json" -e "integration/*" -e "scripts/*" -e "test/*"
 tizen package -t wgt -o "${artifact_dir}" -- .buildResult
 
 [[ -f "${artifact_path}" ]] || {

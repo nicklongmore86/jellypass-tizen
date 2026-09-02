@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>JellyQuest Requests</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { background: #101010; color: #fff; height: 100%; margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+    body { display: grid; grid-template-rows: 4.5rem 1fr; }
+    header { align-items: center; background: #161616; box-shadow: 0 .15rem .5rem rgba(0, 0, 0, .45); display: flex; gap: 1.25rem; padding: 0 1.25rem; z-index: 2; }
+    h1 { font-size: 1.5rem; font-weight: 500; margin: 0; }
+    button { background: transparent; border: .12rem solid transparent; border-radius: .35rem; color: #fff; font: inherit; font-size: 1.15rem; padding: .65rem 1rem; }
+    button:focus { background: #00a4dc; border-color: #fff; outline: none; }
+    #status { align-items: center; display: flex; font-size: 1.25rem; justify-content: center; padding: 2rem; text-align: center; }
+    #requests { background: #101010; border: 0; display: none; height: 100%; width: 100%; }
+    #retry { display: none; margin: 1.25rem auto 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <button id="back" type="button">&larr; Back to JellyQuest</button>
+    <h1>Requests</h1>
+  </header>
+  <main id="status">
+    <div>
+      <div id="message">Signing in with your Jellyfin profile&hellip;</div>
+      <button id="retry" type="button">Try again</button>
+    </div>
+  </main>
+  <iframe id="requests" title="Jellyseerr media requests" allow="fullscreen"></iframe>
+  <script>
+    (function () {
+      'use strict';
+
+      var message = document.getElementById('message');
+      var retry = document.getElementById('retry');
+      var requests = document.getElementById('requests');
+      var params = {};
+
+      window.location.hash.slice(1).split('&').forEach(function (part) {
+        var separator = part.indexOf('=');
+        if (separator > 0) {
+          params[decodeURIComponent(part.slice(0, separator))] = decodeURIComponent(part.slice(separator + 1));
+        }
+      });
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+
+      function backToJellyQuest(event) {
+        if (event) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+        window.history.back();
+      }
+
+      function handleBack(event) {
+        var isBack = event.type === 'tizenhwkey'
+          ? event.keyName === 'back'
+          : event.keyCode === 10009 || event.keyCode === 8;
+        if (isBack) {
+          backToJellyQuest(event);
+        }
+      }
+
+      function showError(text) {
+        message.textContent = text;
+        retry.style.display = 'block';
+        retry.focus();
+      }
+
+      function showRequests() {
+        document.getElementById('status').style.display = 'none';
+        requests.style.display = 'block';
+        requests.src = '/';
+        requests.addEventListener('load', function () {
+          try {
+            requests.contentWindow.addEventListener('keydown', handleBack, true);
+            requests.contentWindow.addEventListener('tizenhwkey', handleBack, true);
+          } catch (error) {
+            // The persistent toolbar remains available if frame key events cannot be observed.
+          }
+        });
+      }
+
+      function authenticate() {
+        retry.style.display = 'none';
+        message.textContent = 'Signing in with your Jellyfin profile\u2026';
+        if (!params.user || params.user.length > 128 || !params.id || !/^[a-fA-F0-9-]{1,64}$/.test(params.id)) {
+          showError('JellyQuest did not provide a valid Jellyfin profile. Return and sign in again.');
+          return;
+        }
+
+        fetch('/api/v1/auth/me', { credentials: 'same-origin', cache: 'no-store' })
+          .then(function (response) {
+            return response.ok ? response.json() : null;
+          })
+          .then(function (currentUser) {
+            if (currentUser && String(currentUser.jellyfinUserId).toLowerCase() === params.id.toLowerCase()) {
+              showRequests();
+              return null;
+            }
+            return fetch('/api/v1/auth/jellyfin', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ username: params.user, password: '', email: params.user })
+            }).then(function (response) {
+              if (!response.ok) {
+                throw new Error('Jellyseerr rejected the Jellyfin profile (' + response.status + ').');
+              }
+              return response.json();
+            }).then(function (signedInUser) {
+              if (String(signedInUser.jellyfinUserId).toLowerCase() !== params.id.toLowerCase()) {
+                throw new Error('Jellyseerr returned a different Jellyfin profile.');
+              }
+              showRequests();
+            });
+          })
+          .catch(function (error) {
+            showError(error.message || 'Unable to sign in to Jellyseerr.');
+          });
+      }
+
+      document.getElementById('back').addEventListener('click', backToJellyQuest);
+      retry.addEventListener('click', authenticate);
+      window.addEventListener('keydown', handleBack, true);
+      window.addEventListener('tizenhwkey', handleBack, true);
+      authenticate();
+    })();
+  </script>
+</body>
+</html>

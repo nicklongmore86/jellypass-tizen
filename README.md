@@ -18,7 +18,16 @@ This repository remains a GitHub fork of `jellyfin/jellyfin-tizen` so upstream w
 - `scripts/configure-jellyquest.mjs` locks the generated Jellyfin Web configuration to the household server.
 - `scripts/build.sh` checks out the pinned Jellyfin Web revision and produces the unsigned Tizen application tree.
 
-After a household user signs in, the Jellyfin navigation drawer includes **Requests**. JellyQuest opens the configured Jellyseerr site in a full-screen in-app view; Jellyseerr continues to own authentication, discovery, request creation, approvals, and request history. The Tizen package contains no Jellyseerr API key.
+After a household user signs in, the Jellyfin navigation drawer includes **Requests**. JellyQuest passes the current Jellyfin profile name and ID to a same-origin bootstrap page using a URL fragment, which is not sent in the HTTP request or NPM access logs. The bootstrap authenticates the passwordless profile through Jellyseerr's Jellyfin login endpoint, verifies the returned Jellyfin ID, and opens Jellyseerr with a persistent return toolbar. Jellyseerr continues to own discovery, request creation, approvals, and request history. The Tizen package contains no Jellyseerr API key.
+
+Deploy `integration/jellyseerr-login.html` at `/jellyquest-login.html` on the configured Jellyseerr origin. It must be served from that origin so Jellyseerr can establish its HTTP-only session cookie.
+
+The current Docker deployment mounts the versioned page read-only:
+
+```yaml
+volumes:
+  - /opt/jellyquest-integration/jellyseerr-login.html:/app/public/jellyquest-login.html:ro
+```
 
 ## Build
 

@@ -2,9 +2,7 @@
     'use strict';
 
     var requestsUrl;
-    var requestsOverlay;
-    var requestsFrame;
-    var previousFocus;
+    var openingRequests = false;
 
     var selectors = [
         '#loginPage .manualLoginForm',
@@ -35,77 +33,31 @@
         }
     }
 
-    function closeRequests() {
-        if (!requestsOverlay || requestsOverlay.hidden) {
-            return false;
-        }
-        requestsOverlay.hidden = true;
-        document.body.classList.remove('jellyquest-requests-open');
-        if (previousFocus && document.contains(previousFocus)) {
-            previousFocus.focus();
-        }
-        return true;
-    }
-
-    function createRequestsOverlay() {
-        if (requestsOverlay) {
-            return;
-        }
-
-        requestsOverlay = document.createElement('section');
-        requestsOverlay.id = 'jellyquestRequests';
-        requestsOverlay.className = 'jellyquestRequests';
-        requestsOverlay.hidden = true;
-        requestsOverlay.setAttribute('aria-label', 'Media requests');
-
-        var toolbar = document.createElement('header');
-        toolbar.className = 'jellyquestRequestsToolbar';
-
-        var closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'jellyquestRequestsClose';
-        closeButton.setAttribute('aria-label', 'Back to JellyQuest');
-        closeButton.textContent = '\u2190 Back to JellyQuest';
-        closeButton.addEventListener('click', closeRequests);
-        toolbar.appendChild(closeButton);
-
-        var title = document.createElement('h1');
-        title.textContent = 'Requests';
-        toolbar.appendChild(title);
-
-        requestsFrame = document.createElement('iframe');
-        requestsFrame.className = 'jellyquestRequestsFrame';
-        requestsFrame.title = 'Jellyseerr media requests';
-        requestsFrame.setAttribute('allow', 'fullscreen');
-
-        requestsOverlay.appendChild(toolbar);
-        requestsOverlay.appendChild(requestsFrame);
-        document.body.appendChild(requestsOverlay);
-    }
-
     function openRequests(url) {
         if (!isRequestsUrl(url)) {
             return false;
         }
-        createRequestsOverlay();
-        previousFocus = document.activeElement;
-        if (!requestsFrame.getAttribute('src')) {
-            requestsFrame.src = requestsUrl;
+        if (openingRequests) {
+            return true;
         }
-        requestsOverlay.hidden = false;
-        document.body.classList.add('jellyquest-requests-open');
-        requestsOverlay.querySelector('.jellyquestRequestsClose').focus();
+        openingRequests = true;
+        if (!window.ApiClient || typeof window.ApiClient.getCurrentUser !== 'function') {
+            openingRequests = false;
+            window.alert('Sign in to Jellyfin before opening Requests.');
+            return true;
+        }
+        window.ApiClient.getCurrentUser(false).then(function (user) {
+            if (!user || !user.Id || !user.Name) {
+                throw new Error('Jellyfin did not return the current profile.');
+            }
+            var fragment = '#user=' + encodeURIComponent(user.Name) + '&id=' + encodeURIComponent(user.Id);
+            window.location.assign(requestsUrl + '/jellyquest-login.html' + fragment);
+        }).catch(function (error) {
+            openingRequests = false;
+            console.error('[JellyQuest] Unable to open Requests:', error);
+            window.alert('Unable to open Requests for the current Jellyfin profile.');
+        });
         return true;
-    }
-
-    function handleBack(event) {
-        var isBack = event.type === 'tizenhwkey'
-            ? event.keyName === 'back'
-            : event.keyCode === 10009 || event.keyCode === 8;
-        if (isBack && closeRequests()) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-        }
     }
 
     function loadConfiguration() {
@@ -140,9 +92,7 @@
         start();
     }
 
-    window.JellyQuest = { openRequests: openRequests, closeRequests: closeRequests };
-    window.addEventListener('keydown', handleBack, true);
-    window.addEventListener('tizenhwkey', handleBack, true);
+    window.JellyQuest = { openRequests: openRequests };
     window.addEventListener('viewshow', enforceHouseholdLogin);
     console.info('[JellyQuest] Farmhouse household policy loaded');
 })();

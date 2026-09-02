@@ -45,10 +45,23 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnQuick/);
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
-    assert.match(styles, /\.jellyquestRequestsFrame/);
     assert.match(policy, /openRequests/);
+    assert.match(policy, /getCurrentUser/);
+    assert.match(policy, /jellyquest-login\.html/);
+    assert.match(policy, /'#user='/);
     assert.doesNotMatch(policy, /api[_-]?key/i);
     assert.match(manifest, /id="JellyQuest\.JellyQuest"/);
     assert.match(manifest, /package="JellyQuest"/);
     assert.doesNotMatch(manifest, /AprZAARz4r\.Jellyfin/);
+});
+
+test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without logging it in the URL', () => {
+    const bootstrap = fs.readFileSync(path.join(root, 'integration/jellyseerr-login.html'), 'utf8');
+
+    assert.match(bootstrap, /\/api\/v1\/auth\/jellyfin/);
+    assert.match(bootstrap, /\/api\/v1\/auth\/me/);
+    assert.match(bootstrap, /password: ''/);
+    assert.match(bootstrap, /signedInUser\.jellyfinUserId/);
+    assert.match(bootstrap, /window\.location\.hash/);
+    assert.doesNotMatch(bootstrap, /api[_-]?key/i);
 });
