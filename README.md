@@ -63,6 +63,18 @@ The installer connects to the TV on port 26101, removes only an existing
 `vd_appinstall` directly, verifies the installed version, and launches it. This
 avoids the older Tizen CLI manifest-parser failure seen on some Samsung TVs.
 
+Preview the request interface at a fixed 1920×1080 Samsung TV viewport before
+deploying it:
+
+```sh
+npm run preview:tv
+```
+
+Open the printed simulator URL. Only the static `integration/` preview assets
+are served. Keyboard arrow/Enter keys and the on-screen
+remote exercise the same D-pad focus code as the TV. Preview mode uses mock
+media and never creates a Jellyseerr request.
+
 JellyQuest uses its own `JellyQuest.JellyQuest` application identity. It installs as a fresh application rather than updating Jellyfin or the earlier JellyPass-branded client.
 
 ## Authentication roadmap

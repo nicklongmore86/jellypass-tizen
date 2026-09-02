@@ -74,9 +74,31 @@ test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without loggi
     assert.doesNotMatch(bootstrap, /<iframe/i);
     assert.match(bootstrap, /window\.location\.hash/);
     assert.match(bootstrap, /handleDirectionalKey/);
+    assert.match(bootstrap, /Recently Added/);
+    assert.match(bootstrap, /Recent Requests/);
+    assert.match(bootstrap, /Movie Genres/);
+    assert.match(bootstrap, /TV Genres/);
+    assert.match(bootstrap, /See More/);
+    assert.match(bootstrap, /previewApi/);
+    assert.match(bootstrap, /Powered by Jellyseerr/);
+    assert.match(bootstrap, /linear-gradient\(135deg, #4f46e5, #9333ea\)/);
+    assert.match(bootstrap, /id="globalSearch"/);
+    assert.match(bootstrap, /\.type-badge/);
     assert.match(bootstrap, /scrollIntoView/);
     assert.match(bootstrap, /window\.location\.replace\(params\.return\)/);
     assert.doesNotMatch(bootstrap, /api[_-]?key/i);
+});
+
+test('provides a fixed Samsung TV preview with remote controls', () => {
+    const simulator = fs.readFileSync(path.join(root, 'integration/tv-simulator.html'), 'utf8');
+    const preview = fs.readFileSync(path.join(root, 'scripts/preview-tv.sh'), 'utf8');
+
+    assert.match(simulator, /width: 1920px/);
+    assert.match(simulator, /height: 1080px/);
+    assert.match(simulator, /preview=1/);
+    assert.match(simulator, /data-key="10009"/);
+    assert.match(preview, /python3 -m http\.server/);
+    assert.match(preview, /project_dir}\/(?:integration|\}\/(?:integration))/);
 });
 
 test('installs through the direct Samsung TV workflow', () => {
