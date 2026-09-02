@@ -84,6 +84,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /margin-top: auto/);
     assert.match(styles, /margin-bottom: auto/);
     assert.match(styles, /\.skinHeader \{/);
+    assert.match(styles, /\.skinHeader \.headerTabs/);
+    assert.match(styles, /height: 5\.25em !important/);
     assert.match(styles, /margin-left: 3\.75em/);
     assert.match(styles, /width: calc\(100% - 3\.75em\)/);
     assert.match(policy, /jellyquest-login\.html/);
@@ -171,7 +173,14 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(simulator, /Event Detail/);
     assert.match(profiles, /pageTitleWithDefaultLogo/);
     assert.match(profiles, /jellyquest\.js/);
+    assert.match(profiles, /jellyfin-media-preview\.css/);
     assert.match(profiles, /getPublicUsers/);
+    assert.match(profiles, /Continue Watching/);
+    assert.match(profiles, /Next Up/);
+    assert.match(profiles, /Recently Added/);
+    assert.match(profiles, /jqHomeProgress/);
+    assert.equal((profiles.match(/class="jqMovieCard"/g) || []).length, 21);
+    assert.doesNotMatch(profiles, /class="hint"/);
     assert.match(mediaNavigation, /workspaceSelector/);
     assert.match(mediaNavigation, /headerSelector/);
     assert.match(mediaNavigation, /railIndex/);
@@ -184,6 +193,8 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(mediaNavigation, /applySort/);
     assert.match(mediaNavigation, /closeSortMenu/);
     assert.match(mediaStyles, /overflow-y: auto/);
+    assert.match(mediaStyles, /height: 5\.25rem/);
+    assert.match(mediaStyles, /translate\(-50%, -50%\)/);
     assert.match(mediaStyles, /\.jqSortMenu/);
     assert.match(movies, /data-sort-options="recent:Recently added/);
     assert.match(shows, /data-sort-options="recent:Recently added/);

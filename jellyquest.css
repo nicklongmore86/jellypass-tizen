@@ -188,7 +188,26 @@
 }
 
 .jellyquestHasLibraryRail .skinHeader {
+    height: 5.25em !important;
+    min-height: 5.25em !important;
     z-index: 1001 !important;
+}
+
+.jellyquestHasLibraryRail .skinHeader .headerTop {
+    height: 5.25em !important;
+}
+
+.jellyquestHasLibraryRail .skinHeader .headerTabs {
+    align-items: center !important;
+    display: flex !important;
+    height: 5.25em !important;
+    justify-content: center !important;
+    left: 50% !important;
+    margin: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
 }
 
 body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
@@ -209,7 +228,7 @@ body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
     overflow-y: auto;
     padding: .5em 0;
     position: fixed;
-    top: 7.5em;
+    top: 5.25em;
     transition: width .16s ease, box-shadow .16s ease;
     width: 3.75em;
     z-index: 1000;

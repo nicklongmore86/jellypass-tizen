@@ -1,12 +1,12 @@
 * { box-sizing: border-box; }
 html, body { background: #0e1013; color: #fff; height: 100%; margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
-.skinHeader { background: #15171b; box-shadow: 0 .2rem .8rem #000; height: 8rem; padding: 1.25rem 2.5rem; position: relative; }
-.headerTop { align-items: center; display: flex; height: 3.5rem; }
+.skinHeader { align-items: center; background: #15171b; box-shadow: 0 .2rem .8rem #000; display: flex; height: 5.25rem; padding: 0 2.5rem; position: relative; }
+.headerTop { align-items: center; display: flex; height: auto; }
 .pageTitle { align-items: center; display: inline-flex; margin: 0; }
-.tabs { color: #ddd; display: flex; font-size: 1.25rem; justify-content: center; margin-top: .7rem; }
+.tabs { color: #ddd; display: flex; font-size: 1.25rem; justify-content: center; left: 50%; margin: 0; position: absolute; top: 50%; transform: translate(-50%, -50%); }
 .tabs span { margin: 0 1.5rem; }
 .tabs span:focus { color: #fff; outline: .16rem solid #00a4dc; outline-offset: .35rem; }
-.jqMediaWorkspace { height: calc(100% - 8rem); overflow-x: hidden; overflow-y: auto; padding: 2rem 3rem 2.5rem; scrollbar-width: none; }
+.jqMediaWorkspace { height: calc(100% - 5.25rem); overflow-x: hidden; overflow-y: auto; padding: 2rem 3rem 2.5rem; scrollbar-width: none; }
 .jqMediaWorkspace::-webkit-scrollbar { display: none; }
 .jqLibraryToolbar { align-items: center; display: flex; height: 5rem; justify-content: space-between; }
 .jqLibraryTitle { font-size: 2.35rem; font-weight: 600; margin: 0; }
@@ -35,7 +35,7 @@ html, body { background: #0e1013; color: #fff; height: 100%; margin: 0; overflow
 .jqMovieCard:focus { outline: none; }
 .jqMovieCard:focus .jqPoster { border-color: #fff; box-shadow: 0 .65rem 2rem rgba(0,0,0,.8); transform: scale(1.045); }
 .jqMovieCard:focus .jqMovieName { color: #00c7db; }
-.jqDetailWorkspace { height: calc(100% - 8rem); overflow-y: auto; padding: 0; }
+.jqDetailWorkspace { height: calc(100% - 5.25rem); overflow-y: auto; padding: 0; }
 .jqDetailHero { background: radial-gradient(circle at 72% 35%, rgba(39,92,118,.8), transparent 32%), linear-gradient(90deg, #101318 8%, rgba(16,19,24,.94) 42%, rgba(16,19,24,.42) 72%, #101318), linear-gradient(145deg, #274a5c, #2d1d35); min-height: 31rem; padding: 4.2rem 5rem 2.8rem; }
 .jqDetailCopy { max-width: 48rem; }
 .jqDetailEyebrow { color: #00c7db; font-size: 1.1rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
