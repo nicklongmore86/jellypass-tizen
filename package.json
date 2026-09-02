@@ -1,6 +1,6 @@
 {
   "name": "jellyquest-tizen",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Household streaming and requesting client for Samsung Smart TV (Tizen)",
   "repository": {
     "type": "git",
@@ -11,6 +11,7 @@
     "configure": "node scripts/configure-jellyquest.mjs",
     "build:full": "bash scripts/build.sh",
     "package:wgt": "bash scripts/package-wgt.sh",
+    "install:tv": "bash scripts/install-tv.sh",
     "postinstall": "npm run build",
     "test": "node --test test/configuration.test.mjs"
   },

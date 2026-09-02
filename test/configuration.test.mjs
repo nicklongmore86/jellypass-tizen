@@ -53,6 +53,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /nativeTab\.cloneNode\(true\)/);
     assert.match(policy, /jellyquest-login\.html/);
     assert.match(policy, /'#user='/);
+    assert.match(policy, /'&return='/);
     assert.doesNotMatch(policy, /api[_-]?key/i);
     assert.match(manifest, /id="JellyQuest\.JellyQuest"/);
     assert.match(manifest, /package="JellyQuest"/);
@@ -72,5 +73,21 @@ test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without loggi
     assert.match(bootstrap, /\/api\/v1\/request/);
     assert.doesNotMatch(bootstrap, /<iframe/i);
     assert.match(bootstrap, /window\.location\.hash/);
+    assert.match(bootstrap, /handleDirectionalKey/);
+    assert.match(bootstrap, /scrollIntoView/);
+    assert.match(bootstrap, /window\.location\.replace\(params\.return\)/);
     assert.doesNotMatch(bootstrap, /api[_-]?key/i);
+});
+
+test('installs through the direct Samsung TV workflow', () => {
+    const launcher = fs.readFileSync(path.join(root, 'scripts/install-tv.sh'), 'utf8');
+    const installer = fs.readFileSync(path.join(root, 'scripts/install-wgt.sh'), 'utf8');
+
+    assert.match(launcher, /docker run --rm --network host/);
+    assert.match(installer, /sdb connect/);
+    assert.match(installer, /vd_appuninstall/);
+    assert.match(installer, /vd_appinstall/);
+    assert.match(installer, /vd_applist/);
+    assert.match(installer, /execute/);
+    assert.match(installer, /app_version/);
 });

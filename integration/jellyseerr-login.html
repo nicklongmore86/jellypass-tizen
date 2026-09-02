@@ -99,6 +99,7 @@
       var app = document.getElementById('app');
       var modal = document.getElementById('modal');
       var selectedItem = null;
+      var lastFocusedCard = null;
       var params = {};
 
       window.location.hash.slice(1).split('&').forEach(function (part) {
@@ -109,12 +110,23 @@
       });
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
 
+      function isSafeReturnUrl(url) {
+        return typeof url === 'string' && (
+          /^file:\/\/\//.test(url) ||
+          /^https:\/\/jelly-farmhouse\.starrgroup\.io(?:\/|$)/.test(url)
+        );
+      }
+
       function backToJellyQuest(event) {
         if (event) {
           event.preventDefault();
           event.stopImmediatePropagation();
         }
-        window.history.back();
+        if (isSafeReturnUrl(params.return)) {
+          window.location.replace(params.return);
+        } else {
+          window.history.back();
+        }
       }
 
       function handleBack(event) {
@@ -130,6 +142,82 @@
             backToJellyQuest(event);
           }
         }
+      }
+
+      function isVisible(element) {
+        return element.offsetWidth > 0 && element.offsetHeight > 0 && !element.disabled;
+      }
+
+      function focusableElements() {
+        var root = modal.style.display === 'flex' ? modal : document.body;
+        return Array.prototype.slice.call(root.querySelectorAll('button:not([disabled]), input:not([disabled])'))
+          .filter(isVisible);
+      }
+
+      function moveFocus(direction, event) {
+        var elements = focusableElements();
+        var current = document.activeElement;
+        var currentRect;
+        var currentX;
+        var currentY;
+        var best = null;
+        var bestScore = Infinity;
+
+        if (!elements.length) return;
+        if (elements.indexOf(current) === -1) {
+          elements[0].focus();
+          event.preventDefault();
+          return;
+        }
+        if (current.tagName === 'INPUT' && (direction === 'left' || direction === 'right')) return;
+
+        currentRect = current.getBoundingClientRect();
+        currentX = currentRect.left + currentRect.width / 2;
+        currentY = currentRect.top + currentRect.height / 2;
+
+        elements.forEach(function (candidate) {
+          var rect;
+          var x;
+          var y;
+          var dx;
+          var dy;
+          var primary;
+          var secondary;
+          var score;
+          if (candidate === current) return;
+          rect = candidate.getBoundingClientRect();
+          x = rect.left + rect.width / 2;
+          y = rect.top + rect.height / 2;
+          dx = x - currentX;
+          dy = y - currentY;
+          if ((direction === 'left' && dx >= -2) ||
+              (direction === 'right' && dx <= 2) ||
+              (direction === 'up' && dy >= -2) ||
+              (direction === 'down' && dy <= 2)) return;
+          primary = direction === 'left' || direction === 'right' ? Math.abs(dx) : Math.abs(dy);
+          secondary = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
+          score = primary * 10 + secondary;
+          if (score < bestScore) {
+            bestScore = score;
+            best = candidate;
+          }
+        });
+
+        if (best) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          best.focus();
+          try {
+            best.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          } catch (error) {
+            best.scrollIntoView(false);
+          }
+        }
+      }
+
+      function handleDirectionalKey(event) {
+        var directions = { 37: 'left', 38: 'up', 39: 'right', 40: 'down' };
+        if (directions[event.keyCode]) moveFocus(directions[event.keyCode], event);
       }
 
       function showError(text) {
@@ -210,7 +298,10 @@
         copy.appendChild(badge);
         button.appendChild(poster);
         button.appendChild(copy);
-        button.addEventListener('click', function () { openModal(item); });
+        button.addEventListener('click', function () {
+          lastFocusedCard = button;
+          openModal(item);
+        });
         return button;
       }
 
@@ -297,6 +388,7 @@
       function closeModal() {
         modal.style.display = 'none';
         selectedItem = null;
+        if (lastFocusedCard && document.body.contains(lastFocusedCard)) lastFocusedCard.focus();
       }
 
       function submitRequest() {
@@ -378,6 +470,7 @@
       document.getElementById('modalRequest').addEventListener('click', submitRequest);
       retry.addEventListener('click', authenticate);
       window.addEventListener('keydown', handleBack, true);
+      window.addEventListener('keydown', handleDirectionalKey, true);
       window.addEventListener('tizenhwkey', handleBack, true);
       authenticate();
     })();

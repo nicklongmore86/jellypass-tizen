@@ -101,7 +101,9 @@
             if (!user || !user.Id || !user.Name) {
                 throw new Error('Jellyfin did not return the current profile.');
             }
-            var fragment = '#user=' + encodeURIComponent(user.Name) + '&id=' + encodeURIComponent(user.Id);
+            var fragment = '#user=' + encodeURIComponent(user.Name)
+                + '&id=' + encodeURIComponent(user.Id)
+                + '&return=' + encodeURIComponent(window.location.href);
             window.location.assign(requestsUrl + '/jellyquest-login.html' + fragment);
         }).catch(function (error) {
             openingRequests = false;

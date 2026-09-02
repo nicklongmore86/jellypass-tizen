@@ -52,11 +52,16 @@ npm run package:wgt
 
 The WGT is written to `artifacts/`. Certificate profiles, private keys, device DUIDs, WGT artifacts, and local build caches must never be committed.
 
-Install with Developer Mode and the Tizen CLI:
+Install through the repeatable Docker/SDB workflow:
 
 ```sh
-tizen install -n JellyQuest.wgt -t YOUR_TV_TARGET
+npm run install:tv -- YOUR_TV_IP
 ```
+
+The installer connects to the TV on port 26101, removes only an existing
+`JellyQuest.JellyQuest` package, transfers the signed WGT, calls Samsung's
+`vd_appinstall` directly, verifies the installed version, and launches it. This
+avoids the older Tizen CLI manifest-parser failure seen on some Samsung TVs.
 
 JellyQuest uses its own `JellyQuest.JellyQuest` application identity. It installs as a fresh application rather than updating Jellyfin or the earlier JellyPass-branded client.
 
