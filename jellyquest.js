@@ -22,6 +22,45 @@
         });
     }
 
+    function isHomeRoute() {
+        return /^#\/home(?:\?|$)/.test(window.location.hash);
+    }
+
+    function ensureRequestsTab() {
+        var existing = document.querySelector('.jellyquestRequestsTab');
+        if (!isHomeRoute()) {
+            if (existing) {
+                existing.parentNode.removeChild(existing);
+            }
+            return;
+        }
+        if (existing) {
+            return;
+        }
+
+        var slider = document.querySelector('.headerTabs .tabs-viewmenubar .emby-tabs-slider');
+        if (!slider) {
+            return;
+        }
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'emby-tab-button jellyquestRequestsTab';
+        button.setAttribute('data-index', '-1');
+        button.setAttribute('aria-label', 'Requests');
+
+        var foreground = document.createElement('div');
+        foreground.className = 'emby-button-foreground';
+        foreground.textContent = 'Requests';
+        button.appendChild(foreground);
+        button.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            openRequests(requestsUrl);
+        });
+        slider.appendChild(button);
+    }
+
     function isRequestsUrl(url) {
         if (!requestsUrl || typeof url !== 'string') {
             return false;
@@ -80,7 +119,11 @@
     function start() {
         enforceHouseholdLogin();
         loadConfiguration();
-        new MutationObserver(enforceHouseholdLogin).observe(document.documentElement, {
+        ensureRequestsTab();
+        new MutationObserver(function () {
+            enforceHouseholdLogin();
+            ensureRequestsTab();
+        }).observe(document.documentElement, {
             childList: true,
             subtree: true
         });
@@ -93,6 +136,10 @@
     }
 
     window.JellyQuest = { openRequests: openRequests };
-    window.addEventListener('viewshow', enforceHouseholdLogin);
+    window.addEventListener('hashchange', ensureRequestsTab);
+    window.addEventListener('viewshow', function () {
+        enforceHouseholdLogin();
+        ensureRequestsTab();
+    });
     console.info('[JellyQuest] Farmhouse household policy loaded');
 })();

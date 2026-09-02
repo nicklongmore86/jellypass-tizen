@@ -47,6 +47,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnForgotPassword/);
     assert.match(policy, /openRequests/);
     assert.match(policy, /getCurrentUser/);
+    assert.match(policy, /jellyquestRequestsTab/);
+    assert.match(policy, /headerTabs \.tabs-viewmenubar \.emby-tabs-slider/);
+    assert.match(policy, /foreground\.textContent = 'Requests'/);
     assert.match(policy, /jellyquest-login\.html/);
     assert.match(policy, /'#user='/);
     assert.doesNotMatch(policy, /api[_-]?key/i);

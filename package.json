@@ -1,6 +1,6 @@
 {
   "name": "jellyquest-tizen",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Household streaming and requesting client for Samsung Smart TV (Tizen)",
   "repository": {
     "type": "git",
