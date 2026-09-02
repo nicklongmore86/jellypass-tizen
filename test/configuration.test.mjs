@@ -50,6 +50,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /jellyquestRequestsTab/);
     assert.match(policy, /headerTabs \.tabs-viewmenubar \.emby-tabs-slider/);
     assert.match(policy, /foreground\.textContent = 'Requests'/);
+    assert.match(policy, /nativeTab\.cloneNode\(true\)/);
     assert.match(policy, /jellyquest-login\.html/);
     assert.match(policy, /'#user='/);
     assert.doesNotMatch(policy, /api[_-]?key/i);
@@ -65,6 +66,11 @@ test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without loggi
     assert.match(bootstrap, /\/api\/v1\/auth\/me/);
     assert.match(bootstrap, /password: ''/);
     assert.match(bootstrap, /signedInUser\.jellyfinUserId/);
+    assert.match(bootstrap, /\/api\/v1\/discover\/movies/);
+    assert.match(bootstrap, /\/api\/v1\/discover\/tv/);
+    assert.match(bootstrap, /\/api\/v1\/search\?query=/);
+    assert.match(bootstrap, /\/api\/v1\/request/);
+    assert.doesNotMatch(bootstrap, /<iframe/i);
     assert.match(bootstrap, /window\.location\.hash/);
     assert.doesNotMatch(bootstrap, /api[_-]?key/i);
 });

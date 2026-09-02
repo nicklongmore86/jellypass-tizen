@@ -43,22 +43,34 @@
             return;
         }
 
-        var button = document.createElement('button');
+        var nativeTab = slider.querySelector('.emby-tab-button');
+        var button = nativeTab ? nativeTab.cloneNode(true) : document.createElement('button');
         button.type = 'button';
-        button.className = 'emby-tab-button jellyquestRequestsTab';
+        button.removeAttribute('id');
+        button.removeAttribute('aria-selected');
+        button.classList.remove('emby-tab-button-active');
+        button.classList.remove('selected');
+        button.classList.add('emby-tab-button');
+        button.classList.add('jellyquestRequestsTab');
         button.setAttribute('data-index', '-1');
         button.setAttribute('aria-label', 'Requests');
 
-        var foreground = document.createElement('div');
-        foreground.className = 'emby-button-foreground';
+        var foreground = button.querySelector('.emby-button-foreground');
+        if (!foreground) {
+            foreground = document.createElement('div');
+            foreground.className = 'emby-button-foreground';
+            button.appendChild(foreground);
+        }
         foreground.textContent = 'Requests';
-        button.appendChild(foreground);
         button.addEventListener('click', function (event) {
             event.preventDefault();
-            event.stopPropagation();
+            event.stopImmediatePropagation();
             openRequests(requestsUrl);
         });
         slider.appendChild(button);
+        if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') {
+            window.CustomElements.upgradeSubtree(button);
+        }
     }
 
     function isRequestsUrl(url) {
