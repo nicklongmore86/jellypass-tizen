@@ -28,6 +28,7 @@ test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     const metadata = JSON.parse(fs.readFileSync(path.join(outputDirectory, 'jellyquest-build.json'), 'utf8'));
     assert.equal(metadata.household, 'farmhouse');
     assert.equal(metadata.requestsUrl, 'https://jellyseerr.starrgroup.io');
+    assert.equal(metadata.requestsBridgeUrl, 'https://jelly-farmhouse.starrgroup.io/jellyquest-bridge/bridge.html');
     assert.equal(metadata.requestsPageVersion, '0.8.0');
     assert.match(metadata.jellyfinWebRef, /^[a-f0-9]{40}$/);
 });
@@ -163,23 +164,18 @@ test('keeps development configuration and notes out of the TV package', () => {
     assert.match(packager, /-e DETAIL_ACTIONS\.md/);
     assert.match(packager, /-e jellyquest\.config\.json/);
     assert.match(packager, /-e "integration\/\*"/);
-    assert.match(packager, /-e "bridge\/\*"/);
+    assert.doesNotMatch(packager, /bridge\/\*/);
     assert.match(packager, /www\/jellyseerr-login\.html/);
 });
 
-test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without logging it in the URL', () => {
+test('Jellyseerr bootstrap delegates identity verification without logging it in the URL', () => {
     const bootstrap = fs.readFileSync(path.join(root, 'integration/jellyseerr-login.html'), 'utf8');
-    const bridge = fs.readFileSync(path.join(root, 'bridge/server.mjs'), 'utf8');
 
     assert.match(bootstrap, /function startBridge/);
     assert.match(bootstrap, /function bridgeApi/);
     assert.match(bootstrap, /jellyquest-bridge\/bridge\.html/);
     assert.doesNotMatch(bootstrap, /\/api\/v1\/auth\/jellyfin/);
-    assert.match(bridge, /\/api\/v1\/auth\/jellyfin/);
-    assert.match(bridge, /password: ''/);
-    assert.match(bridge, /auth\.data\.jellyfinUserId/);
-    assert.match(bridge, /allowedRequest/);
-    assert.match(bridge, /crypto\.randomBytes\(32\)/);
+    assert.match(bootstrap, /https:\/\/jelly-farmhouse\.starrgroup\.io/);
     assert.match(bootstrap, /\/api\/v1\/discover\/movies/);
     assert.match(bootstrap, /\/api\/v1\/discover\/tv/);
     assert.match(bootstrap, /\/api\/v1\/search\?query=/);

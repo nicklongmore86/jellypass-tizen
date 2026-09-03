@@ -3,5 +3,6 @@
   "productName": "JellyQuest Farmhouse",
   "serverUrl": "https://jelly-farmhouse.starrgroup.io",
   "requestsUrl": "https://jellyseerr.starrgroup.io",
+  "requestsBridgeUrl": "https://jelly-farmhouse.starrgroup.io/jellyquest-bridge/bridge.html",
   "requestsPageVersion": "0.8.0"
 }

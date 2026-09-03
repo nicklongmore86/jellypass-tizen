@@ -23,7 +23,7 @@ rm -rf "${project_dir}/.buildResult"
 cd "${project_dir}"
 tizen build-web -e ".*" -e gulpfile.babel.js -e README.md -e DETAIL_ACTIONS.md \
     -e jellyquest.config.json -e "node_modules/*" -e "package*.json" \
-    -e "bridge/*" -e "integration/*" -e "scripts/*" -e "test/*"
+    -e "integration/*" -e "scripts/*" -e "test/*"
 tizen package -t wgt -o "${artifact_dir}" -- .buildResult
 
 [[ -f "${artifact_path}" ]] || {

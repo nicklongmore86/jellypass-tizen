@@ -2,6 +2,7 @@
     'use strict';
 
     var requestsUrl;
+    var requestsBridgeUrl;
     var requestsPageVersion;
     var openingRequests = false;
     var profileSwitcher;
@@ -2667,7 +2668,7 @@
             var fragment = '#user=' + encodeURIComponent(user.Name)
                 + '&id=' + encodeURIComponent(user.Id)
                 + '&return=' + encodeURIComponent(window.location.href)
-                + '&bridge=' + encodeURIComponent(requestsUrl + '/jellyquest-bridge/bridge.html');
+                + '&bridge=' + encodeURIComponent(requestsBridgeUrl);
             var version = requestsPageVersion ? '?v=' + encodeURIComponent(requestsPageVersion) : '';
             window.location.assign(localRequestsUrl + version + fragment);
         }).catch(function (error) {
@@ -2688,6 +2689,7 @@
             })
             .then(function (config) {
                 requestsUrl = new URL(config.requestsUrl).origin;
+                requestsBridgeUrl = new URL(config.requestsBridgeUrl).href;
                 requestsPageVersion = config.requestsPageVersion || '';
                 console.info('[JellyQuest] Requests configured for ' + requestsUrl);
             })

@@ -14,7 +14,7 @@
     "install:tv": "bash scripts/install-tv.sh",
     "preview:tv": "bash scripts/preview-tv.sh",
     "postinstall": "npm run build",
-    "test": "node --test test/*.test.mjs test/configuration.test.mjs"
+    "test": "node --test test/configuration.test.mjs"
   },
   "devDependencies": {
     "@babel/preset-env": "7.25.7",

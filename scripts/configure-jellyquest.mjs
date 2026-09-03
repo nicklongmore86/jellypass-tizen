@@ -17,6 +17,11 @@ const requests = new URL(jellyquest.requestsUrl);
 if (requests.protocol !== 'https:' || requests.pathname !== '/' || requests.search || requests.hash) {
     throw new Error('JellyQuest requestsUrl must be an HTTPS origin without a path, query, or fragment');
 }
+const requestsBridge = new URL(jellyquest.requestsBridgeUrl);
+if (requestsBridge.protocol !== 'https:' || requestsBridge.pathname !== '/jellyquest-bridge/bridge.html'
+        || requestsBridge.search || requestsBridge.hash || requestsBridge.origin !== server.origin) {
+    throw new Error('JellyQuest requestsBridgeUrl must use the server origin and /jellyquest-bridge/bridge.html path');
+}
 if (!/^[a-zA-Z0-9._-]+$/.test(jellyquest.requestsPageVersion ?? '')) {
     throw new Error('JellyQuest requestsPageVersion must contain only letters, numbers, dots, underscores, or hyphens');
 }
@@ -40,6 +45,7 @@ fs.writeFileSync(path.join(outputDirectory, 'jellyquest-build.json'), `${JSON.st
     productName: jellyquest.productName,
     serverUrl: server.origin,
     requestsUrl: requests.origin,
+    requestsBridgeUrl: requestsBridge.href,
     requestsPageVersion: jellyquest.requestsPageVersion,
     jellyfinWebRef: webRef
 }, null, 2)}\n`);

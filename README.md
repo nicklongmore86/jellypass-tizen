@@ -21,22 +21,11 @@ This repository remains a GitHub fork of `jellyfin/jellyfin-tizen` so upstream w
 
 After a household user signs in, **Requests** appears beside **Home** in the visible top navigation and remains available in the navigation drawer. Jellyfin Favorites are presented as a per-profile **My List** row on Home instead of a separate top-level screen. The complete Requests interface is packaged inside the Tizen WGT at `www/jellyseerr-login.html`, so its visuals and remote navigation always match the installed JellyQuest version.
 
-JellyQuest passes the current Jellyfin profile name and ID to that local page using a URL fragment, which is not sent in an HTTP request or access log. The local page talks through a hidden, same-origin bridge frame. The bridge authenticates the passwordless profile through Jellyseerr's Jellyfin login endpoint, verifies the returned Jellyfin ID, and relays only the Jellyseerr discovery and request operations JellyQuest uses. Jellyseerr continues to own discovery, request creation, approvals, and request history. Neither the Tizen package nor the bridge contains a Jellyseerr API key.
+JellyQuest passes the current Jellyfin profile name and ID to that local page using a URL fragment, which is not sent in an HTTP request or access log. The local page talks through a hidden bridge frame hosted by the household JellyPass origin. JellyPass authenticates the passwordless profile through Jellyseerr's Jellyfin login endpoint, verifies the returned Jellyfin ID, and relays only the Jellyseerr discovery and request operations JellyQuest uses. Jellyseerr continues to own discovery, request creation, approvals, and request history. The Tizen package contains no Jellyseerr API key.
 
 ## Request bridge
 
-Build the small bridge container from the repository root:
-
-```sh
-docker build -f bridge/Dockerfile -t jellyquest-request-bridge .
-docker run --rm -p 8080:8080 \
-  -e JELLYSEERR_URL=http://YOUR_JELLYSEERR_ADDRESS:5055 \
-  jellyquest-request-bridge
-```
-
-Or copy the `bridge/` directory with the repository available as its parent, set `JELLYSEERR_URL` in the environment, and run `docker compose -f bridge/compose.yaml up -d`.
-
-In Nginx Proxy Manager, add a custom location for `/jellyquest-bridge/` on the existing `jellyseerr.starrgroup.io` proxy host and forward it to the bridge container on port `8080`. The route prefix must be preserved. The bridge provides `/jellyquest-bridge/health` for checks and `/jellyquest-bridge/bridge.html` for the packaged interface. No file is mounted into the Jellyseerr container and no Jellyseerr application files are modified.
+The optional request bridge is a JellyPass module rather than a second container. Set `JELLYQUEST_BRIDGE_ENABLED=true` in JellyPass and configure this build's `requestsBridgeUrl` to the household origin, for example `https://jelly-farmhouse.starrgroup.io/jellyquest-bridge/bridge.html`. The existing household proxy path handles it; Jellyseerr and Nginx Proxy Manager need no custom files or routes.
 
 ## Build
 
