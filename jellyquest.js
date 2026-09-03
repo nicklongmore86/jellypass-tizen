@@ -39,9 +39,14 @@
     var runtimeLibraryMenu;
     var runtimeLibraryMenuTrigger;
     var runtimeGlobalTabs;
+    var runtimeSearchState = { categories: [], loading: false, pageSize: 70, requestId: 0, term: '', total: 0 };
+    var runtimeSearchTimer;
+    var runtimeSearchLastCard;
+    var runtimeSearchOriginHash = '';
     var runtimeDetailOrigin;
     var runtimeDetailState = { id: '', loading: false, requestId: 0 };
     var runtimeDetailLastFocus;
+    var runtimeLoadingRoot;
     var detailActionLoading = false;
     var detailActionState;
     var playbackOptionsDialog;
@@ -86,8 +91,54 @@
         return /^#\/details(?:\.html)?(?:\?|$)/.test(window.location.hash);
     }
 
+    function isSearchRoute() {
+        return /^#\/search(?:\.html)?(?:\?|$)/.test(window.location.hash);
+    }
+
     function isRuntimeShellRoute() {
-        return isLibraryRoute() || isDetailRoute();
+        return isLibraryRoute() || isDetailRoute() || isSearchRoute();
+    }
+
+    function showRuntimeLoading(label) {
+        if (isStaticPreview) return;
+        if (!runtimeLoadingRoot) {
+            runtimeLoadingRoot = document.createElement('main');
+            runtimeLoadingRoot.className = 'jellyquestRuntimeLoadingRoot';
+            runtimeLoadingRoot.setAttribute('aria-live', 'polite');
+            runtimeLoadingRoot.setAttribute('aria-busy', 'true');
+            runtimeLoadingRoot.innerHTML = '<div class="jqLoadingHero">'
+                + '<div class="jqLoadingEyebrow"></div><div class="jqLoadingTitle"></div>'
+                + '<div class="jqLoadingMeta"></div><div class="jqLoadingCopy"></div>'
+                + '<div class="jqLoadingActions"><span></span><span></span><span></span></div></div>'
+                + '<div class="jqLoadingCards"><span></span><span></span><span></span><span></span><span></span></div>'
+                + '<span class="jqLoadingLabel"></span>';
+            document.body.appendChild(runtimeLoadingRoot);
+        }
+        var loadingLabel = runtimeLoadingRoot.querySelector('.jqLoadingLabel');
+        var loadingText = label || 'Loading…';
+        if (loadingLabel.textContent !== loadingText) loadingLabel.textContent = loadingText;
+        document.body.classList.add('jellyquestRuntimeLoading');
+    }
+
+    function hideRuntimeLoading() {
+        document.body.classList.remove('jellyquestRuntimeLoading');
+        if (runtimeLoadingRoot && runtimeLoadingRoot.parentNode) runtimeLoadingRoot.parentNode.removeChild(runtimeLoadingRoot);
+        runtimeLoadingRoot = null;
+    }
+
+    function createRuntimeBackButton(className, label, onClick) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'jqPageBack ' + className;
+        button.innerHTML = '<span aria-hidden="true">&#x2039;</span> Back';
+        button.setAttribute('aria-label', label);
+        button.addEventListener('click', onClick);
+        return button;
+    }
+
+    function returnFromRuntimeSearch() {
+        window.location.hash = runtimeSearchOriginHash && !/^#\/search/.test(runtimeSearchOriginHash)
+            ? runtimeSearchOriginHash : '#/home';
     }
 
     function isSettingsOpen() {
@@ -277,6 +328,7 @@
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
         document.body.classList.add('jellyquestRuntimeHomeActive');
+        hideRuntimeLoading();
         runtimeHomeUserId = user.Id;
     }
 
@@ -296,6 +348,7 @@
             removeRuntimeHome();
             return;
         }
+        showRuntimeLoading('Loading Home…');
         var container = document.querySelector('#homeTab .sections.homeSectionsContainer, #homeTab .sections');
         var apiClient = window.ApiClient;
         if (!container || !apiClient || typeof apiClient.getCurrentUser !== 'function'
@@ -303,6 +356,7 @@
         var existing = container.querySelector('.jellyquestRuntimeHomeRoot');
         if (!force && existing && runtimeHomeUserId) {
             document.body.classList.add('jellyquestRuntimeHomeActive');
+            hideRuntimeLoading();
             return;
         }
         runtimeHomeLoading = true;
@@ -359,6 +413,7 @@
             }
         }).catch(function (error) {
             console.error('[JellyQuest] Unable to load Home:', error);
+            hideRuntimeLoading();
         }).then(function () {
             runtimeHomeLoading = false;
         });
@@ -696,6 +751,7 @@
     function createSettingsRoot() {
         var root = document.createElement('main');
         var heading = document.createElement('header');
+        var back = createRuntimeBackButton('jellyquestSettingsBack', 'Back to previous page', closeSettings);
         var title = document.createElement('h1');
         var subtitle = document.createElement('p');
         var layout = document.createElement('div');
@@ -713,6 +769,7 @@
         heading.className = 'jellyquestSettingsHeading';
         title.textContent = 'Settings';
         subtitle.textContent = settingsUser && settingsUser.Name ? 'TV preferences for ' + settingsUser.Name : 'TV preferences';
+        heading.appendChild(back);
         heading.appendChild(title);
         heading.appendChild(subtitle);
         layout.className = 'jellyquestSettingsLayout';
@@ -842,6 +899,7 @@
         }
         if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
         var current = document.activeElement;
+        var back = current && current.closest ? current.closest('.jellyquestSettingsBack') : null;
         var category = current && current.closest ? current.closest('.jellyquestSettingsCategory') : null;
         var control = current && current.closest ? current.closest('.jellyquestSettingsControl:not(.is-readonly)') : null;
         var footerButton = current && current.closest ? current.closest('.jellyquestSettingsFooter button') : null;
@@ -849,15 +907,21 @@
         var headerItem = current && current.closest
             ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab, .headerTabs .emby-tab-button') : null;
         var categories = runtimeHomeVisible(settingsRoot.querySelectorAll('.jellyquestSettingsCategory'));
+        var backButton = settingsRoot.querySelector('.jellyquestSettingsBack');
         var controls = runtimeHomeVisible(settingsRoot.querySelectorAll('.jellyquestSettingsControl:not(.is-readonly)'));
         var footerButtons = runtimeHomeVisible(settingsRoot.querySelectorAll('.jellyquestSettingsFooter button:not([disabled])'));
         var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab, .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)'));
         var target = null;
         var remembered = current && current._jellyquestRuntimeReturn && current._jellyquestRuntimeReturn[keyCode];
         if (remembered && document.body.contains(remembered) && runtimeHomeVisible([remembered]).length) target = remembered;
-        if (!target && category) {
+        if (!target && back) {
+            if (keyCode === 37) target = libraryRail
+                ? runtimeHomeNearest(back, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
+            if (keyCode === 38) target = runtimeHomeNearest(back, headers.slice(), 'x');
+            if (keyCode === 39 || keyCode === 40) target = categories[0];
+        } else if (!target && category) {
             var categoryIndex = categories.indexOf(category);
-            if (keyCode === 38) target = categoryIndex > 0 ? categories[categoryIndex - 1] : runtimeHomeNearest(category, headers.slice(), 'x');
+            if (keyCode === 38) target = categoryIndex > 0 ? categories[categoryIndex - 1] : backButton;
             if (keyCode === 40) target = categoryIndex < categories.length - 1 ? categories[categoryIndex + 1] : footerButtons[0];
             if (keyCode === 37) target = libraryRail ? runtimeHomeNearest(category, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
             if (keyCode === 39) target = controls[0] || footerButtons[0];
@@ -876,9 +940,9 @@
             if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
             if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
             if (keyCode === 40) target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
-            if (!target && keyCode === 40) target = categories[0];
+            if (!target && keyCode === 40) target = backButton || categories[0];
         } else if (!target && railItem && keyCode === 39) {
-            target = settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected') || categories[0];
+            target = backButton || settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected') || categories[0];
         }
         if (target) {
             focusRuntimeHomeTarget(target, keyCode === 38 ? 40
@@ -991,6 +1055,10 @@
     function createRuntimeLibraryRoot(descriptor) {
         var root = document.createElement('main');
         var toolbar = document.createElement('div');
+        var headingGroup = document.createElement('div');
+        var back = createRuntimeBackButton('jqLibraryBack', 'Back to Home', function () {
+            window.location.hash = '#/home';
+        });
         var heading = document.createElement('h1');
         var count = document.createElement('span');
         var controls = document.createElement('div');
@@ -1001,7 +1069,7 @@
         var grid = document.createElement('div');
         var status = document.createElement('div');
 
-        root.className = 'jellyquestRuntimeLibraryRoot jqMediaWorkspace';
+        root.className = 'jellyquestRuntimeLibraryRoot jqRuntimeGridRoot jqMediaWorkspace';
         root.setAttribute('data-library-signature', descriptor.signature);
         toolbar.className = 'jqLibraryToolbar';
         heading.className = 'jqLibraryTitle';
@@ -1009,6 +1077,9 @@
         count.className = 'jqLibraryCount';
         count.textContent = 'Loading…';
         heading.appendChild(count);
+        headingGroup.className = 'jqLibraryHeadingGroup';
+        headingGroup.appendChild(back);
+        headingGroup.appendChild(heading);
         controls.className = 'jqLibraryControls';
         all.type = unwatched.type = genres.type = sort.type = 'button';
         all.className = 'jqFilter jqLibraryAll active';
@@ -1023,7 +1094,7 @@
         controls.appendChild(unwatched);
         controls.appendChild(genres);
         controls.appendChild(sort);
-        toolbar.appendChild(heading);
+        toolbar.appendChild(headingGroup);
         toolbar.appendChild(controls);
         grid.className = 'jqMovieGrid';
         status.className = 'jellyquestRuntimeLibraryStatus';
@@ -1226,14 +1297,304 @@
         }
     }
 
-    function detailBackdropUrl(apiClient, item) {
-        if (!item.BackdropImageTags || !item.BackdropImageTags.length || typeof apiClient.getImageUrl !== 'function') return '';
-        return apiClient.getImageUrl(item.Id, {
-            type: 'Backdrop',
-            tag: item.BackdropImageTags[0],
+    function createRuntimeSearchCard(apiClient, item, categoryKey) {
+        var descriptor = { itemType: item.Type === 'Series' ? 'Series' : 'Movie' };
+        var card = createRuntimeLibraryCard(apiClient, item, descriptor);
+        card.classList.remove('jellyquestRuntimeLibraryCard');
+        card.classList.add('jellyquestRuntimeSearchCard');
+        card.setAttribute('data-search-category', categoryKey);
+        return card;
+    }
+
+    function runtimeSearchIncludeTypes(icon) {
+        return {
+            books: 'Book',
+            livetv: 'Program',
+            movies: 'Movie',
+            music: 'Audio,MusicAlbum,MusicArtist',
+            musicvideos: 'MusicVideo',
+            photos: 'Photo',
+            shows: 'Series',
+            sports: 'Movie,Video',
+            trailers: 'Trailer',
+            videos: 'Movie,Video'
+        }[icon] || 'Movie,Series,Video';
+    }
+
+    function runtimeSearchDefinitions() {
+        var definitions = Array.prototype.map.call(document.querySelectorAll('.jellyquestRailLibrary'), function (item) {
+            var parentId = item.getAttribute('data-itemid') || '';
+            var label = item.getAttribute('aria-label') || 'Media';
+            var icon = item.getAttribute('data-library-icon') || 'folder';
+            return {
+                icon: icon,
+                includeTypes: runtimeSearchIncludeTypes(icon),
+                key: parentId || label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                label: label,
+                parentId: parentId
+            };
+        });
+        if (definitions.length) return definitions;
+        return [
+            { icon: 'movies', includeTypes: 'Movie', key: 'movies', label: 'Movies', parentId: '' },
+            { icon: 'shows', includeTypes: 'Series', key: 'shows', label: 'Shows', parentId: '' },
+            { icon: 'videos', includeTypes: 'Video', key: 'videos', label: 'Videos', parentId: '' }
+        ];
+    }
+
+    function runtimeSearchQuery(category, startIndex) {
+        var query = {
+            Recursive: true,
+            SearchTerm: runtimeSearchState.term,
+            IncludeItemTypes: category.includeTypes,
+            Fields: 'PrimaryImageAspectRatio,Overview,MediaSourceCount',
+            ImageTypeLimit: 1,
+            EnableImageTypes: 'Primary',
+            EnableTotalRecordCount: true,
+            StartIndex: startIndex,
+            Limit: runtimeSearchState.pageSize,
+            SortBy: 'SearchScore',
+            SortOrder: 'Descending'
+        };
+        if (category.parentId) query.ParentId = category.parentId;
+        return query;
+    }
+
+    function updateRuntimeSearchStatus(root) {
+        runtimeSearchState.total = runtimeSearchState.categories.reduce(function (total, category) {
+            return total + category.total;
+        }, 0);
+        root.querySelector('.jqLibraryCount').textContent = runtimeSearchState.total
+            ? runtimeSearchState.total + ' results' : '';
+        var status = root.querySelector('.jellyquestRuntimeSearchStatus');
+        if (!runtimeSearchState.total) {
+            status.textContent = 'No library results match “' + runtimeSearchState.term + '”.';
+            status.hidden = false;
+        } else {
+            status.hidden = true;
+        }
+    }
+
+    function renderRuntimeSearchCategories(root, apiClient) {
+        var results = root.querySelector('.jellyquestRuntimeSearchResults');
+        results.innerHTML = '';
+        runtimeSearchState.categories.forEach(function (category) {
+            if (!category.items.length) return;
+            var section = document.createElement('section');
+            var heading = document.createElement('div');
+            var title = document.createElement('h2');
+            var count = document.createElement('span');
+            var row = document.createElement('div');
+            section.className = 'jqSearchSection';
+            section.setAttribute('data-search-category', category.key);
+            heading.className = 'jqSearchSectionHeading';
+            title.textContent = category.label;
+            count.className = 'jqSearchSectionCount';
+            count.textContent = category.total + (category.total === 1 ? ' result' : ' results');
+            row.className = 'jqSearchRow';
+            category.items.forEach(function (item) {
+                row.appendChild(createRuntimeSearchCard(apiClient, item, category.key));
+            });
+            heading.appendChild(title);
+            heading.appendChild(count);
+            section.appendChild(heading);
+            section.appendChild(row);
+            results.appendChild(section);
+        });
+        updateRuntimeSearchStatus(root);
+    }
+
+    function loadRuntimeSearch(reset) {
+        var root = document.querySelector('.jellyquestRuntimeSearchRoot');
+        var apiClient = window.ApiClient;
+        var input = root && root.querySelector('.jellyquestRuntimeSearchInput');
+        var term = input ? input.value.trim() : '';
+        if (!root || !apiClient || (!reset && runtimeSearchState.loading) || !isSearchRoute()
+                || typeof apiClient.getCurrentUser !== 'function' || typeof apiClient.getItems !== 'function') return;
+        if (reset || term !== runtimeSearchState.term) {
+            runtimeSearchState.term = term;
+            runtimeSearchState.total = 0;
+            runtimeSearchState.categories = [];
+            runtimeSearchState.requestId += 1;
+            root.querySelector('.jellyquestRuntimeSearchResults').innerHTML = '';
+            root.scrollTop = 0;
+        }
+        var status = root.querySelector('.jellyquestRuntimeSearchStatus');
+        if (!term) {
+            root.querySelector('.jqLibraryCount').textContent = '';
+            status.textContent = 'Enter a title, team, or keyword.';
+            status.hidden = false;
+            return;
+        }
+        runtimeSearchState.loading = true;
+        var requestId = runtimeSearchState.requestId;
+        status.textContent = 'Searching…';
+        status.hidden = false;
+        apiClient.getCurrentUser(false).then(function (user) {
+            runtimeSearchState.userId = user.Id;
+            var definitions = runtimeSearchDefinitions();
+            return Promise.all(definitions.map(function (definition) {
+                return apiClient.getItems(user.Id, runtimeSearchQuery(definition, 0)).then(function (result) {
+                    return Object.assign({}, definition, {
+                        items: resultItems(result),
+                        loading: false,
+                        total: result && typeof result.TotalRecordCount === 'number'
+                            ? result.TotalRecordCount : resultItems(result).length
+                    });
+                }).catch(function (error) {
+                    console.error('[JellyQuest] Unable to search ' + definition.label + ':', error);
+                    return Object.assign({}, definition, { items: [], loading: false, total: 0 });
+                });
+            }));
+        }).then(function (categories) {
+            if (requestId === runtimeSearchState.requestId && isSearchRoute() && document.body.contains(root)) {
+                runtimeSearchState.categories = categories;
+                renderRuntimeSearchCategories(root, apiClient);
+            }
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to search:', error);
+            status.textContent = 'Search is unavailable right now.';
+            status.hidden = false;
+        }).then(function () {
+            if (requestId === runtimeSearchState.requestId) runtimeSearchState.loading = false;
+        });
+    }
+
+    function loadRuntimeSearchCategory(categoryKey) {
+        var root = document.querySelector('.jellyquestRuntimeSearchRoot');
+        var apiClient = window.ApiClient;
+        var category = runtimeSearchState.categories.filter(function (entry) { return entry.key === categoryKey; })[0];
+        if (!root || !apiClient || !category || category.loading || category.items.length >= category.total) return;
+        category.loading = true;
+        var requestId = runtimeSearchState.requestId;
+        apiClient.getItems(runtimeSearchState.userId, runtimeSearchQuery(category, category.items.length)).then(function (result) {
+            if (requestId !== runtimeSearchState.requestId || !isSearchRoute()) return;
+            var incoming = resultItems(result);
+            category.items = category.items.concat(incoming);
+            category.total = result && typeof result.TotalRecordCount === 'number' ? result.TotalRecordCount : category.items.length;
+            var section = root.querySelector('.jqSearchSection[data-search-category="' + category.key + '"]');
+            var row = section && section.querySelector('.jqSearchRow');
+            incoming.forEach(function (item) { row.appendChild(createRuntimeSearchCard(apiClient, item, category.key)); });
+            section.querySelector('.jqSearchSectionCount').textContent = category.total
+                + (category.total === 1 ? ' result' : ' results');
+            updateRuntimeSearchStatus(root);
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to load more ' + category.label + ' results:', error);
+        }).then(function () {
+            category.loading = false;
+        });
+    }
+
+    function createRuntimeSearchRoot() {
+        var root = document.createElement('main');
+        root.className = 'jellyquestRuntimeSearchRoot jqRuntimeGridRoot jqMediaWorkspace';
+        root.innerHTML = '<div class="jqLibraryToolbar jqSearchToolbar">'
+            + '<div class="jqLibraryHeadingGroup"><button class="jqPageBack jqSearchBack" type="button" '
+            + 'aria-label="Back to previous page"><span aria-hidden="true">&#x2039;</span> Back</button>'
+            + '<h1 class="jqLibraryTitle">Search <span class="jqLibraryCount"></span></h1></div>'
+            + '<label class="jqSearchField"><span class="jellyquestRailIcon">' + railIcon('search') + '</span>'
+            + '<input class="jellyquestRuntimeSearchInput" type="search" inputmode="search" '
+            + 'autocomplete="off" spellcheck="false" aria-label="Search media libraries" '
+            + 'placeholder="Movies, shows, teams…"></label></div>'
+            + '<div class="jellyquestRuntimeSearchResults"></div>'
+            + '<div class="jellyquestRuntimeLibraryStatus jellyquestRuntimeSearchStatus">Enter a title, team, or keyword.</div>';
+        var input = root.querySelector('.jellyquestRuntimeSearchInput');
+        root.querySelector('.jqSearchBack').addEventListener('click', returnFromRuntimeSearch);
+        input.addEventListener('input', function () {
+            window.clearTimeout(runtimeSearchTimer);
+            runtimeSearchTimer = window.setTimeout(function () { loadRuntimeSearch(true); }, 250);
+        });
+        input.addEventListener('keydown', function (event) {
+            if (event.keyCode === 13) {
+                window.clearTimeout(runtimeSearchTimer);
+                loadRuntimeSearch(true);
+            }
+        });
+        return root;
+    }
+
+    function removeRuntimeSearch() {
+        if (isSearchRoute()) return;
+        document.body.classList.remove('jellyquestRuntimeSearchActive');
+        var root = document.querySelector('.jellyquestRuntimeSearchRoot');
+        if (root) root.parentNode.removeChild(root);
+        window.clearTimeout(runtimeSearchTimer);
+        runtimeSearchState.loading = false;
+        runtimeSearchState.requestId += 1;
+        runtimeSearchState.term = '';
+        runtimeSearchState.total = 0;
+        runtimeSearchState.categories = [];
+        runtimeSearchState.userId = '';
+        runtimeSearchLastCard = null;
+    }
+
+    function ensureRuntimeSearch() {
+        if (isStaticPreview || !isSearchRoute()) {
+            removeRuntimeSearch();
+            return;
+        }
+        var root = document.querySelector('.jellyquestRuntimeSearchRoot');
+        ensureRuntimeGlobalTabs();
+        if (!root) {
+            root = createRuntimeSearchRoot();
+            document.body.appendChild(root);
+            window.setTimeout(function () {
+                var input = root.querySelector('.jellyquestRuntimeSearchInput');
+                if (document.body.contains(input)) input.focus();
+            }, 0);
+        }
+        document.body.classList.add('jellyquestRuntimeSearchActive');
+        hideRuntimeLoading();
+    }
+
+    function detailImageUrl(apiClient, itemId, imageType, tag) {
+        if (!itemId || !tag || typeof apiClient.getImageUrl !== 'function') return '';
+        return apiClient.getImageUrl(itemId, {
+            type: imageType,
+            tag: tag,
             width: 1920,
             quality: 90
         });
+    }
+
+    function itemBackdropUrl(apiClient, item) {
+        return item && item.BackdropImageTags && item.BackdropImageTags.length
+            ? detailImageUrl(apiClient, item.Id, 'Backdrop', item.BackdropImageTags[0]) : '';
+    }
+
+    function itemPrimaryUrl(apiClient, item) {
+        return item && item.ImageTags && item.ImageTags.Primary
+            ? detailImageUrl(apiClient, item.Id, 'Primary', item.ImageTags.Primary) : '';
+    }
+
+    function detailBackdropUrl(apiClient, item, model) {
+        var parentSeries = model && model.parentSeries;
+        var ancestors = model && model.ancestors || [];
+        var parentBackdrop = item && item.ParentBackdropImageTags && item.ParentBackdropImageTags.length
+            ? detailImageUrl(apiClient, item.ParentBackdropItemId || item.SeriesId,
+                'Backdrop', item.ParentBackdropImageTags[0]) : '';
+        var ancestorBackdrop = '';
+        var ancestorPrimary = '';
+        ancestors.some(function (ancestor) {
+            ancestorBackdrop = itemBackdropUrl(apiClient, ancestor);
+            return Boolean(ancestorBackdrop);
+        });
+        ancestors.some(function (ancestor) {
+            ancestorPrimary = itemPrimaryUrl(apiClient, ancestor);
+            return Boolean(ancestorPrimary);
+        });
+        if (item && item.Type === 'Episode') {
+            return parentBackdrop || itemBackdropUrl(apiClient, parentSeries)
+                || ancestorBackdrop || itemBackdropUrl(apiClient, item)
+                || itemPrimaryUrl(apiClient, parentSeries) || itemPrimaryUrl(apiClient, item);
+        }
+        if (model && model.sports) {
+            return itemBackdropUrl(apiClient, item) || ancestorBackdrop
+                || itemPrimaryUrl(apiClient, item) || ancestorPrimary;
+        }
+        return itemBackdropUrl(apiClient, item)
+            || (item && item.Type === 'Movie' && item.PrimaryImageAspectRatio >= 1.5
+                ? itemPrimaryUrl(apiClient, item) : '');
     }
 
     function runtimeDetailQuality(item) {
@@ -1267,20 +1628,7 @@
     }
 
     function nativeDetailActionDefinitions(item) {
-        if (item.Type === 'Series') {
-            return [
-                ['.jellyquestResumeEpisodeAction', 'Resume'],
-                ['.jellyquestRestartEpisodeAction', 'Restart Episode'],
-                ['.jellyquestContinueEpisodeAction', 'Continue'],
-                ['.btnPlayTrailer', 'Trailer'],
-                ['.jellyquestHighlightsAction', 'Highlights'],
-                ['.btnUserRating', 'Add to My List'],
-                ['.btnMoreCommands', 'More']
-            ];
-        }
         return [
-            ['.btnPlay', 'Play'],
-            ['.btnReplay', 'Start Over'],
             ['.btnPlayTrailer', 'Trailer'],
             ['.jellyquestHighlightsAction', 'Highlights'],
             ['.btnUserRating', 'Add to My List'],
@@ -1299,20 +1647,69 @@
             || (button.textContent || '').replace(/\s+/g, ' ').trim() || fallback;
     }
 
+    function runtimePlaybackActionDefinitions(item) {
+        var state = detailActionState;
+        if (item.Type === 'Series') {
+            if (!state || state.id !== item.Id) return [];
+            var seriesActions = [];
+            if (state.resumePlaybackItem && state.resumeEpisode && state.resumeEpisode.UserData
+                    && state.resumeEpisode.UserData.PlaybackPositionTicks > 0) {
+                seriesActions.push({
+                    key: 'series-resume',
+                    label: episodeLabel('Resume', state.resumeEpisode),
+                    item: state.resumePlaybackItem,
+                    ticks: state.resumeEpisode.UserData.PlaybackPositionTicks
+                });
+                seriesActions.push({
+                    key: 'series-restart',
+                    label: 'Restart Episode',
+                    item: state.resumePlaybackItem,
+                    ticks: 0,
+                    restart: true
+                });
+            }
+            if (state.nextPlaybackItem && state.nextEpisode) {
+                seriesActions.push({
+                    key: 'series-continue',
+                    label: episodeLabel('Continue', state.nextEpisode),
+                    item: state.nextPlaybackItem,
+                    ticks: 0
+                });
+            }
+            return seriesActions;
+        }
+        var ticks = item.UserData && item.UserData.PlaybackPositionTicks || 0;
+        var actions = [{
+            key: 'item-playback',
+            label: ticks > 0 ? 'Resume' : 'Play',
+            item: item,
+            ticks: ticks
+        }];
+        if (ticks > 0) actions.push({
+            key: 'item-restart',
+            label: 'Start Over',
+            item: item,
+            ticks: 0,
+            restart: true
+        });
+        return actions;
+    }
+
     function syncRuntimeDetailActions() {
         var root = document.querySelector('.jellyquestRuntimeDetailRoot');
         var item = runtimeDetailState.item;
         if (!root || !item) return;
-        var definitions = nativeDetailActionDefinitions(item).map(function (definition) {
+        var definitions = runtimePlaybackActionDefinitions(item).concat(nativeDetailActionDefinitions(item).map(function (definition) {
             var nativeButton = visibleNativeDetailAction(definition[0]);
             return nativeButton ? {
                 fallback: definition[1],
                 label: nativeDetailActionLabel(nativeButton, definition[1]),
                 selector: definition[0]
             } : null;
-        }).filter(Boolean);
+        }).filter(Boolean));
         var signature = definitions.map(function (definition) {
-            return definition.selector + ':' + definition.label;
+            return (definition.key || definition.selector) + ':' + definition.label + ':'
+                + (definition.item ? definition.item.Id + ':' + definition.ticks : '');
         }).join('|');
         var actions = root.querySelector('.jqActions');
         if (actions.getAttribute('data-action-signature') === signature) return;
@@ -1325,12 +1722,20 @@
             button.type = 'button';
             button.className = 'jqAction jellyquestRuntimeDetailAction';
             if (index === 0) button.classList.add('primary');
-            button.setAttribute('data-native-selector', definition.selector);
-            button.textContent = definition.selector === '.btnPlay' || /Resume|Continue/.test(definition.label)
+            if (definition.selector) button.setAttribute('data-native-selector', definition.selector);
+            if (definition.item) {
+                button.setAttribute('data-playback-id', definition.item.Id);
+                button.setAttribute('data-positionticks', String(definition.ticks || 0));
+            }
+            button.textContent = definition.item && !definition.restart
                 ? '▶ ' + definition.label
-                : definition.selector === '.btnReplay' || definition.selector === '.jellyquestRestartEpisodeAction'
+                : definition.restart
                     ? '↺ ' + definition.label : definition.label;
             button.addEventListener('click', function () {
+                if (definition.item) {
+                    playRuntimeDetailItem(definition.item, definition.ticks);
+                    return;
+                }
                 var nativeButton = visibleNativeDetailAction(definition.selector);
                 if (nativeButton) nativeButton.click();
                 if (definition.selector === '.btnUserRating') {
@@ -1387,16 +1792,37 @@
         return card;
     }
 
-    function playRuntimeDetailChapter(item, ticks) {
+    function applyCurrentPlaybackPreferences(button, item) {
+        var state = detailActionState;
+        if (!button || !state || state.id !== detailItemId()) return;
+        if (state.item.Type === 'Series') {
+            applySeriesPlaybackPreferences(button, item, state);
+            return;
+        }
+        var model = playbackOptionsModel(state);
+        if (!model || !model.source) return;
+        button.setAttribute('data-mediasourceid', model.source.Id || '');
+        var audio = selectedNativeOption(nativePlaybackSelect('.selectAudio'));
+        var subtitle = selectedNativeOption(nativePlaybackSelect('.selectSubtitles'));
+        if (audio && audio.value !== '') button.setAttribute('data-audiostreamindex', audio.value);
+        if (subtitle && subtitle.value !== '') button.setAttribute('data-subtitlestreamindex', subtitle.value);
+    }
+
+    function playRuntimeDetailItem(item, ticks) {
         var actions = document.querySelector('.itemDetailPage .mainDetailButtons');
         if (!actions) return;
-        var nativeButton = createPlaybackAction('jellyquestRuntimeChapterAction', 'Play chapter', item, ticks);
+        var nativeButton = createPlaybackAction('jellyquestRuntimeBoundPlaybackAction', 'Play', item, ticks);
+        applyCurrentPlaybackPreferences(nativeButton, item);
         nativeButton.hidden = true;
         actions.appendChild(nativeButton);
         nativeButton.click();
         window.setTimeout(function () {
             if (nativeButton.parentNode) nativeButton.parentNode.removeChild(nativeButton);
         }, 1000);
+    }
+
+    function playRuntimeDetailChapter(item, ticks) {
+        playRuntimeDetailItem(item, ticks);
     }
 
     function renderRuntimeDetailLower(root, apiClient, item, model) {
@@ -1407,7 +1833,7 @@
             lower.innerHTML = '<div class="jqSectionHeading"><h2>Game Chapters</h2><span>Jump without scrubbing</span></div>';
             var chapterRow = document.createElement('div');
             chapterRow.className = 'jqChapterRow';
-            item.Chapters.slice(0, 10).forEach(function (chapter, index) {
+            item.Chapters.forEach(function (chapter, index) {
                 var button = document.createElement('button');
                 var image = document.createElement('span');
                 var name = document.createElement('span');
@@ -1450,7 +1876,7 @@
             heading.appendChild(title);
             heading.appendChild(season);
             row.className = 'jqEpisodeRow';
-            (model.episodes || []).slice(0, 20).forEach(function (episode) {
+            (model.episodes || []).forEach(function (episode) {
                 row.appendChild(createRuntimeDetailLink(apiClient, episode, 'jqEpisodeCard'));
             });
             lower.appendChild(heading);
@@ -1468,9 +1894,24 @@
         lower.hidden = !similarRow.children.length;
     }
 
+    function returnFromRuntimeDetail() {
+        var item = runtimeDetailState.item;
+        if (item && item.Type === 'Episode' && item.SeriesId) {
+            window.location.hash = '#/details?id=' + encodeURIComponent(item.SeriesId)
+                + (item.ServerId ? '&serverId=' + encodeURIComponent(item.ServerId) : '');
+            return;
+        }
+        if (runtimeDetailOrigin && runtimeDetailOrigin.hash) {
+            window.location.hash = runtimeDetailOrigin.hash;
+        } else {
+            window.history.back();
+        }
+    }
+
     function createRuntimeDetailRoot(apiClient, item, model) {
         var root = document.createElement('main');
         var hero = document.createElement('section');
+        var back = document.createElement('button');
         var copy = document.createElement('div');
         var eyebrow = document.createElement('div');
         var title = document.createElement('h1');
@@ -1478,12 +1919,18 @@
         var overview = document.createElement('p');
         var actions = document.createElement('div');
         var lower = document.createElement('section');
-        var backdrop = detailBackdropUrl(apiClient, item);
+        var backdrop = detailBackdropUrl(apiClient, item, model);
         root.className = 'jellyquestRuntimeDetailRoot jqDetailWorkspace';
         if (item.Type === 'Series') root.classList.add('jqShowDetailWorkspace');
         if (model.sports) root.classList.add('jqSportsDetailWorkspace');
         root.setAttribute('data-itemid', item.Id);
-        hero.className = 'jqDetailHero' + (item.Type === 'Series' ? ' jqShowHero' : '') + (model.sports ? ' jqSportsHero' : '');
+        hero.className = 'jqDetailHero' + (item.Type === 'Series' || item.Type === 'Episode' ? ' jqShowHero' : '') + (model.sports ? ' jqSportsHero' : '');
+        back.type = 'button';
+        back.className = 'jqDetailBack';
+        back.innerHTML = '<span aria-hidden="true">&#x2039;</span> Back';
+        back.setAttribute('aria-label', 'Back to ' + (item.Type === 'Episode' && item.SeriesName
+            ? item.SeriesName : (model.originTitle || 'previous page')));
+        back.addEventListener('click', returnFromRuntimeDetail);
         if (backdrop) hero.style.backgroundImage = 'linear-gradient(90deg, #101318 7%, rgba(16,19,24,.95) 43%, rgba(16,19,24,.32) 76%, #101318), url("' + backdrop.replace(/"/g, '%22') + '")';
         copy.className = 'jqDetailCopy';
         eyebrow.className = 'jqDetailEyebrow';
@@ -1514,6 +1961,7 @@
             spoiler.textContent = '◉ Scores and outcome hidden';
             copy.appendChild(spoiler);
         }
+        hero.appendChild(back);
         hero.appendChild(copy);
         lower.className = 'jellyquestRuntimeDetailLower';
         root.appendChild(hero);
@@ -1531,8 +1979,7 @@
             SeasonId: seasonId,
             Fields: 'PrimaryImageAspectRatio,Overview',
             IsMissing: false,
-            IsVirtualUnaired: false,
-            Limit: 100
+            IsVirtualUnaired: false
         }).then(function (result) {
             if (runtimeDetailState.id !== state.id) return;
             state.model.selectedSeason = season;
@@ -1541,6 +1988,23 @@
             if (root) renderRuntimeDetailLower(root, window.ApiClient, state.item, state.model);
         }).catch(function (error) {
             console.error('[JellyQuest] Unable to load episodes:', error);
+        });
+    }
+
+    function loadRuntimeDetailSimilar() {
+        var state = runtimeDetailState;
+        if (!state.item || state.model.sports || typeof window.ApiClient.getSimilarItems !== 'function') return;
+        window.ApiClient.getSimilarItems(state.item.Id, {
+            UserId: state.user.Id,
+            Limit: 5,
+            Fields: 'PrimaryImageAspectRatio,Overview'
+        }).then(function (result) {
+            if (runtimeDetailState.id !== state.id) return;
+            state.model.similar = resultItems(result);
+            var root = document.querySelector('.jellyquestRuntimeDetailRoot');
+            if (root) renderRuntimeDetailLower(root, window.ApiClient, state.item, state.model);
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to load similar titles:', error);
         });
     }
 
@@ -1553,6 +2017,7 @@
         runtimeDetailState.user = user;
         runtimeDetailState.model = model;
         document.body.classList.add('jellyquestRuntimeDetailActive');
+        hideRuntimeLoading();
         ensureRuntimeGlobalTabs();
         syncRuntimeDetailActions();
     }
@@ -1573,6 +2038,14 @@
             ]).then(function (results) {
                 var item = results[0];
                 var ancestors = results[1] || [];
+                var ancestorSeries = ancestors.filter(function (value) { return value.Type === 'Series'; })[0] || null;
+                var hasParentArtwork = item.ParentBackdropImageTags && item.ParentBackdropImageTags.length;
+                var hasAncestorArtwork = ancestorSeries && ((ancestorSeries.BackdropImageTags
+                    && ancestorSeries.BackdropImageTags.length) || (ancestorSeries.ImageTags && ancestorSeries.ImageTags.Primary));
+                var parentSeriesPromise = item.Type === 'Episode' && item.SeriesId && !hasParentArtwork && !hasAncestorArtwork
+                    ? apiClient.getItem(user.Id, item.SeriesId).catch(function () { return ancestorSeries; })
+                    : Promise.resolve(ancestorSeries);
+                return parentSeriesPromise.then(function (parentSeries) {
                 var originTitle = runtimeDetailOrigin && runtimeDetailOrigin.title;
                 if (!originTitle) {
                     var folder = ancestors.filter(function (value) { return value.Type === 'CollectionFolder'; })[0];
@@ -1590,46 +2063,38 @@
                         var next = resultItems(seriesResults[1])[0];
                         var selected = seasons.filter(function (season) { return next && season.Id === next.SeasonId; })[0]
                             || seasons.filter(function (season) { return season.IndexNumber > 0; })[0] || seasons[0];
-                        var episodes = selected && typeof apiClient.getEpisodes === 'function'
-                            ? apiClient.getEpisodes(item.Id, {
-                                UserId: user.Id,
-                                SeasonId: selected.Id,
-                                Fields: 'PrimaryImageAspectRatio,Overview',
-                                IsMissing: false,
-                                IsVirtualUnaired: false,
-                                Limit: 100
-                            }) : Promise.resolve({ Items: [] });
-                        return episodes.then(function (episodeResult) {
-                            return { user: user, item: item, model: {
-                                episodes: resultItems(episodeResult),
-                                originTitle: originTitle,
-                                seasons: seasons,
-                                selectedSeason: selected,
-                                sports: sports
-                            } };
-                        });
+                        return { user: user, item: item, model: {
+                            ancestors: ancestors,
+                            episodes: [],
+                            originTitle: originTitle,
+                            parentSeries: parentSeries,
+                            seasons: seasons,
+                            selectedSeason: selected,
+                            sports: sports
+                        } };
                     });
                 }
-                var similar = !sports && typeof apiClient.getSimilarItems === 'function'
-                    ? apiClient.getSimilarItems(item.Id, {
-                        UserId: user.Id,
-                        Limit: 5,
-                        Fields: 'PrimaryImageAspectRatio,Overview'
-                    }) : Promise.resolve({ Items: [] });
-                return similar.then(function (similarResult) {
-                    return { user: user, item: item, model: {
-                        originTitle: originTitle,
-                        similar: resultItems(similarResult),
-                        sports: sports
-                    } };
+                return { user: user, item: item, model: {
+                    ancestors: ancestors,
+                    originTitle: originTitle,
+                    parentSeries: parentSeries,
+                    similar: [],
+                    sports: sports
+                } };
                 });
             });
         }).then(function (result) {
             if (requestId === runtimeDetailState.requestId && isDetailRoute() && detailItemId() === id) {
                 renderRuntimeDetail(apiClient, result.user, result.item, result.model);
+                if (result.item.Type === 'Series' && result.model.selectedSeason) {
+                    loadRuntimeDetailEpisodes(result.model.selectedSeason.Id);
+                } else if (!result.model.sports) {
+                    loadRuntimeDetailSimilar();
+                }
             }
         }).catch(function (error) {
             console.error('[JellyQuest] Unable to load detail:', error);
+            hideRuntimeLoading();
         }).then(function () {
             if (requestId === runtimeDetailState.requestId) runtimeDetailState.loading = false;
         });
@@ -1638,6 +2103,7 @@
     function removeRuntimeDetail() {
         if (isDetailRoute()) return;
         document.body.classList.remove('jellyquestRuntimeDetailActive');
+        if (!isHomeRoute()) hideRuntimeLoading();
         var root = document.querySelector('.jellyquestRuntimeDetailRoot');
         if (root) root.parentNode.removeChild(root);
         runtimeDetailState.id = '';
@@ -1671,6 +2137,7 @@
             runtimeDetailState.loading = false;
             runtimeDetailState.requestId += 1;
         }
+        showRuntimeLoading('Loading details…');
         loadRuntimeDetail();
     }
 
@@ -1837,8 +2304,7 @@
                 Fields: 'PrimaryImageAspectRatio',
                 CollapseBoxSetItems: false,
                 ExcludeLocationTypes: 'Virtual',
-                EnableTotalRecordCount: false,
-                Limit: 20
+                EnableTotalRecordCount: false
             }).then(function (result) {
                 return { user: user, items: result && result.Items ? result.Items : [] };
             });
@@ -1911,6 +2377,16 @@
         var season = episode.ParentIndexNumber == null ? '' : ' S' + episode.ParentIndexNumber;
         var number = episode.IndexNumber == null ? '' : ' E' + episode.IndexNumber;
         return prefix + season + number;
+    }
+
+    function seriesResumeEpisode(episodes) {
+        return (episodes || []).filter(function (episode) {
+            return episode.UserData && episode.UserData.PlaybackPositionTicks > 0;
+        }).sort(function (left, right) {
+            var leftDate = Date.parse(left.UserData.LastPlayedDate || '') || 0;
+            var rightDate = Date.parse(right.UserData.LastPlayedDate || '') || 0;
+            return rightDate - leftDate;
+        })[0] || null;
     }
 
     function createPlaybackAction(className, label, item, positionTicks) {
@@ -2362,33 +2838,22 @@
                         Fields: 'MediaSourceCount'
                     })
                     : Promise.resolve({ Items: [] });
-                var resumable = item.Type === 'Series' && typeof window.ApiClient.getItems === 'function'
-                    ? window.ApiClient.getItems(user.Id, {
-                        SeriesIds: item.Id,
-                        IncludeItemTypes: 'Episode',
-                        Filters: 'IsResumable',
-                        Recursive: true,
-                        SortBy: 'DatePlayed',
-                        SortOrder: 'Descending',
-                        Fields: 'MediaSourceCount',
-                        Limit: 1
-                    })
-                    : Promise.resolve({ Items: [] });
                 var episodes = item.Type === 'Series' && typeof window.ApiClient.getEpisodes === 'function'
                     ? window.ApiClient.getEpisodes(item.Id, {
                         IsVirtualUnaired: false,
                         IsMissing: false,
                         UserId: user.Id,
                         Fields: 'MediaSourceCount',
-                        limit: 100
+                        SortBy: 'ParentIndexNumber,IndexNumber',
+                        SortOrder: 'Ascending'
                     })
                     : Promise.resolve({ Items: [] });
                 var features = item.SpecialFeatureCount && typeof window.ApiClient.getSpecialFeatures === 'function'
                     ? window.ApiClient.getSpecialFeatures(user.Id, item.Id)
                     : Promise.resolve([]);
-                return Promise.all([nextUp, resumable, episodes, features]).then(function (results) {
-                    var resumeEpisode = results[1] && results[1].Items ? results[1].Items[0] : null;
-                    var allEpisodes = results[2] && results[2].Items ? results[2].Items : [];
+                return Promise.all([nextUp, episodes, features]).then(function (results) {
+                    var allEpisodes = results[1] && results[1].Items ? results[1].Items : [];
+                    var resumeEpisode = seriesResumeEpisode(allEpisodes);
                     var nextEpisode = results[0] && results[0].Items ? results[0].Items[0] : null;
                     if (resumeEpisode) {
                         var resumeIndex = allEpisodes.map(function (episode) { return episode.Id; }).indexOf(resumeEpisode.Id);
@@ -2413,7 +2878,7 @@
                         nextPlaybackItem: playbackItems.filter(function (episode) {
                             return nextEpisode && episode.Id === nextEpisode.Id;
                         })[0] || null,
-                        features: results[3] || []
+                        features: results[2] || []
                         };
                         if (item.Type === 'Series') initializeSeriesPlaybackPreferences(detailActionState);
                     });
@@ -2421,6 +2886,7 @@
             });
         }).then(function () {
             applyDetailActions();
+            syncRuntimeDetailActions();
         }).catch(function (error) {
             console.error('[JellyQuest] Unable to enhance detail actions:', error);
         }).then(function () {
@@ -2737,7 +3203,7 @@
         libraryRail.querySelectorAll('.jellyquestRailItem').forEach(function (item) {
             var itemId = item.getAttribute('data-itemid');
             var selected = item.classList.contains('jellyquestRailSearch')
-                ? /^#\/search(?:\?|$)/.test(window.location.hash)
+                ? isSearchRoute()
                 : item.classList.contains('jellyquestRailSettings')
                     ? isSettingsOpen()
                     : itemId && window.location.hash.indexOf(itemId) !== -1;
@@ -2793,6 +3259,7 @@
             var item = createRailItem('a', match.entry.label, match.entry.icon, match.source.getAttribute('href'));
             item.classList.add('jellyquestRailLibrary');
             item.setAttribute('data-itemid', match.source.getAttribute('data-itemid') || '');
+            item.setAttribute('data-library-icon', match.entry.icon);
             match.source.classList.add('jellyquestRailSource');
             libraryRail.insertBefore(item, libraryRail.querySelector('.jellyquestRailSettings'));
         });
@@ -2818,12 +3285,8 @@
             libraryRail.setAttribute('aria-label', 'Media navigation');
             var search = createRailItem('button', 'Search', 'search');
             search.addEventListener('click', function () {
-                var nativeSearch = document.querySelector('.headerSearchButton');
-                if (nativeSearch) {
-                    nativeSearch.click();
-                } else {
-                    window.location.hash = '#/search';
-                }
+                if (!isSearchRoute()) runtimeSearchOriginHash = window.location.hash;
+                window.location.hash = '#/search';
             });
             libraryRail.appendChild(search);
             var settings = createRailItem('button', 'Settings', 'settings');
@@ -2992,21 +3455,37 @@
             }
             return;
         }
+        if (keyCode === 10009 || keyCode === 8 || keyCode === 27) {
+            window.location.hash = '#/home';
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
         if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
         var current = document.activeElement;
+        var back = current && current.closest ? current.closest('.jqLibraryBack') : null;
         var card = current && current.closest ? current.closest('.jellyquestRuntimeLibraryCard') : null;
         var control = current && current.closest ? current.closest('.jellyquestRuntimeLibraryRoot .jqLibraryControls button') : null;
         var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
         var headerItem = current && current.closest
             ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab') : null;
         var root = document.querySelector('.jellyquestRuntimeLibraryRoot');
-        if (!root || (!card && !control && !railItem && !headerItem)) return;
+        if (!root || (!back && !card && !control && !railItem && !headerItem)) return;
+        var backButton = root.querySelector('.jqLibraryBack');
         var cards = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeLibraryCard'));
         var controls = runtimeHomeVisible(root.querySelectorAll('.jqLibraryControls button'));
         var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab'));
         var target = null;
 
-        if (card) {
+        if (back) {
+            if (keyCode === 37) target = libraryRail
+                ? runtimeHomeNearest(back, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
+            if (keyCode === 38) target = runtimeHomeNearest(back, headers.slice(), 'x');
+            if (keyCode === 39) target = controls[0] || cards[0];
+            if (keyCode === 40) target = cards[0];
+            if (target) focusRuntimeHomeTarget(target, keyCode === 38 ? 40
+                : (keyCode === 40 ? 38 : (keyCode === 37 ? 39 : 37)), back);
+        } else if (card) {
             var index = cards.indexOf(card);
             var column = index % 7;
             runtimeLibraryLastCard = card;
@@ -3042,18 +3521,96 @@
                 if (!target || !document.body.contains(target)) {
                     target = headerItem.classList.contains('jellyquestProfileTrigger')
                         ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
-                        : cards[headerIndex === headers.length - 1 ? Math.min(4, cards.length - 1) : 0];
+                        : (headerIndex === 1 ? backButton
+                            : cards[headerIndex === headers.length - 1 ? Math.min(4, cards.length - 1) : 0]);
                 }
             }
             if (target) focusRuntimeHomeTarget(target, keyCode === 40 ? 38 : 0, headerItem);
         } else if (railItem && keyCode === 39) {
             target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
             if (!target || !document.body.contains(target)) target = runtimeLibraryLastCard;
-            if (!target || !document.body.contains(target)) target = cards[0];
+            if (!target || !document.body.contains(target)) target = backButton || cards[0];
             if (target) focusRuntimeHomeTarget(target, 37, railItem);
         }
 
         if (target) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }
+
+    function handleRuntimeSearchKeys(event) {
+        if (isSettingsOpen() || !document.body.classList.contains('jellyquestRuntimeSearchActive')) return;
+        var keyCode = event.keyCode;
+        if (keyCode === 10009 || keyCode === 8 || keyCode === 27) {
+            returnFromRuntimeSearch();
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+        if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
+        var root = document.querySelector('.jellyquestRuntimeSearchRoot');
+        var current = document.activeElement;
+        var back = current && current.closest ? current.closest('.jqSearchBack') : null;
+        var input = current && current.closest ? current.closest('.jellyquestRuntimeSearchInput') : null;
+        var card = current && current.closest ? current.closest('.jellyquestRuntimeSearchCard') : null;
+        var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
+        var headerItem = current && current.closest ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab') : null;
+        if (!root || (!back && !input && !card && !railItem && !headerItem)) return;
+        var backButton = root.querySelector('.jqSearchBack');
+        var cards = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeSearchCard'));
+        var sections = runtimeHomeVisible(root.querySelectorAll('.jqSearchSection'));
+        var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab'));
+        var target = null;
+
+        if (back) {
+            if (keyCode === 37) target = libraryRail
+                ? runtimeHomeNearest(back, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
+            if (keyCode === 38) target = runtimeHomeNearest(back, headers.slice(), 'x');
+            if (keyCode === 39) target = input;
+            if (keyCode === 40) target = cards[0] || input;
+        } else if (input) {
+            if (keyCode === 38) target = runtimeHomeNearest(input, headers.slice(), 'x');
+            if (keyCode === 40) target = input._jellyquestRuntimeReturn && input._jellyquestRuntimeReturn[40];
+            if (keyCode === 40 && (!target || !document.body.contains(target))) target = cards[0];
+            if (keyCode === 37 && input.selectionStart === 0 && input.selectionEnd === 0) {
+                target = backButton || (libraryRail && runtimeHomeNearest(input,
+                    runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y'));
+            }
+        } else if (card) {
+            var row = card.closest('.jqSearchRow');
+            var rowCards = runtimeHomeVisible(row.querySelectorAll('.jellyquestRuntimeSearchCard'));
+            var index = rowCards.indexOf(card);
+            var sectionIndex = sections.indexOf(card.closest('.jqSearchSection'));
+            runtimeSearchLastCard = card;
+            if (keyCode === 37) target = index > 0 ? rowCards[index - 1]
+                : (libraryRail && runtimeHomeNearest(card,
+                    runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y'));
+            if (keyCode === 39 && index + 1 < rowCards.length) target = rowCards[index + 1];
+            if (keyCode === 38) {
+                target = sectionIndex > 0
+                    ? runtimeHomeNearest(card, runtimeHomeVisible(sections[sectionIndex - 1]
+                        .querySelectorAll('.jellyquestRuntimeSearchCard')), 'x') : input;
+            }
+            if (keyCode === 40 && sectionIndex + 1 < sections.length) {
+                target = runtimeHomeNearest(card, runtimeHomeVisible(sections[sectionIndex + 1]
+                    .querySelectorAll('.jellyquestRuntimeSearchCard')), 'x');
+            }
+        } else if (headerItem) {
+            var headerIndex = headers.indexOf(headerItem);
+            if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
+            if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
+            if (keyCode === 40) target = headerItem.classList.contains('jellyquestProfileTrigger')
+                ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
+                : (headerIndex === 1 ? backButton : input);
+        } else if (railItem && keyCode === 39) {
+            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
+            if (!target || !document.body.contains(target)) target = runtimeSearchLastCard;
+            if (!target || !document.body.contains(target)) target = backButton || input;
+        }
+        if (target) {
+            focusRuntimeHomeTarget(target, keyCode === 38 ? 40
+                : (keyCode === 40 ? 38 : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0))), current);
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -3116,22 +3673,20 @@
         if (keyCode === 10009 || keyCode === 8 || keyCode === 27) {
             event.preventDefault();
             event.stopImmediatePropagation();
-            if (runtimeDetailOrigin && runtimeDetailOrigin.hash) {
-                window.location.hash = runtimeDetailOrigin.hash;
-            } else {
-                window.history.back();
-            }
+            returnFromRuntimeDetail();
             return;
         }
         if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
         var root = document.querySelector('.jellyquestRuntimeDetailRoot');
         var current = document.activeElement;
+        var back = current && current.closest ? current.closest('.jqDetailBack') : null;
         var action = current && current.closest ? current.closest('.jellyquestRuntimeDetailAction') : null;
         var content = current && current.closest ? current.closest('.jellyquestRuntimeDetailContent') : null;
         var season = current && current.closest ? current.closest('.jqSeasonSelect') : null;
         var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
         var headerItem = current && current.closest ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab') : null;
-        if (!root || (!action && !content && !season && !railItem && !headerItem)) return;
+        if (!root || (!back && !action && !content && !season && !railItem && !headerItem)) return;
+        var backButton = root.querySelector('.jqDetailBack');
         var actions = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeDetailAction'));
         var lower = runtimeHomeVisible(root.querySelectorAll('.jqSeasonSelect, .jellyquestRuntimeDetailContent'));
         var contents = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeDetailContent'));
@@ -3144,13 +3699,19 @@
             target = remembered;
         }
 
-        if (!target && action) {
+        if (!target && back) {
+            if (keyCode === 37) target = libraryRail
+                ? runtimeHomeNearest(back, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
+            if (keyCode === 38) target = runtimeHomeNearest(back, headers.slice(), 'x');
+            if (keyCode === 39 || keyCode === 40) target = runtimeHomeNearest(back, actions.slice(), 'x');
+        } else if (!target && action) {
             var actionIndex = actions.indexOf(action);
             runtimeDetailLastFocus = action;
             if (keyCode === 37) target = actionIndex > 0 ? actions[actionIndex - 1]
                 : (libraryRail ? runtimeHomeNearest(action, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null);
             if (keyCode === 39 && actionIndex < actions.length - 1) target = actions[actionIndex + 1];
-            if (keyCode === 38) target = headers[actionIndex < Math.ceil(actions.length / 2) ? 1 : 2] || headers[1] || headers[0];
+            if (keyCode === 38) target = backButton
+                || headers[actionIndex < Math.ceil(actions.length / 2) ? 1 : 2] || headers[1] || headers[0];
             if (keyCode === 40) {
                 target = season && actionIndex === actions.length - 1
                     ? season
@@ -3176,12 +3737,12 @@
                 target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
                 if (!target || !document.body.contains(target)) target = headerItem.classList.contains('jellyquestProfileTrigger')
                     ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
-                    : actions[headerIndex === headers.length - 1 ? actions.length - 1 : 0];
+                    : (backButton || actions[headerIndex === headers.length - 1 ? actions.length - 1 : 0]);
             }
         } else if (!target && railItem && keyCode === 39) {
             target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
             if (!target || !document.body.contains(target)) target = runtimeDetailLastFocus;
-            if (!target || !document.body.contains(target)) target = actions[0] || lower[0];
+            if (!target || !document.body.contains(target)) target = backButton || actions[0] || lower[0];
         }
 
         if (target) {
@@ -3254,28 +3815,34 @@
             });
     }
 
-    function start() {
+    function refreshRuntimeUi() {
         enforceHouseholdLogin();
-        loadConfiguration();
         ensureRequestsTab();
         ensureProfileSwitcher();
         ensureLibraryRail();
         ensureRuntimeLibrary();
+        ensureRuntimeSearch();
         ensureMyListRow();
         labelMyListButtons();
         ensureDetailActions();
         ensureRuntimeDetail();
-        new MutationObserver(function () {
-            enforceHouseholdLogin();
-            ensureRequestsTab();
-            ensureProfileSwitcher();
-            ensureLibraryRail();
-            ensureRuntimeLibrary();
-            ensureMyListRow();
-            labelMyListButtons();
-            ensureDetailActions();
-            ensureRuntimeDetail();
-        }).observe(document.documentElement, {
+    }
+
+    function start() {
+        loadConfiguration();
+        refreshRuntimeUi();
+        var refreshScheduled = false;
+        var observer = new MutationObserver(function () {
+            if (refreshScheduled) return;
+            refreshScheduled = true;
+            window.setTimeout(function () {
+                observer.disconnect();
+                refreshRuntimeUi();
+                observer.observe(document.documentElement, { childList: true, subtree: true });
+                refreshScheduled = false;
+            }, 0);
+        });
+        observer.observe(document.documentElement, {
             childList: true,
             subtree: true
         });
@@ -3296,6 +3863,7 @@
     window.addEventListener('keydown', handleSettingsKeys, true);
     window.addEventListener('keydown', handleRuntimeDetailKeys, true);
     window.addEventListener('keydown', handleRuntimeLibraryKeys, true);
+    window.addEventListener('keydown', handleRuntimeSearchKeys, true);
     window.addEventListener('keydown', handleRuntimeHomeKeys, true);
     window.addEventListener('keydown', handleProfileKeys, true);
     window.addEventListener('keydown', handlePlaybackOptionsKeys, true);
@@ -3304,9 +3872,19 @@
     window.addEventListener('resize', positionRuntimeLibraryMenu);
     document.addEventListener('focusin', function (event) {
         var card = event.target.closest && event.target.closest('.jellyquestRuntimeLibraryCard');
-        if (!card) return;
-        var cards = runtimeHomeVisible(document.querySelectorAll('.jellyquestRuntimeLibraryCard'));
-        if (cards.indexOf(card) >= cards.length - 14) loadRuntimeLibrary(false);
+        if (card) {
+            var cards = runtimeHomeVisible(document.querySelectorAll('.jellyquestRuntimeLibraryCard'));
+            if (cards.indexOf(card) >= cards.length - 14) loadRuntimeLibrary(false);
+            return;
+        }
+        var searchCard = event.target.closest && event.target.closest('.jellyquestRuntimeSearchCard');
+        if (searchCard) {
+            var searchSection = searchCard.closest('.jqSearchSection');
+            var searchCards = runtimeHomeVisible(searchSection.querySelectorAll('.jellyquestRuntimeSearchCard'));
+            if (searchCards.indexOf(searchCard) >= searchCards.length - 7) {
+                loadRuntimeSearchCategory(searchCard.getAttribute('data-search-category'));
+            }
+        }
     });
     document.addEventListener('click', function (event) {
         var playbackOptions = event.target.closest && event.target.closest('.jellyquestPlaybackOptionsAction');
@@ -3334,6 +3912,7 @@
         closeRuntimeLibraryMenu(false);
         ensureRequestsTab();
         ensureRuntimeLibrary();
+        ensureRuntimeSearch();
         ensureMyListRow();
         ensureDetailActions();
         ensureRuntimeDetail();
@@ -3343,6 +3922,7 @@
         enforceHouseholdLogin();
         ensureRequestsTab();
         ensureRuntimeLibrary();
+        ensureRuntimeSearch();
         ensureMyListRow();
         labelMyListButtons();
         ensureDetailActions();

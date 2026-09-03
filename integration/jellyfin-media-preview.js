@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var workspaceSelector = '.jqFilter, .jqSort, .jqMovieCard, .jqAction, .jqActionSheetButton, .jqCollectionCard, .jqSeasonSelect, .jqEpisodeCard, .jqSportCard, .jqChapterCard';
+    var workspaceSelector = '.jqPageBack, .jqFilter, .jqSort, .jqMovieCard, .jqDetailBack, .jqAction, .jqActionSheetButton, .jqCollectionCard, .jqSeasonSelect, .jqEpisodeCard, .jqSportCard, .jqChapterCard';
     var headerSelector = '.pageTitleWithDefaultLogo, .tabs span';
     var sortMenu = null;
     var sortTrigger = null;
@@ -291,6 +291,7 @@
     function detailNavigationTarget(current, keyCode, headers, rail) {
         if (!document.querySelector('.jqDetailWorkspace')) return undefined;
         var actions = visibleElements('.jqActions .jqAction');
+        var back = visibleElements('.jqDetailBack')[0] || null;
         var content = detailContentElements();
         var season = visibleElements('.jqSeasonSelect')[0] || null;
         var tabs = headers.slice(1);
@@ -298,10 +299,18 @@
         var contentIndex = content.indexOf(current);
         var target = null;
 
+        if (current === back) {
+            if (keyCode === 37) target = nearestByAxis(current, rail.slice(), 'y');
+            if (keyCode === 38) target = nearestByAxis(current, headers.slice(), 'x');
+            if (keyCode === 39 || keyCode === 40) target = nearestByAxis(current, actions.slice(), 'x');
+            return target;
+        }
+
         if (actionIndex !== -1) {
             if (keyCode === 37) target = actionIndex > 0 ? actions[actionIndex - 1] : nearestByAxis(current, rail.slice(), 'y');
             if (keyCode === 39 && actionIndex < actions.length - 1) target = actions[actionIndex + 1];
-            if (keyCode === 38) target = tabs[actionIndex < Math.ceil(actions.length / 2) ? 0 : tabs.length - 1] || headers[0];
+            if (keyCode === 38) target = back
+                || tabs[actionIndex < Math.ceil(actions.length / 2) ? 0 : tabs.length - 1] || headers[0];
             if (keyCode === 40) target = season && actionIndex === actions.length - 1
                 ? season : nearestByAxis(current, edgeVisualRow(content, 'top'), 'x');
             return target;
@@ -355,7 +364,8 @@
                     target = rail[0];
                 } else if (document.querySelector('.jqDetailWorkspace')) {
                     var detailActions = visibleElements('.jqActions .jqAction');
-                    target = headerIndex === 1 ? detailActions[0] : detailActions[detailActions.length - 1];
+                    target = visibleElements('.jqDetailBack')[0]
+                        || (headerIndex === 1 ? detailActions[0] : detailActions[detailActions.length - 1]);
                 } else {
                     target = nearestByAxis(current, workspace.slice(), 'x');
                 }
@@ -365,7 +375,7 @@
             if (keyCode === 40 && railIndex < rail.length - 1) target = rail[railIndex + 1];
             if (keyCode === 39) {
                 var detailWorkspace = document.querySelector('.jqDetailWorkspace')
-                    ? visibleElements('.jqActions .jqAction').concat(detailLowerElements()) : workspace;
+                    ? visibleElements('.jqDetailBack').concat(visibleElements('.jqActions .jqAction'), detailLowerElements()) : workspace;
                 target = nearestByAxis(current, detailWorkspace.slice(), 'y');
             }
         } else if (inWorkspace) {
@@ -572,6 +582,16 @@
         var playbackAction = event.target.closest ? event.target.closest('.jqPlaybackAction, .jqHighlightsAction') : null;
         var trailerAction = event.target.closest ? event.target.closest('.jqTrailerAction') : null;
         var moreAction = event.target.closest ? event.target.closest('.jqMoreAction') : null;
+        var pageBack = event.target.closest ? event.target.closest('.jqPageBack') : null;
+        var detailBack = event.target.closest ? event.target.closest('.jqDetailBack') : null;
+        if (pageBack) {
+            window.location.href = pageBack.getAttribute('data-page-return');
+            return;
+        }
+        if (detailBack) {
+            window.location.href = detailBack.getAttribute('data-detail-return');
+            return;
+        }
         if (myListAction) {
             togglePreviewMyList(myListAction);
             return;

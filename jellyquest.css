@@ -20,7 +20,7 @@
     display: inline-flex !important;
     font-size: 1.25em !important;
     height: 1.8em !important;
-    min-width: 8em;
+    min-width: 0;
     overflow: visible !important;
     position: relative;
     width: auto !important;
@@ -48,13 +48,8 @@
 }
 
 .jellyquestProfileTrigger::after {
-    color: rgba(255, 255, 255, .8);
-    content: '\25BE';
-    font-size: .7em;
-    position: absolute;
-    right: -.9em;
-    top: 50%;
-    transform: translateY(-50%);
+    content: none;
+    display: none;
 }
 
 .jellyquestProfileTrigger:focus {
@@ -570,6 +565,36 @@ body.jellyquestSettingsActive {
     height: 64px;
 }
 
+.jqPageBack {
+    align-items: center;
+    background: #20242a;
+    border: 2px solid #59616d;
+    border-radius: 7px;
+    color: #fff;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    gap: 6px;
+    min-height: 46px;
+    padding: 7px 16px 7px 11px;
+}
+
+.jqPageBack span {
+    font-size: 31px;
+    font-weight: 400;
+    line-height: 19px;
+}
+
+.jqPageBack:focus {
+    background: #fff;
+    border-color: #fff;
+    color: #111;
+    outline: 3px solid #00a4dc;
+    outline-offset: 3px;
+}
+
 .jellyquestSettingsHeading h1 {
     font-size: 38px;
     font-weight: 600;
@@ -994,24 +1019,37 @@ body.jellyquestRuntimeLibraryActive {
     overflow: hidden !important;
 }
 
+body.jellyquestRuntimeSearchActive {
+    overflow: hidden !important;
+}
+
 body.jellyquestRuntimeLibraryActive .mainAnimatedPages,
 body.jellyquestRuntimeLibraryActive .skinHeader .headerTabs,
-body.jellyquestRuntimeLibraryActive .headerRight {
+body.jellyquestRuntimeLibraryActive .headerRight,
+body.jellyquestRuntimeSearchActive .mainAnimatedPages,
+body.jellyquestRuntimeSearchActive .skinHeader .headerTabs,
+body.jellyquestRuntimeSearchActive .headerRight {
     visibility: hidden !important;
 }
 
-body.jellyquestRuntimeLibraryActive .mainAnimatedPages {
+body.jellyquestRuntimeLibraryActive .mainAnimatedPages,
+body.jellyquestRuntimeSearchActive .mainAnimatedPages {
     display: none !important;
 }
 
 body.jellyquestRuntimeLibraryActive .skinHeader,
 body.jellyquestRuntimeLibraryActive .skinHeader .headerTop,
 body.jellyquestRuntimeLibraryActive .skinHeader .jellyquestLibraryProfileTrigger,
-body.jellyquestRuntimeLibraryActive .skinHeader .jellyquestGlobalTabs {
+body.jellyquestRuntimeLibraryActive .skinHeader .jellyquestGlobalTabs,
+body.jellyquestRuntimeSearchActive .skinHeader,
+body.jellyquestRuntimeSearchActive .skinHeader .headerTop,
+body.jellyquestRuntimeSearchActive .skinHeader .jellyquestLibraryProfileTrigger,
+body.jellyquestRuntimeSearchActive .skinHeader .jellyquestGlobalTabs {
     visibility: visible !important;
 }
 
-body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
+body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft,
+body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
     visibility: hidden !important;
 }
 
@@ -1056,7 +1094,7 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     outline-offset: 5px;
 }
 
-.jellyquestRuntimeLibraryRoot {
+.jqRuntimeGridRoot {
     background: #0e1013;
     bottom: 0;
     box-sizing: border-box;
@@ -1074,38 +1112,45 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     z-index: 10;
 }
 
-.jellyquestRuntimeLibraryRoot::-webkit-scrollbar {
+.jqRuntimeGridRoot::-webkit-scrollbar {
     display: none;
 }
 
-.jellyquestRuntimeLibraryRoot .jqLibraryToolbar {
+.jqRuntimeGridRoot .jqLibraryToolbar {
     align-items: center;
     display: flex;
     height: 80px;
     justify-content: space-between;
 }
 
-.jellyquestRuntimeLibraryRoot .jqLibraryTitle {
+.jqRuntimeGridRoot .jqLibraryHeadingGroup {
+    align-items: center;
+    display: flex;
+    gap: 20px;
+    min-width: 0;
+}
+
+.jqRuntimeGridRoot .jqLibraryTitle {
     font-size: 38px;
     font-weight: 600;
     margin: 0;
 }
 
-.jellyquestRuntimeLibraryRoot .jqLibraryCount {
+.jqRuntimeGridRoot .jqLibraryCount {
     color: #9298a3;
     font-size: 17px;
     font-weight: 400;
     margin-left: 12px;
 }
 
-.jellyquestRuntimeLibraryRoot .jqLibraryControls {
+.jqRuntimeGridRoot .jqLibraryControls {
     align-items: center;
     display: flex;
     gap: 12px;
 }
 
-.jellyquestRuntimeLibraryRoot .jqFilter,
-.jellyquestRuntimeLibraryRoot .jqSort {
+.jqRuntimeGridRoot .jqFilter,
+.jqRuntimeGridRoot .jqSort {
     background: #20242a;
     border: 2px solid #414750;
     color: #e8e8e8;
@@ -1115,42 +1160,42 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     padding: 10px 18px;
 }
 
-.jellyquestRuntimeLibraryRoot .jqFilter {
+.jqRuntimeGridRoot .jqFilter {
     border-radius: 32px;
 }
 
-.jellyquestRuntimeLibraryRoot .jqSort {
+.jqRuntimeGridRoot .jqSort {
     border-radius: 7px;
     margin-left: 10px;
 }
 
-.jellyquestRuntimeLibraryRoot .jqFilter.active {
+.jqRuntimeGridRoot .jqFilter.active {
     background: #e8e8e8;
     border-color: #fff;
     color: #111;
 }
 
-.jellyquestRuntimeLibraryRoot .jqFilter:focus,
-.jellyquestRuntimeLibraryRoot .jqSort:focus {
+.jqRuntimeGridRoot .jqFilter:focus,
+.jqRuntimeGridRoot .jqSort:focus {
     outline: 3px solid #00a4dc;
     outline-offset: 3px;
 }
 
-.jellyquestRuntimeLibraryRoot .jqMovieGrid {
+.jqRuntimeGridRoot .jqMovieGrid {
     display: grid;
     gap: 32px 18px;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     padding: 12px 4px 32px;
 }
 
-.jellyquestRuntimeLibraryRoot .jqMovieCard {
+.jqRuntimeGridRoot .jqMovieCard {
     color: #fff;
     display: block;
     min-width: 0;
     text-decoration: none;
 }
 
-.jellyquestRuntimeLibraryRoot .jqPoster {
+.jqRuntimeGridRoot .jqPoster {
     background: linear-gradient(145deg, #313844, #15181e);
     background-position: center;
     background-size: cover;
@@ -1164,7 +1209,7 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     transition: transform .12s ease, border-color .12s ease;
 }
 
-.jellyquestRuntimeLibraryRoot .jqPoster::after {
+.jqRuntimeGridRoot .jqPoster::after {
     background: linear-gradient(transparent 35%, rgba(0, 0, 0, .72));
     bottom: 0;
     content: '';
@@ -1175,7 +1220,7 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     top: 0;
 }
 
-.jellyquestRuntimeLibraryRoot .jqPosterArt {
+.jqRuntimeGridRoot .jqPosterArt {
     bottom: 18px;
     font-size: 23px;
     font-weight: 800;
@@ -1187,7 +1232,7 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     z-index: 1;
 }
 
-.jellyquestRuntimeLibraryRoot .jqMovieName {
+.jqRuntimeGridRoot .jqMovieName {
     display: block;
     font-size: 18px;
     margin: 10px 0 3px;
@@ -1196,7 +1241,7 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     white-space: nowrap;
 }
 
-.jellyquestRuntimeLibraryRoot .jqMovieMeta {
+.jqRuntimeGridRoot .jqMovieMeta {
     color: #9ca2aa;
     display: block;
     font-size: 15px;
@@ -1205,17 +1250,17 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
     white-space: nowrap;
 }
 
-.jellyquestRuntimeLibraryRoot .jqMovieCard:focus {
+.jqRuntimeGridRoot .jqMovieCard:focus {
     outline: none;
 }
 
-.jellyquestRuntimeLibraryRoot .jqMovieCard:focus .jqPoster {
+.jqRuntimeGridRoot .jqMovieCard:focus .jqPoster {
     border-color: #fff;
     box-shadow: 0 10px 32px rgba(0, 0, 0, .8);
     transform: scale(1.045);
 }
 
-.jellyquestRuntimeLibraryRoot .jqMovieCard:focus .jqMovieName {
+.jqRuntimeGridRoot .jqMovieCard:focus .jqMovieName {
     color: #00c7db;
 }
 
@@ -1228,6 +1273,95 @@ body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
 
 .jellyquestRuntimeLibraryStatus[hidden] {
     display: none;
+}
+
+.jellyquestRuntimeSearchRoot .jqSearchToolbar {
+    gap: 34px;
+}
+
+.jellyquestRuntimeSearchRoot .jqSearchField {
+    align-items: center;
+    background: #20242a;
+    border: 2px solid #414750;
+    border-radius: 7px;
+    box-sizing: border-box;
+    display: flex;
+    height: 54px;
+    max-width: 720px;
+    padding: 0 16px;
+    width: 48vw;
+}
+
+.jellyquestRuntimeSearchRoot .jqSearchField:focus-within {
+    border-color: #fff;
+    box-shadow: 0 0 0 3px #00a4dc;
+}
+
+.jellyquestRuntimeSearchRoot .jqSearchField .jellyquestRailIcon {
+    color: #aeb3bb;
+    flex: 0 0 26px;
+    height: 26px;
+    margin-right: 13px;
+    width: 26px;
+}
+
+.jellyquestRuntimeSearchInput {
+    background: transparent;
+    border: 0;
+    color: #fff;
+    flex: 1 1 auto;
+    font-family: inherit;
+    font-size: 21px;
+    height: 48px;
+    min-width: 0;
+    outline: 0;
+}
+
+.jellyquestRuntimeSearchInput::placeholder {
+    color: #9298a3;
+}
+
+.jellyquestRuntimeSearchResults {
+    padding: 12px 4px 34px;
+}
+
+.jqSearchSection {
+    margin-bottom: 38px;
+}
+
+.jqSearchSectionHeading {
+    align-items: baseline;
+    display: flex;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.jqSearchSectionHeading h2 {
+    font-size: 27px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.jqSearchSectionCount {
+    color: #9298a3;
+    font-size: 16px;
+}
+
+.jqSearchRow {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 4px 18px;
+    scrollbar-width: none;
+}
+
+.jqSearchRow::-webkit-scrollbar {
+    display: none;
+}
+
+.jqSearchRow .jellyquestRuntimeSearchCard {
+    flex: 0 0 calc((100% - 108px) / 7);
 }
 
 .jellyquestRuntimeLibraryMenu {
@@ -1278,8 +1412,79 @@ body.jellyquestRuntimeDetailActive {
     overflow: hidden !important;
 }
 
-body.jellyquestRuntimeDetailActive .mainAnimatedPages {
+body.jellyquestRuntimeDetailActive .mainAnimatedPages,
+body.jellyquestRuntimeLoading .mainAnimatedPages {
     display: none !important;
+}
+
+body.jellyquestRuntimeLoading {
+    overflow: hidden !important;
+}
+
+body.jellyquestRuntimeLoading .skinHeader .headerTabs,
+body.jellyquestRuntimeLoading .skinHeader .headerRight,
+body.jellyquestRuntimeLoading .skinHeader .headerLeft {
+    visibility: hidden !important;
+}
+
+body.jellyquestRuntimeLoading .skinHeader,
+body.jellyquestRuntimeLoading .skinHeader .headerTop,
+body.jellyquestRuntimeLoading .skinHeader .jellyquestLibraryProfileTrigger,
+body.jellyquestRuntimeLoading .skinHeader .jellyquestGlobalTabs {
+    visibility: visible !important;
+}
+
+.jellyquestRuntimeLoadingRoot {
+    background: #101318;
+    bottom: 0;
+    box-sizing: border-box;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    left: 60px;
+    overflow: hidden;
+    padding: 58px 80px;
+    position: fixed;
+    right: 0;
+    top: 84px;
+    z-index: 10;
+}
+
+.jellyquestRuntimeLoadingRoot .jqLoadingHero {
+    max-width: 720px;
+    padding-top: 24px;
+}
+
+.jellyquestRuntimeLoadingRoot .jqLoadingEyebrow,
+.jellyquestRuntimeLoadingRoot .jqLoadingTitle,
+.jellyquestRuntimeLoadingRoot .jqLoadingMeta,
+.jellyquestRuntimeLoadingRoot .jqLoadingCopy,
+.jellyquestRuntimeLoadingRoot .jqLoadingActions span,
+.jellyquestRuntimeLoadingRoot .jqLoadingCards span {
+    animation: jellyquestLoadingPulse 1.2s ease-in-out infinite alternate;
+    background: #252b33;
+    border-radius: 8px;
+    display: block;
+}
+
+.jellyquestRuntimeLoadingRoot .jqLoadingEyebrow { height: 16px; width: 110px; }
+.jellyquestRuntimeLoadingRoot .jqLoadingTitle { height: 54px; margin-top: 22px; width: 72%; }
+.jellyquestRuntimeLoadingRoot .jqLoadingMeta { height: 22px; margin-top: 22px; width: 46%; }
+.jellyquestRuntimeLoadingRoot .jqLoadingCopy { height: 72px; margin-top: 28px; width: 88%; }
+.jellyquestRuntimeLoadingRoot .jqLoadingActions { display: flex; gap: 16px; margin-top: 32px; }
+.jellyquestRuntimeLoadingRoot .jqLoadingActions span { height: 52px; width: 150px; }
+.jellyquestRuntimeLoadingRoot .jqLoadingCards { display: flex; gap: 18px; margin-top: 76px; }
+.jellyquestRuntimeLoadingRoot .jqLoadingCards span { height: 210px; width: 150px; }
+.jellyquestRuntimeLoadingRoot .jqLoadingLabel {
+    color: #aeb3bb;
+    font-size: 18px;
+    left: 80px;
+    position: absolute;
+    top: 34px;
+}
+
+@keyframes jellyquestLoadingPulse {
+    from { opacity: .48; }
+    to { opacity: .9; }
 }
 
 body.jellyquestRuntimeDetailActive .skinHeader .headerTabs,
@@ -1322,6 +1527,48 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
     box-sizing: border-box;
     min-height: 500px;
     padding: 66px 80px 44px;
+}
+
+.jellyquestRuntimeDetailRoot .jqShowHero {
+    background-image: radial-gradient(circle at 74% 30%, rgba(108, 71, 49, .75), transparent 29%),
+        linear-gradient(90deg, #101318 8%, rgba(16, 19, 24, .95) 43%, rgba(16, 19, 24, .35) 74%, #101318),
+        linear-gradient(145deg, #533f31, #172633);
+}
+
+.jellyquestRuntimeDetailRoot .jqSportsHero {
+    background-image: radial-gradient(circle at 75% 40%, rgba(35, 110, 64, .78), transparent 30%),
+        linear-gradient(90deg, #101318 8%, rgba(16, 19, 24, .96) 43%, rgba(16, 19, 24, .38) 75%, #101318),
+        linear-gradient(145deg, #1d4930, #222e42);
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailBack {
+    align-items: center;
+    background: rgba(20, 24, 30, .82);
+    border: 2px solid #59616d;
+    border-radius: 7px;
+    color: #fff;
+    display: inline-flex;
+    font-family: inherit;
+    font-size: 19px;
+    font-weight: 600;
+    gap: 7px;
+    margin-bottom: 24px;
+    min-height: 48px;
+    padding: 8px 18px 8px 13px;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailBack span {
+    font-size: 34px;
+    font-weight: 400;
+    line-height: 20px;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailBack:focus {
+    background: #fff;
+    border-color: #fff;
+    color: #111;
+    outline: 3px solid #00a4dc;
+    outline-offset: 3px;
 }
 
 .jellyquestRuntimeDetailRoot .jqDetailCopy {

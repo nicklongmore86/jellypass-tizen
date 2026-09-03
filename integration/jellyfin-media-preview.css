@@ -9,6 +9,9 @@ html, body { background: #0e1013; color: #fff; height: 100%; margin: 0; overflow
 .jqMediaWorkspace { height: calc(100% - 5.25rem); overflow-x: hidden; overflow-y: auto; padding: 2rem 3rem 2.5rem; scrollbar-width: none; }
 .jqMediaWorkspace::-webkit-scrollbar { display: none; }
 .jqLibraryToolbar { align-items: center; display: flex; height: 5rem; justify-content: space-between; }
+.jqLibraryHeadingGroup { align-items: center; display: flex; gap: 1rem; }
+.jqPageBack { align-items: center; background: rgba(20,24,30,.82); border: .12rem solid #59616d; border-radius: .45rem; color: #fff; display: inline-flex; font: 600 1.15rem Arial,sans-serif; min-height: 2.8rem; padding: .45rem 1rem; }
+.jqPageBack:focus { background: #fff; border-color: #fff; color: #111; outline: .18rem solid #00a4dc; outline-offset: .18rem; }
 .jqLibraryTitle { font-size: 2.35rem; font-weight: 600; margin: 0; }
 .jqLibraryCount { color: #9298a3; font-size: 1.05rem; font-weight: 400; margin-left: .75rem; }
 .jqLibraryControls { align-items: center; display: flex; gap: .75rem; }
@@ -37,6 +40,9 @@ html, body { background: #0e1013; color: #fff; height: 100%; margin: 0; overflow
 .jqMovieCard:focus .jqMovieName { color: #00c7db; }
 .jqDetailWorkspace { height: calc(100% - 5.25rem); overflow-y: auto; padding: 0; }
 .jqDetailHero { background: radial-gradient(circle at 72% 35%, rgba(39,92,118,.8), transparent 32%), linear-gradient(90deg, #101318 8%, rgba(16,19,24,.94) 42%, rgba(16,19,24,.42) 72%, #101318), linear-gradient(145deg, #274a5c, #2d1d35); min-height: 31rem; padding: 4.2rem 5rem 2.8rem; }
+.jqDetailBack { align-items: center; background: rgba(20,24,30,.82); border: .12rem solid #59616d; border-radius: .45rem; color: #fff; display: inline-flex; font: 600 1.2rem Arial,sans-serif; gap: .45rem; margin-bottom: 1.5rem; min-height: 3rem; padding: .5rem 1.15rem .5rem .8rem; }
+.jqDetailBack span { font-size: 2.1rem; font-weight: 400; line-height: 1.2rem; }
+.jqDetailBack:focus { background: #fff; border-color: #fff; color: #111; outline: .18rem solid #00a4dc; outline-offset: .18rem; }
 .jqDetailCopy { max-width: 70rem; }
 .jqDetailEyebrow { color: #00c7db; font-size: 1.1rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .jqDetailTitle { font-size: 4rem; line-height: .95; margin: .55rem 0 1.1rem; }
