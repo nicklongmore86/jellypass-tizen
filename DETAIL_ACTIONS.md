@@ -29,3 +29,15 @@ JellyQuest replaces Jellyfin's general item-management overflow with focused pla
 Movies and recorded sports update Jellyfin's native hidden track selectors, so Resume and Start Over continue through Jellyfin's normal playback path. Series do not have streams of their own. JellyQuest therefore resolves the primary episode, stores choices by track identity rather than stream number, and maps those choices to the specific episode behind Resume, Restart Episode, or Continue. If an episode lacks the selected track, Jellyfin's default for that episode is used.
 
 Queue controls, media information, downloads, deletion, and metadata administration are intentionally excluded from the household TV surface.
+
+## Simulator detail navigation
+
+The movie, show, and sports detail previews use an explicit focus graph:
+
+- Profile moves down into the left rail. Home moves down to the primary playback action, and Requests moves down to More.
+- Left and Right remain within the action row. Left from the primary action enters the rail; Right stops at More.
+- Up from the first half of the action row reaches Home. Up from the second half reaches Requests.
+- Down distributes action buttons across the lower collection, episode, or chapter row. On show details, Down from More reaches the Season selector, then the last episode.
+- Lower cards move horizontally within their visual row. Up returns to the aligned action, Down advances only when another card row exists, and Down stops on the final row.
+- Every vertical transition remembers its origin: returning in the opposite direction restores the exact previous control.
+- Playback-option dialogs contain focus. Up and Down move one option, Right stays put, and Left or Back returns one level before closing and restoring More.

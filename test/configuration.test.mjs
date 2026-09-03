@@ -141,6 +141,7 @@ test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without loggi
     assert.match(bootstrap, /header:focus-within/);
     assert.match(bootstrap, /class="nav-label"/);
     assert.match(bootstrap, /id="requestsProfile"/);
+    assert.doesNotMatch(bootstrap, /id="back"|Back to Jellyfin|\.nav\.back|id="categoryBack"|Back to Discover|&larr; Discover/);
     assert.match(bootstrap, /railElements/);
     assert.match(bootstrap, /headerElements/);
     assert.match(bootstrap, /workspaceElements/);
@@ -219,6 +220,12 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(mediaNavigation, /Requests: 'jellyseerr-login\.html\?preview=1'/);
     assert.match(mediaNavigation, /headers\.slice\(1\)\.concat\(filters\)/);
     assert.match(mediaNavigation, /!hasCardAbove/);
+    assert.match(mediaNavigation, /function sameVisualRow/);
+    assert.match(mediaNavigation, /function detailContentElements/);
+    assert.match(mediaNavigation, /function proportionalTarget/);
+    assert.match(mediaNavigation, /function detailNavigationTarget/);
+    assert.match(mediaNavigation, /headerIndex === 1 \? detailActions\[0\]/);
+    assert.match(mediaNavigation, /season && actionIndex === actions\.length - 1/);
     assert.match(mediaNavigation, /openSortMenu/);
     assert.match(mediaNavigation, /applySort/);
     assert.match(mediaNavigation, /closeSortMenu/);

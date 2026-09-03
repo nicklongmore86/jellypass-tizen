@@ -252,6 +252,71 @@
         return candidates[0] || null;
     }
 
+    function sameVisualRow(current, candidates) {
+        var origin = center(current.getBoundingClientRect());
+        var tolerance = Math.max(12, current.getBoundingClientRect().height * .45);
+        return candidates.filter(function (candidate) {
+            return Math.abs(center(candidate.getBoundingClientRect()).y - origin.y) <= tolerance;
+        }).sort(function (left, right) {
+            return center(left.getBoundingClientRect()).x - center(right.getBoundingClientRect()).x;
+        });
+    }
+
+    function detailContentElements() {
+        return visibleElements('.jqCollectionCard, .jqEpisodeCard, .jqChapterCard');
+    }
+
+    function detailLowerElements() {
+        return visibleElements('.jqSeasonSelect').concat(detailContentElements());
+    }
+
+    function proportionalTarget(index, sourceCount, targets) {
+        if (!targets.length) return null;
+        if (sourceCount <= 1 || targets.length <= 1) return targets[0];
+        return targets[Math.round(index * (targets.length - 1) / (sourceCount - 1))];
+    }
+
+    function detailNavigationTarget(current, keyCode, headers, rail) {
+        if (!document.querySelector('.jqDetailWorkspace')) return undefined;
+        var actions = visibleElements('.jqActions .jqAction');
+        var content = detailContentElements();
+        var season = visibleElements('.jqSeasonSelect')[0] || null;
+        var tabs = headers.slice(1);
+        var actionIndex = actions.indexOf(current);
+        var contentIndex = content.indexOf(current);
+        var target = null;
+
+        if (actionIndex !== -1) {
+            if (keyCode === 37) target = actionIndex > 0 ? actions[actionIndex - 1] : nearestByAxis(current, rail.slice(), 'y');
+            if (keyCode === 39 && actionIndex < actions.length - 1) target = actions[actionIndex + 1];
+            if (keyCode === 38) target = tabs[actionIndex < Math.ceil(actions.length / 2) ? 0 : tabs.length - 1] || headers[0];
+            if (keyCode === 40) target = season && actionIndex === actions.length - 1
+                ? season : proportionalTarget(actionIndex, actions.length, content);
+            return target;
+        }
+
+        if (current === season) {
+            if (keyCode === 38) target = actions[actions.length - 1];
+            if (keyCode === 40) target = content[content.length - 1];
+            return target;
+        }
+
+        if (contentIndex !== -1) {
+            if (keyCode === 37 || keyCode === 39) {
+                var row = sameVisualRow(current, content);
+                var rowIndex = row.indexOf(current);
+                if (keyCode === 37) target = rowIndex > 0 ? row[rowIndex - 1] : nearestByAxis(current, rail.slice(), 'y');
+                if (keyCode === 39 && rowIndex < row.length - 1) target = row[rowIndex + 1];
+                return target;
+            }
+            target = directionalCandidate(current, content, keyCode);
+            if (!target && keyCode === 38) target = proportionalTarget(contentIndex, content.length, actions);
+            return target;
+        }
+
+        return undefined;
+    }
+
     function moveFocus(keyCode) {
         var current = document.activeElement;
         if (!current || !current.getBoundingClientRect || !isVisible(current)) return;
@@ -274,13 +339,29 @@
             if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
             if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
             if (keyCode === 40) {
-                target = headerIndex === 0 ? rail[0] : nearestByAxis(current, workspace.slice(), 'x');
+                if (headerIndex === 0) {
+                    target = rail[0];
+                } else if (document.querySelector('.jqDetailWorkspace')) {
+                    var detailActions = visibleElements('.jqActions .jqAction');
+                    target = headerIndex === 1 ? detailActions[0] : detailActions[detailActions.length - 1];
+                } else {
+                    target = nearestByAxis(current, workspace.slice(), 'x');
+                }
             }
         } else if (railIndex !== -1) {
             if (keyCode === 38) target = railIndex > 0 ? rail[railIndex - 1] : headers[0];
             if (keyCode === 40 && railIndex < rail.length - 1) target = rail[railIndex + 1];
-            if (keyCode === 39) target = nearestByAxis(current, workspace.slice(), 'y');
+            if (keyCode === 39) {
+                var detailWorkspace = document.querySelector('.jqDetailWorkspace')
+                    ? visibleElements('.jqActions .jqAction').concat(detailLowerElements()) : workspace;
+                target = nearestByAxis(current, detailWorkspace.slice(), 'y');
+            }
         } else if (inWorkspace) {
+            var detailTarget = detailNavigationTarget(current, keyCode, headers, rail);
+            if (detailTarget !== undefined) {
+                focusElement(detailTarget, keyCode, current);
+                return;
+            }
             var isLibraryCard = current.matches('.jqMovieCard, .jqSportCard');
             var libraryCards = isLibraryCard
                 ? visibleElements(current.matches('.jqSportCard') ? '.jqSportCard' : '.jqMovieCard')
@@ -413,14 +494,23 @@
             ? Array.prototype.slice.call(actionSurface.querySelectorAll('.jqActionSheetButton'))
             : [];
         var actionIndex = actionButtons.indexOf(document.activeElement);
-        if (actionIndex !== -1 && [37, 38, 39, 40].indexOf(event.keyCode) !== -1) {
+        if (actionSurface && !actionSurface.hidden && [37, 38, 39, 40].indexOf(event.keyCode) !== -1) {
             event.preventDefault();
             event.stopImmediatePropagation();
-            var backwards = event.keyCode === 37 || event.keyCode === 38;
-            actionIndex = backwards
-                ? (actionIndex - 1 + actionButtons.length) % actionButtons.length
-                : (actionIndex + 1) % actionButtons.length;
-            focusElement(actionButtons[actionIndex], event.keyCode, document.activeElement);
+            if ((event.keyCode === 38 || event.keyCode === 40) && actionIndex !== -1 && actionButtons.length > 1) {
+                actionIndex = event.keyCode === 38
+                    ? (actionIndex - 1 + actionButtons.length) % actionButtons.length
+                    : (actionIndex + 1) % actionButtons.length;
+                focusElement(actionButtons[actionIndex], event.keyCode, document.activeElement);
+            } else if (event.keyCode === 37) {
+                if (actionSurfaceBack) {
+                    var actionBack = actionSurfaceBack;
+                    actionSurfaceBack = null;
+                    actionBack();
+                } else {
+                    closeActionSurface();
+                }
+            }
             return;
         }
         var sortOptions = sortMenu && !sortMenu.hidden
