@@ -12,6 +12,7 @@ fi
 
 git -C "${web_dir}" fetch origin "${web_ref}"
 git -C "${web_dir}" checkout --detach "${web_ref}"
+node "${project_dir}/scripts/patch-jellyfin-web.mjs" "${web_dir}"
 "${npm10[@]}" --prefix "${web_dir}" ci --no-audit
 USE_SYSTEM_FONTS=1 "${npm10[@]}" --prefix "${web_dir}" run build:production
 

@@ -1,10 +1,196 @@
 (function () {
     'use strict';
 
-    var workspaceSelector = '.jqFilter, .jqSort, .jqMovieCard, .jqAction, .jqCollectionCard, .jqSeasonSelect, .jqEpisodeCard, .jqSportCard, .jqChapterCard';
+    var workspaceSelector = '.jqFilter, .jqSort, .jqMovieCard, .jqAction, .jqActionSheetButton, .jqCollectionCard, .jqSeasonSelect, .jqEpisodeCard, .jqSportCard, .jqChapterCard';
     var headerSelector = '.pageTitleWithDefaultLogo, .tabs span';
     var sortMenu = null;
     var sortTrigger = null;
+    var actionSurface = null;
+    var actionSurfaceReturnFocus = null;
+    var actionSurfaceBack = null;
+    var previewMyListDefaults = ['movie-1', 'show-1', 'movie-3', 'show-4', 'movie-5', 'show-6', 'sport-1'];
+
+    function previewMyListKey() {
+        return 'jellyquest-preview-my-list:' + (localStorage.getItem('jellyquest-preview-user') || 'default');
+    }
+
+    function readPreviewMyList() {
+        var saved = localStorage.getItem(previewMyListKey());
+        if (saved === null) return previewMyListDefaults.slice();
+        try {
+            return JSON.parse(saved);
+        } catch (error) {
+            return previewMyListDefaults.slice();
+        }
+    }
+
+    function updatePreviewMyList() {
+        var itemIds = readPreviewMyList();
+        var section = document.querySelector('.jqPreviewMyListSection');
+        var action = document.querySelector('.jqMyListAction');
+        if (section) {
+            var visibleCount = 0;
+            section.querySelectorAll('[data-my-list-id]').forEach(function (card) {
+                var visible = itemIds.indexOf(card.getAttribute('data-my-list-id')) !== -1;
+                card.hidden = !visible;
+                if (visible) visibleCount += 1;
+            });
+            section.hidden = visibleCount === 0;
+            if (window.ApiClient && typeof window.ApiClient.getCurrentUser === 'function') {
+                window.ApiClient.getCurrentUser(false).then(function (user) {
+                    var owner = section.querySelector('.jqPreviewMyListOwner');
+                    if (owner && user && user.Name) owner.textContent = 'Saved for ' + user.Name;
+                });
+            }
+        }
+        if (action) {
+            var selected = itemIds.indexOf(action.getAttribute('data-my-list-id')) !== -1;
+            action.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            action.textContent = selected ? '\u2713 My List' : '\uff0b My List';
+        }
+    }
+
+    function togglePreviewMyList(action) {
+        var itemId = action.getAttribute('data-my-list-id');
+        var itemIds = readPreviewMyList();
+        var index = itemIds.indexOf(itemId);
+        if (index === -1) itemIds.push(itemId);
+        else itemIds.splice(index, 1);
+        localStorage.setItem(previewMyListKey(), JSON.stringify(itemIds));
+        updatePreviewMyList();
+    }
+
+    function ensureActionSurface() {
+        if (actionSurface) return actionSurface;
+        actionSurface = document.createElement('div');
+        actionSurface.className = 'jqActionSheetBackdrop';
+        actionSurface.hidden = true;
+        document.body.appendChild(actionSurface);
+        return actionSurface;
+    }
+
+    function closeActionSurface() {
+        if (!actionSurface || actionSurface.hidden) return false;
+        actionSurface.hidden = true;
+        actionSurface.innerHTML = '';
+        actionSurfaceBack = null;
+        if (actionSurfaceReturnFocus && document.body.contains(actionSurfaceReturnFocus)) {
+            actionSurfaceReturnFocus.focus();
+        }
+        return true;
+    }
+
+    function showPlaybackNotice(trigger, title, detail) {
+        var surface = ensureActionSurface();
+        actionSurfaceReturnFocus = trigger;
+        actionSurfaceBack = null;
+        surface.innerHTML = '';
+        var notice = document.createElement('div');
+        var heading = document.createElement('strong');
+        var message = document.createElement('span');
+        var close = document.createElement('button');
+        notice.className = 'jqPlaybackNotice';
+        heading.textContent = title;
+        message.textContent = detail;
+        close.type = 'button';
+        close.className = 'jqActionSheetButton';
+        close.textContent = 'Close';
+        close.addEventListener('click', closeActionSurface);
+        notice.appendChild(heading);
+        notice.appendChild(message);
+        notice.appendChild(close);
+        surface.appendChild(notice);
+        surface.hidden = false;
+        close.focus();
+    }
+
+    function openMoreMenu(trigger) {
+        var surface = ensureActionSurface();
+        actionSurfaceReturnFocus = trigger;
+        actionSurfaceBack = null;
+        surface.innerHTML = '';
+        var menu = document.createElement('div');
+        var heading = document.createElement('h2');
+        menu.className = 'jqActionSheet';
+        menu.setAttribute('role', 'menu');
+        heading.textContent = 'Playback Options';
+        menu.appendChild(heading);
+        var definitions = [
+            { key: 'version', label: 'Version' },
+            { key: 'audio', label: 'Audio' },
+            { key: 'subtitle', label: 'Subtitles' }
+        ];
+        definitions.forEach(function (definition) {
+            var values = (trigger.getAttribute('data-' + definition.key + '-options') || '').split('|').filter(Boolean);
+            if ((definition.key === 'version' || definition.key === 'audio') && values.length < 2) return;
+            if (definition.key === 'subtitle' && !values.length) return;
+            var selectedAttribute = 'data-' + definition.key + '-selected';
+            var selected = trigger.getAttribute(selectedAttribute) || values[0];
+            var option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'jqActionSheetButton';
+            option.setAttribute('role', 'menuitem');
+            option.innerHTML = '<span>' + definition.label + '</span><span class="jqActionSheetValue"></span>';
+            option.querySelector('.jqActionSheetValue').textContent = selected;
+            option.addEventListener('click', function () {
+                openPlaybackChoices(trigger, definition, values, selected);
+            });
+            menu.appendChild(option);
+        });
+        var done = document.createElement('button');
+        done.type = 'button';
+        done.className = 'jqActionSheetButton jqActionSheetDone';
+        done.textContent = 'Done';
+        done.addEventListener('click', closeActionSurface);
+        menu.appendChild(done);
+        surface.appendChild(menu);
+        surface.hidden = false;
+        menu.querySelector('.jqActionSheetButton').focus();
+    }
+
+    function openPlaybackChoices(trigger, definition, values, selected) {
+        var surface = ensureActionSurface();
+        actionSurfaceBack = function () { openMoreMenu(trigger); };
+        surface.innerHTML = '';
+        var menu = document.createElement('div');
+        var heading = document.createElement('h2');
+        menu.className = 'jqActionSheet';
+        menu.setAttribute('role', 'menu');
+        heading.textContent = definition.label;
+        menu.appendChild(heading);
+        values.forEach(function (label) {
+            var option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'jqActionSheetButton';
+            option.classList.toggle('is-selected', label === selected);
+            option.setAttribute('role', 'menuitemradio');
+            option.setAttribute('aria-checked', label === selected ? 'true' : 'false');
+            option.textContent = label;
+            option.addEventListener('click', function () {
+                trigger.setAttribute('data-' + definition.key + '-selected', label);
+                openMoreMenu(trigger);
+            });
+            menu.appendChild(option);
+        });
+        surface.appendChild(menu);
+        surface.hidden = false;
+        (menu.querySelector('.is-selected') || menu.querySelector('.jqActionSheetButton')).focus();
+    }
+
+    function initializeConditionalActions() {
+        document.querySelectorAll('.jqTrailerAction').forEach(function (button) {
+            button.hidden = !button.getAttribute('data-trailer-url');
+        });
+        document.querySelectorAll('.jqHighlightsAction').forEach(function (button) {
+            button.hidden = !button.getAttribute('data-highlight-id');
+        });
+        document.querySelectorAll('.jqMoreAction').forEach(function (button) {
+            var versions = (button.getAttribute('data-version-options') || '').split('|').filter(Boolean);
+            var audio = (button.getAttribute('data-audio-options') || '').split('|').filter(Boolean);
+            var subtitles = (button.getAttribute('data-subtitle-options') || '').split('|').filter(Boolean);
+            button.hidden = versions.length < 2 && audio.length < 2 && subtitles.length === 0;
+        });
+    }
 
     function center(rect) {
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -112,11 +298,10 @@
                         return center(left.getBoundingClientRect()).x - center(right.getBoundingClientRect()).x;
                     });
                     var column = topRow.indexOf(current);
-                    target = column < 3 ? headers[1]
-                        : column === 3 ? headers[2]
-                            : column === 4 ? headers[3]
-                                : column === 5 ? (filters[1] || filters[0])
-                                    : filters[filters.length - 1];
+                    target = column < 4 ? headers[1]
+                        : column === 4 ? headers[2]
+                            : column === 5 ? (filters[1] || filters[0])
+                                : filters[filters.length - 1];
                 } else {
                     target = nearestByAxis(current, headers.slice(1).concat(filters), 'x');
                 }
@@ -224,6 +409,20 @@
     });
 
     document.addEventListener('keydown', function (event) {
+        var actionButtons = actionSurface && !actionSurface.hidden
+            ? Array.prototype.slice.call(actionSurface.querySelectorAll('.jqActionSheetButton'))
+            : [];
+        var actionIndex = actionButtons.indexOf(document.activeElement);
+        if (actionIndex !== -1 && [37, 38, 39, 40].indexOf(event.keyCode) !== -1) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var backwards = event.keyCode === 37 || event.keyCode === 38;
+            actionIndex = backwards
+                ? (actionIndex - 1 + actionButtons.length) % actionButtons.length
+                : (actionIndex + 1) % actionButtons.length;
+            focusElement(actionButtons[actionIndex], event.keyCode, document.activeElement);
+            return;
+        }
         var sortOptions = sortMenu && !sortMenu.hidden
             ? Array.prototype.slice.call(sortMenu.querySelectorAll('.jqSortOption'))
             : [];
@@ -243,7 +442,12 @@
             moveFocus(event.keyCode);
         } else if (event.keyCode === 10009 || event.keyCode === 8 || event.keyCode === 27) {
             event.preventDefault();
-            if (closeSortMenu()) {
+            if (actionSurface && !actionSurface.hidden && actionSurfaceBack) {
+                var back = actionSurfaceBack;
+                actionSurfaceBack = null;
+                back();
+                event.stopImmediatePropagation();
+            } else if (closeActionSurface() || closeSortMenu()) {
                 event.stopImmediatePropagation();
             } else if (document.querySelector('.jqSportsDetailWorkspace')) {
                 window.location.href = 'jellyfin-sports-preview.html#/movies?topParentId=preview-sports';
@@ -262,6 +466,26 @@
     document.addEventListener('click', function (event) {
         var filter = event.target.closest ? event.target.closest('.jqFilter') : null;
         var sort = event.target.closest ? event.target.closest('.jqSort') : null;
+        var myListAction = event.target.closest ? event.target.closest('.jqMyListAction') : null;
+        var playbackAction = event.target.closest ? event.target.closest('.jqPlaybackAction, .jqHighlightsAction') : null;
+        var trailerAction = event.target.closest ? event.target.closest('.jqTrailerAction') : null;
+        var moreAction = event.target.closest ? event.target.closest('.jqMoreAction') : null;
+        if (myListAction) {
+            togglePreviewMyList(myListAction);
+            return;
+        }
+        if (playbackAction) {
+            showPlaybackNotice(playbackAction, 'Playback', playbackAction.getAttribute('data-playback-label'));
+            return;
+        }
+        if (trailerAction) {
+            showPlaybackNotice(trailerAction, 'Trailer', 'Starting the available trailer: ' + trailerAction.getAttribute('data-trailer-url'));
+            return;
+        }
+        if (moreAction) {
+            openMoreMenu(moreAction);
+            return;
+        }
         if (filter) {
             document.querySelectorAll('.jqFilter').forEach(function (button) {
                 button.classList.toggle('active', button === filter);
@@ -277,11 +501,12 @@
         tab.addEventListener('click', function () {
             var destination = {
                 Home: 'jellyfin-profile-preview.html',
-                Favorites: 'jellyfin-favorites-preview.html#/favorites',
                 Requests: 'jellyseerr-login.html?preview=1'
             }[tab.textContent.trim()];
             if (destination) window.location.href = destination;
         });
     });
+    initializeConditionalActions();
+    updatePreviewMyList();
     window.addEventListener('resize', positionSortMenu);
 })();

@@ -101,7 +101,7 @@
       <div id="topPageTitle">Discover</div>
       <form id="globalSearchForm"><input id="globalSearch" type="search" maxlength="100" placeholder="Search movies and TV shows…" autocomplete="off"></form>
     </div>
-    <div class="requests-tabs"><button class="requests-tab" id="requestsHomeTab" type="button">Home</button><button class="requests-tab" id="requestsFavoritesTab" type="button">Favorites</button><button class="requests-tab active" id="requestsTopTab" type="button">Requests</button></div>
+    <div class="requests-tabs"><button class="requests-tab" id="requestsHomeTab" type="button">Home</button><button class="requests-tab active" id="requestsTopTab" type="button">Requests</button></div>
   </div>
   <main id="status">
     <div>
@@ -216,11 +216,9 @@
         }
       }
 
-      function returnToJellyfinRoute(route) {
+      function returnToJellyfinHome() {
         if (isPreview) {
-          window.location.href = route === 'favorites'
-            ? 'jellyfin-favorites-preview.html#/favorites'
-            : 'jellyfin-profile-preview.html';
+          window.location.href = 'jellyfin-profile-preview.html';
           return;
         }
         if (!isSafeReturnUrl(params.return)) {
@@ -229,7 +227,7 @@
         }
         try {
           var target = new URL(params.return);
-          target.hash = route === 'favorites' ? '/favorites' : '/home.html';
+          target.hash = '/home.html';
           window.location.replace(target.href);
         } catch (error) {
           backToJellyQuest();
@@ -376,7 +374,6 @@
         var headerElements = elements.filter(function (element) {
           return element.id === 'requestsProfile'
             || element.id === 'requestsHomeTab'
-            || element.id === 'requestsFavoritesTab'
             || element.id === 'requestsTopTab';
         });
         var workspaceElements = elements.filter(function (element) { return app.contains(element); });
@@ -955,8 +952,7 @@
 
       document.getElementById('back').addEventListener('click', backToJellyQuest);
       document.getElementById('requestsProfile').addEventListener('click', backToJellyQuest);
-      document.getElementById('requestsHomeTab').addEventListener('click', function () { returnToJellyfinRoute('home'); });
-      document.getElementById('requestsFavoritesTab').addEventListener('click', function () { returnToJellyfinRoute('favorites'); });
+      document.getElementById('requestsHomeTab').addEventListener('click', returnToJellyfinHome);
       document.getElementById('requestsTopTab').addEventListener('click', function () { showView('discover'); });
       document.getElementById('discoverNav').addEventListener('click', function () { showView('discover'); });
       document.getElementById('moviesNav').addEventListener('click', function () { openCategory('popular-movies', 'movies'); });

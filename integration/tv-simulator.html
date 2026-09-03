@@ -24,7 +24,7 @@
   <div id="exitNotice" hidden><strong>JellyQuest exited</strong><button id="relaunch" type="button">Relaunch preview</button></div>
   <div id="remote">
     <span>Samsung remote simulator — keyboard arrows also work</span>
-    <button id="requestsView">Requests UI</button><button id="profilesView">Home</button><button id="favoritesView">Favorites</button><button id="moviesView">Movies</button><button id="movieDetailView">Movie Detail</button><button id="showsView">Shows</button><button id="showDetailView">Show Detail</button><button id="sportsView">Sports</button><button id="sportDetailView">Event Detail</button>
+    <button id="requestsView">Requests UI</button><button id="profilesView">Home</button><button id="moviesView">Movies</button><button id="movieDetailView">Movie Detail</button><button id="showsView">Shows</button><button id="showDetailView">Show Detail</button><button id="sportsView">Sports</button><button id="sportDetailView">Event Detail</button>
     <button data-key="37">←</button><button data-key="38">↑</button><button data-key="40">↓</button><button data-key="39">→</button>
     <button data-key="13">OK</button><button data-key="10009">Back / Return</button><button data-key="10182">Exit</button>
   </div>
@@ -68,9 +68,6 @@
       });
       document.getElementById('profilesView').addEventListener('click', function () {
         tv.src = 'jellyfin-profile-preview.html';
-      });
-      document.getElementById('favoritesView').addEventListener('click', function () {
-        tv.src = 'jellyfin-favorites-preview.html#/favorites';
       });
       document.getElementById('moviesView').addEventListener('click', function () {
         tv.src = 'jellyfin-movies-preview.html#/movies?topParentId=preview-movies';

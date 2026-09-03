@@ -51,6 +51,27 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /headerTabs \.tabs-viewmenubar \.emby-tabs-slider/);
     assert.match(policy, /foreground\.textContent = 'Requests'/);
     assert.match(policy, /nativeTab\.cloneNode\(true\)/);
+    assert.match(policy, /jellyquestHiddenFavoritesTab/);
+    assert.match(policy, /Filters: 'IsFavorite'/);
+    assert.match(policy, /IncludeItemTypes: 'Movie,Series'/);
+    assert.match(policy, /jellyquestMyListSection/);
+    assert.match(policy, /Add to My List/);
+    assert.match(policy, /getNextUpEpisodes/);
+    assert.match(policy, /getEpisodes/);
+    assert.match(policy, /Filters: 'IsResumable'/);
+    assert.match(policy, /getSpecialFeatures/);
+    assert.match(policy, /PlaybackPositionTicks/);
+    assert.match(policy, /Restart Episode/);
+    assert.match(policy, /LocalTrailerCount/);
+    assert.match(policy, /condensed game\|game recap/);
+    assert.match(policy, /btnMoreCommands/);
+    assert.match(policy, /jellyquestPlaybackOptionsAction/);
+    assert.match(policy, /Playback Options/);
+    assert.match(policy, /data-audiostreamindex/);
+    assert.match(policy, /data-subtitlestreamindex/);
+    assert.match(policy, /matchingTrack/);
+    assert.match(styles, /\.jellyquestPlaybackOptionsBackdrop/);
+    assert.match(styles, /\.itemDetailPage \.trackSelections/);
     assert.match(policy, /pageTitleWithDefaultLogo/);
     assert.doesNotMatch(policy, /Who\\'s watching\?/);
     assert.match(policy, /getPublicUsers/);
@@ -86,6 +107,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.skinHeader \{/);
     assert.match(styles, /\.skinHeader \.headerTabs/);
     assert.match(styles, /height: 5\.25em !important/);
+    assert.match(styles, /\.jellyquestMyListCards/);
+    assert.match(styles, /\.jellyquestHiddenFavoritesTab/);
     assert.match(styles, /margin-left: 3\.75em/);
     assert.match(styles, /width: calc\(100% - 3\.75em\)/);
     assert.match(policy, /jellyquest-login\.html/);
@@ -131,8 +154,8 @@ test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without loggi
     assert.match(bootstrap, /previewApi/);
     assert.match(bootstrap, /class="brand-mark"/);
     assert.match(bootstrap, /id="requestsHomeTab"/);
-    assert.match(bootstrap, /id="requestsFavoritesTab"/);
     assert.match(bootstrap, /id="requestsTopTab"/);
+    assert.doesNotMatch(bootstrap, /id="requestsFavoritesTab"/);
     assert.match(bootstrap, /background: #0e1013/);
     assert.match(bootstrap, /#00a4dc/);
     assert.doesNotMatch(bootstrap, /#4f46e5|#7e22ce|#9333ea|#c084fc|#6366f1/);
@@ -155,6 +178,9 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     const movies = fs.readFileSync(path.join(root, 'integration/jellyfin-movies-preview.html'), 'utf8');
     const shows = fs.readFileSync(path.join(root, 'integration/jellyfin-shows-preview.html'), 'utf8');
     const sports = fs.readFileSync(path.join(root, 'integration/jellyfin-sports-preview.html'), 'utf8');
+    const movieDetail = fs.readFileSync(path.join(root, 'integration/jellyfin-movie-detail-preview.html'), 'utf8');
+    const showDetail = fs.readFileSync(path.join(root, 'integration/jellyfin-show-detail-preview.html'), 'utf8');
+    const sportDetail = fs.readFileSync(path.join(root, 'integration/jellyfin-sport-detail-preview.html'), 'utf8');
     const preview = fs.readFileSync(path.join(root, 'scripts/preview-tv.sh'), 'utf8');
 
     assert.match(simulator, /width: 1920px/);
@@ -167,7 +193,7 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(simulator, /lastTvFocus/);
     assert.match(simulator, /mousedown[^\n]+preventDefault/);
     assert.match(simulator, /profilesView">Home/);
-    assert.match(simulator, /favoritesView">Favorites/);
+    assert.doesNotMatch(simulator, /favoritesView/);
     assert.match(simulator, /Movie Detail/);
     assert.match(simulator, /Show Detail/);
     assert.match(simulator, /Event Detail/);
@@ -176,22 +202,31 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(profiles, /jellyfin-media-preview\.css/);
     assert.match(profiles, /getPublicUsers/);
     assert.match(profiles, /Continue Watching/);
+    assert.match(profiles, /<h2>My List<\/h2>/);
+    assert.match(profiles, /jqPreviewMyListSection/);
     assert.match(profiles, /Next Up/);
     assert.match(profiles, /Recently Added/);
     assert.match(profiles, /jqHomeProgress/);
-    assert.equal((profiles.match(/class="jqMovieCard"/g) || []).length, 21);
+    assert.equal((profiles.match(/class="jqMovieCard"/g) || []).length, 28);
     assert.doesNotMatch(profiles, /class="hint"/);
     assert.match(mediaNavigation, /workspaceSelector/);
     assert.match(mediaNavigation, /headerSelector/);
     assert.match(mediaNavigation, /railIndex/);
     assert.match(mediaNavigation, /_jellyquestReturnFocus/);
-    assert.match(mediaNavigation, /Favorites: 'jellyfin-favorites-preview\.html#\/favorites'/);
+    assert.match(mediaNavigation, /jellyquest-preview-my-list:/);
+    assert.match(mediaNavigation, /togglePreviewMyList/);
+    assert.doesNotMatch(mediaNavigation, /jellyfin-favorites-preview/);
     assert.match(mediaNavigation, /Requests: 'jellyseerr-login\.html\?preview=1'/);
     assert.match(mediaNavigation, /headers\.slice\(1\)\.concat\(filters\)/);
     assert.match(mediaNavigation, /!hasCardAbove/);
     assert.match(mediaNavigation, /openSortMenu/);
     assert.match(mediaNavigation, /applySort/);
     assert.match(mediaNavigation, /closeSortMenu/);
+    assert.match(mediaNavigation, /initializeConditionalActions/);
+    assert.match(mediaNavigation, /openMoreMenu/);
+    assert.match(mediaNavigation, /openPlaybackChoices/);
+    assert.doesNotMatch(mediaNavigation, /Play Next|Add to Queue|Media Info/);
+    assert.match(mediaNavigation, /showPlaybackNotice/);
     assert.match(mediaStyles, /overflow-y: auto/);
     assert.match(mediaStyles, /height: 5\.25rem/);
     assert.match(mediaStyles, /translate\(-50%, -50%\)/);
@@ -199,6 +234,20 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(movies, /data-sort-options="recent:Recently added/);
     assert.match(shows, /data-sort-options="recent:Recently added/);
     assert.match(sports, /data-sort-options="recent:Event date/);
+    assert.match(movieDetail, /Resume 1:32:00/);
+    assert.match(movieDetail, /Start Over/);
+    assert.match(movieDetail, /data-version-options="4K HDR\|1080p"/);
+    assert.match(movieDetail, /data-audio-options=/);
+    assert.match(movieDetail, /data-subtitle-options=/);
+    assert.match(movieDetail, /data-trailer-url="https:/);
+    assert.match(showDetail, /Resume S2 E4/);
+    assert.match(showDetail, /Continue S2 E5/);
+    assert.match(showDetail, /Restart Episode/);
+    assert.match(showDetail, /English · Dolby Digital 5\.1/);
+    assert.match(sportDetail, /data-trailer-url=""/);
+    assert.match(sportDetail, /data-highlight-id="sport-highlight-1"/);
+    assert.match(sportDetail, /Home Radio · Stereo/);
+    assert.match(sportDetail, /More<\/button>/);
     assert.equal((movies.match(/class="jqMovieCard"/g) || []).length, 21);
     assert.equal((shows.match(/class="jqMovieCard jqShowCard"/g) || []).length, 21);
     assert.equal((sports.match(/class="jqSportCard"/g) || []).length, 12);
@@ -209,8 +258,37 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.ok(fs.existsSync(path.join(root, 'integration/jellyfin-show-detail-preview.html')));
     assert.ok(fs.existsSync(path.join(root, 'integration/jellyfin-sports-preview.html')));
     assert.ok(fs.existsSync(path.join(root, 'integration/jellyfin-sport-detail-preview.html')));
-    assert.ok(fs.existsSync(path.join(root, 'integration/jellyfin-favorites-preview.html')));
+    assert.ok(!fs.existsSync(path.join(root, 'integration/jellyfin-favorites-preview.html')));
     assert.match(preview, /project_dir}\/(?:integration|\}\/(?:integration))/);
+});
+
+test('patches Jellyfin playback shortcuts with per-item stream selections', () => {
+    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-patch-'));
+    const componentDirectory = path.join(webDirectory, 'src/components');
+    fs.mkdirSync(componentDirectory, { recursive: true });
+    const shortcutsPath = path.join(componentDirectory, 'shortcuts.js');
+    fs.writeFileSync(shortcutsPath, `function play() {
+            playbackManager.play({
+                ids: [playableItemId],
+                startPositionTicks: startPositionTicks,
+                serverId: serverId,
+                queryOptions: {
+                    SortBy: 'SortName'
+                }
+            });
+}`);
+
+    const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
+    const first = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+    assert.equal(first.status, 0, first.stderr);
+    const patched = fs.readFileSync(shortcutsPath, 'utf8');
+    assert.match(patched, /mediaSourceId: card\.getAttribute\('data-mediasourceid'\)/);
+    assert.match(patched, /audioStreamIndex: optionalStreamIndex\('data-audiostreamindex'\)/);
+    assert.match(patched, /subtitleStreamIndex: optionalStreamIndex\('data-subtitlestreamindex'\)/);
+
+    const second = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(fs.readFileSync(shortcutsPath, 'utf8'), patched);
 });
 
 test('installs through the direct Samsung TV workflow', () => {

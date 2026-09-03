@@ -37,16 +37,30 @@ html, body { background: #0e1013; color: #fff; height: 100%; margin: 0; overflow
 .jqMovieCard:focus .jqMovieName { color: #00c7db; }
 .jqDetailWorkspace { height: calc(100% - 5.25rem); overflow-y: auto; padding: 0; }
 .jqDetailHero { background: radial-gradient(circle at 72% 35%, rgba(39,92,118,.8), transparent 32%), linear-gradient(90deg, #101318 8%, rgba(16,19,24,.94) 42%, rgba(16,19,24,.42) 72%, #101318), linear-gradient(145deg, #274a5c, #2d1d35); min-height: 31rem; padding: 4.2rem 5rem 2.8rem; }
-.jqDetailCopy { max-width: 48rem; }
+.jqDetailCopy { max-width: 70rem; }
 .jqDetailEyebrow { color: #00c7db; font-size: 1.1rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .jqDetailTitle { font-size: 4rem; line-height: .95; margin: .55rem 0 1.1rem; }
 .jqDetailMeta { color: #d5d7da; display: flex; font-size: 1.1rem; gap: 1.1rem; }
 .jqRating { border: .08rem solid #9ca2aa; border-radius: .2rem; padding: .05rem .35rem; }
 .jqDetailOverview { color: #d0d3d7; font-size: 1.2rem; line-height: 1.5; margin: 1.25rem 0 1.4rem; max-width: 43rem; }
-.jqActions { display: flex; gap: .8rem; }
+.jqActions { display: flex; flex-wrap: wrap; gap: .8rem; }
 .jqAction { background: rgba(39,43,50,.92); border: .1rem solid #565d68; border-radius: .4rem; color: #fff; font-size: 1.2rem; padding: .75rem 1.35rem; }
 .jqAction.primary { background: #fff; border-color: #fff; color: #111; font-weight: 700; }
 .jqAction:focus { outline: .18rem solid #00a4dc; outline-offset: .18rem; }
+.jqAction[hidden] { display: none; }
+.jqActionSheetBackdrop { align-items: center; background: rgba(0,0,0,.72); bottom: 0; display: flex; justify-content: center; left: 0; position: fixed; right: 0; top: 0; z-index: 30; }
+.jqActionSheetBackdrop[hidden] { display: none; }
+.jqActionSheet { background: #20242a; border: .1rem solid #5b626d; border-radius: .55rem; box-shadow: 0 1rem 3rem rgba(0,0,0,.8); min-width: 24rem; padding: .65rem; }
+.jqActionSheet h2 { font-size: 1.55rem; font-weight: 500; margin: .7rem .8rem 1rem; }
+.jqActionSheetButton { background: transparent; border: .1rem solid transparent; border-radius: .35rem; color: #fff; display: block; font-size: 1.2rem; padding: .85rem 1rem; text-align: left; width: 100%; }
+.jqActionSheetButton { align-items: center; display: flex; justify-content: space-between; }
+.jqActionSheetValue { color: #aeb4bc; margin-left: 2rem; }
+.jqActionSheetButton.is-selected::after { color: #00c7db; content: '\2713'; }
+.jqActionSheetDone { justify-content: center; margin-top: .5rem; }
+.jqActionSheetButton:focus { background: #343a43; outline: .16rem solid #00a4dc; }
+.jqPlaybackNotice { background: #15191e; border: .1rem solid #59616c; border-radius: .55rem; box-shadow: 0 1rem 3rem rgba(0,0,0,.8); max-width: 42rem; padding: 2rem 2.5rem; text-align: center; }
+.jqPlaybackNotice strong { display: block; font-size: 1.8rem; margin-bottom: .8rem; }
+.jqPlaybackNotice span { color: #aeb4bc; display: block; font-size: 1.05rem; line-height: 1.45; }
 .jqCollectionSection { background: #101318; padding: 1.5rem 5rem 4rem; }
 .jqSectionHeading { align-items: baseline; display: flex; justify-content: space-between; margin-bottom: 1rem; }
 .jqSectionHeading h2 { font-size: 1.8rem; margin: 0; }

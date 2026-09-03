@@ -210,6 +210,231 @@
     width: auto !important;
 }
 
+.jellyquestHiddenFavoritesTab {
+    display: none !important;
+}
+
+.jellyquestMyListSection {
+    box-sizing: border-box;
+    margin: 1.4em 0 2em;
+    width: 100%;
+}
+
+.jellyquestMyListSection[hidden] {
+    display: none !important;
+}
+
+.jellyquestMyListHeading {
+    align-items: baseline;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 3.3%;
+}
+
+.jellyquestMyListHeading h2 {
+    font-size: 1.8em;
+    font-weight: 500;
+    margin: 0 0 .65em;
+}
+
+.jellyquestMyListHeading span {
+    color: #9298a3;
+    font-size: 1em;
+}
+
+.jellyquestMyListCards {
+    display: grid;
+    gap: 1.15em;
+    grid-auto-columns: minmax(10.5em, 13.2vw);
+    grid-auto-flow: column;
+    overflow-x: auto;
+    padding: .3em 3.3% .8em;
+    scrollbar-width: none;
+}
+
+.jellyquestMyListCards::-webkit-scrollbar {
+    display: none;
+}
+
+.jellyquestMyListCard {
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.jellyquestMyListImage {
+    align-items: flex-end;
+    background-color: #20242a;
+    background-position: center;
+    background-size: cover;
+    border: .18em solid transparent;
+    border-radius: .45em;
+    box-shadow: 0 .45em 1.2em rgba(0, 0, 0, .45);
+    box-sizing: border-box;
+    display: flex;
+    font-size: 1.25em;
+    font-weight: 700;
+    height: 15.5em;
+    overflow: hidden;
+    padding: .9em;
+    transition: border-color .12s ease, transform .12s ease;
+}
+
+.jellyquestMyListImage.is-placeholder {
+    background: linear-gradient(145deg, #294f61, #191c22 72%);
+}
+
+.jellyquestMyListTitle {
+    font-size: 1.08em;
+    margin: .58em 0 .16em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jellyquestMyListMeta {
+    color: #9ca2aa;
+    font-size: .92em;
+}
+
+.jellyquestMyListCard:focus {
+    outline: none;
+}
+
+.jellyquestMyListCard:focus .jellyquestMyListImage {
+    border-color: #fff;
+    box-shadow: 0 .65em 2em rgba(0, 0, 0, .8);
+    transform: scale(1.045);
+}
+
+.jellyquestMyListCard:focus .jellyquestMyListTitle {
+    color: #00c7db;
+}
+
+.itemDetailPage .jellyquestDetailActionLabel {
+    font-size: .84em;
+    margin-top: .58em;
+    max-width: 10em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.itemDetailPage .jellyquestDetailPlaybackAction[hidden] {
+    display: none !important;
+}
+
+.itemDetailPage .jellyquestNativeSeriesPlayback {
+    display: none !important;
+}
+
+.itemDetailPage .trackSelections {
+    display: none !important;
+}
+
+.jellyquestPlaybackOptionsBackdrop {
+    align-items: center;
+    background: rgba(0, 0, 0, .76);
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    left: 0;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 100001;
+}
+
+.jellyquestPlaybackOptionsBackdrop[hidden] {
+    display: none !important;
+}
+
+.jellyquestPlaybackOptions {
+    background: #20242a;
+    border: .08em solid #59616d;
+    border-radius: .55em;
+    box-shadow: 0 1em 3em rgba(0, 0, 0, .82);
+    box-sizing: border-box;
+    max-height: 82vh;
+    min-width: 32em;
+    overflow-y: auto;
+    padding: 1.1em;
+    width: 38em;
+}
+
+.jellyquestPlaybackOptions header {
+    align-items: center;
+    display: flex;
+    margin: 0 .25em 1em;
+}
+
+.jellyquestPlaybackOptions h2 {
+    font-size: 1.8em;
+    font-weight: 500;
+    margin: 0;
+}
+
+.jellyquestPlaybackOptionsContext {
+    color: #aeb4bc;
+    font-size: 1em;
+    margin: .3em 0 0;
+}
+
+.jellyquestPlaybackOptionsBack {
+    background: transparent;
+    border: 0;
+    border-radius: .25em;
+    color: #fff;
+    font-size: 2.5em;
+    margin-right: .35em;
+    min-width: 1.25em;
+}
+
+.jellyquestPlaybackOptionButton {
+    align-items: center;
+    background: #292e35;
+    border: .08em solid transparent;
+    border-radius: .35em;
+    color: #fff;
+    display: flex;
+    font-family: inherit;
+    font-size: 1.25em;
+    justify-content: space-between;
+    margin-top: .45em;
+    min-height: 3.4em;
+    padding: .7em 1em;
+    text-align: left;
+    width: 100%;
+}
+
+.jellyquestPlaybackOptionValue {
+    color: #aeb4bc;
+    margin-left: 2em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jellyquestPlaybackOptionButton.is-selected::after {
+    color: #00c7db;
+    content: '\2713';
+    margin-left: 1em;
+}
+
+.jellyquestPlaybackOptionButton:focus,
+.jellyquestPlaybackOptionsBack:focus {
+    background: #3a414b;
+    outline: .16em solid #00a4dc;
+    outline-offset: .1em;
+}
+
+.jellyquestPlaybackOptionsDone {
+    justify-content: center;
+    margin-top: 1em;
+}
+
 body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
     box-sizing: border-box;
     margin-left: 3.75em;
