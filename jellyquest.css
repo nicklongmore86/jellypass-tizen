@@ -626,6 +626,19 @@ body.jellyquestRuntimeHomeActive #homeTab > .sections > :not(.jellyquestRuntimeH
     padding: 6px 4px 4px;
 }
 
+.jellyquestRuntimeHomeRoot .jqHomeEmpty {
+    align-items: center;
+    background: #171a20;
+    border: 1px solid #343a44;
+    border-radius: 7px;
+    color: #b7bdc6;
+    display: flex;
+    font-size: 18px;
+    grid-column: 1 / -1;
+    min-height: 86px;
+    padding: 20px 24px;
+}
+
 .jellyquestRuntimeHomeRoot .jqMovieCard {
     color: #fff;
     display: block;

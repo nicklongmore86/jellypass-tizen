@@ -262,6 +262,18 @@
         });
     }
 
+    function edgeVisualRow(candidates, edge) {
+        if (!candidates.length) return [];
+        var sorted = candidates.slice().sort(function (left, right) {
+            return center(left.getBoundingClientRect()).y - center(right.getBoundingClientRect()).y;
+        });
+        var anchor = center((edge === 'bottom' ? sorted[sorted.length - 1] : sorted[0]).getBoundingClientRect()).y;
+        return sorted.filter(function (candidate) {
+            var rect = candidate.getBoundingClientRect();
+            return Math.abs(center(rect).y - anchor) <= Math.max(12, rect.height * .45);
+        });
+    }
+
     function detailContentElements() {
         return visibleElements('.jqCollectionCard, .jqEpisodeCard, .jqChapterCard');
     }
@@ -291,13 +303,13 @@
             if (keyCode === 39 && actionIndex < actions.length - 1) target = actions[actionIndex + 1];
             if (keyCode === 38) target = tabs[actionIndex < Math.ceil(actions.length / 2) ? 0 : tabs.length - 1] || headers[0];
             if (keyCode === 40) target = season && actionIndex === actions.length - 1
-                ? season : proportionalTarget(actionIndex, actions.length, content);
+                ? season : nearestByAxis(current, edgeVisualRow(content, 'top'), 'x');
             return target;
         }
 
         if (current === season) {
             if (keyCode === 38) target = actions[actions.length - 1];
-            if (keyCode === 40) target = content[content.length - 1];
+            if (keyCode === 40) target = nearestByAxis(current, edgeVisualRow(content, 'top'), 'x');
             return target;
         }
 
@@ -310,7 +322,7 @@
                 return target;
             }
             target = directionalCandidate(current, content, keyCode);
-            if (!target && keyCode === 38) target = proportionalTarget(contentIndex, content.length, actions);
+            if (!target && keyCode === 38) target = nearestByAxis(current, actions.concat(season ? [season] : []), 'x');
             return target;
         }
 

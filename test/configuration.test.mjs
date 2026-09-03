@@ -59,7 +59,12 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /IncludeItemTypes: 'Movie,Series'/);
     assert.match(policy, /jellyquestMyListSection/);
     assert.match(policy, /jellyquestRuntimeHomeRoot/);
+    assert.match(policy, /data-jellyquest-static-preview/);
+    assert.match(policy, /if \(isStaticPreview\) return/);
+    assert.match(policy, /isRuntimeShellRoute\(\) && !isStaticPreview/);
     assert.match(policy, /Continue Watching/);
+    assert.match(policy, /Your My List is empty/);
+    assert.match(policy, /window\.scrollTo\(0, 0\)/);
     assert.match(policy, /Recently Added/);
     assert.match(policy, /function handleRuntimeHomeKeys/);
     assert.match(policy, /grid\.appendChild\(createRuntimeHomeCard/);
@@ -143,6 +148,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /width: calc\(100% - 60px\)/);
     assert.match(styles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
     assert.match(styles, /\.jellyquestRuntimeHomeRoot/);
+    assert.match(styles, /\.jqHomeEmpty/);
     assert.match(styles, /\.jellyquestRuntimeLibraryRoot/);
     assert.match(styles, /\.jellyquestRuntimeLibraryMenu/);
     assert.match(styles, /\.jellyquestGlobalTabs/);
@@ -222,6 +228,11 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /scrollIntoView/);
     assert.match(bootstrap, /function visualRows/);
     assert.match(bootstrap, /function gridTarget/);
+    assert.match(bootstrap, /function navigableDiscoverRows/);
+    assert.match(bootstrap, /visibleCards\(row\)\.length > 0/);
+    assert.match(bootstrap, /scroll-behavior: auto/);
+    assert.match(bootstrap, /\/api\/v1\/discover\/genreslider\//);
+    assert.match(bootstrap, /if \(path\.indexOf\('\/api\/v1\/discover\/genreslider\/'\) === 0\) \{\s*return \[\];/);
     assert.match(bootstrap, /function completeMove/);
     assert.match(bootstrap, /window\.location\.replace\(params\.return\)/);
     assert.doesNotMatch(bootstrap, /api[_-]?key/i);
@@ -248,6 +259,9 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(simulator, /Back \/ Return/);
     assert.match(simulator, /jellyquest-preview-exit/);
     assert.match(simulator, /lastTvFocus/);
+    assert.match(simulator, /function isUsableTvTarget/);
+    assert.match(simulator, /elementFromPoint/);
+    assert.match(simulator, /contentWindow\.scrollTo\(0, 0\)/);
     assert.match(simulator, /mousedown[^\n]+preventDefault/);
     assert.match(simulator, /profilesView">Home/);
     assert.doesNotMatch(simulator, /favoritesView/);
@@ -255,6 +269,9 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(simulator, /Show Detail/);
     assert.match(simulator, /Event Detail/);
     assert.match(profiles, /pageTitleWithDefaultLogo/);
+    [profiles, movies, shows, sports, movieDetail, showDetail, sportDetail].forEach((document) => {
+        assert.match(document, /<html lang="en" data-jellyquest-static-preview>/);
+    });
     assert.match(profiles, /jellyquest\.js/);
     assert.match(profiles, /jellyfin-media-preview\.css/);
     assert.match(profiles, /getPublicUsers/);
@@ -277,6 +294,7 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.match(mediaNavigation, /headers\.slice\(1\)\.concat\(filters\)/);
     assert.match(mediaNavigation, /!hasCardAbove/);
     assert.match(mediaNavigation, /function sameVisualRow/);
+    assert.match(mediaNavigation, /function edgeVisualRow/);
     assert.match(mediaNavigation, /function detailContentElements/);
     assert.match(mediaNavigation, /function proportionalTarget/);
     assert.match(mediaNavigation, /function detailNavigationTarget/);
@@ -315,6 +333,7 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.equal((shows.match(/class="jqMovieCard jqShowCard"/g) || []).length, 21);
     assert.equal((sports.match(/class="jqSportCard"/g) || []).length, 12);
     assert.match(preview, /python3 -m http\.server/);
+    assert.match(preview, /--bind 127\.0\.0\.1/);
     assert.ok(fs.existsSync(path.join(root, 'integration/jellyfin-movies-preview.html')));
     assert.ok(fs.existsSync(path.join(root, 'integration/jellyfin-movie-detail-preview.html')));
     assert.ok(fs.existsSync(path.join(root, 'integration/jellyfin-shows-preview.html')));

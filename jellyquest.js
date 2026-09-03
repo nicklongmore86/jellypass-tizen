@@ -9,6 +9,7 @@
     var profileSwitcherTrigger;
     var profileSwitching = false;
     var jellyquestScript = document.currentScript;
+    var isStaticPreview = document.documentElement.hasAttribute('data-jellyquest-static-preview');
     var jellyfinIconUrl = jellyquestScript && jellyquestScript.src
         ? new URL('icon.png', jellyquestScript.src).href
         : 'icon.png';
@@ -208,7 +209,7 @@
     }
 
     function appendRuntimeHomeRow(root, apiClient, definition, items, user) {
-        if (!items.length) return;
+        if (!items.length && definition.key !== 'favorites') return;
         var section = document.createElement('section');
         var heading = document.createElement('div');
         var title = document.createElement('h2');
@@ -222,9 +223,16 @@
             ? 'Saved for ' + user.Name
             : definition.note;
         grid.className = 'jqHomeGrid';
-        items.slice(0, 7).forEach(function (item) {
-            grid.appendChild(createRuntimeHomeCard(apiClient, item, definition.key));
-        });
+        if (items.length) {
+            items.slice(0, 7).forEach(function (item) {
+                grid.appendChild(createRuntimeHomeCard(apiClient, item, definition.key));
+            });
+        } else {
+            var empty = document.createElement('div');
+            empty.className = 'jqHomeEmpty';
+            empty.textContent = 'Your My List is empty. Add a title from its details page.';
+            grid.appendChild(empty);
+        }
         heading.appendChild(title);
         heading.appendChild(note);
         section.appendChild(heading);
@@ -252,6 +260,10 @@
             return;
         }
         if (!existing) container.insertBefore(root, container.firstElementChild);
+        root.scrollTop = 0;
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
         document.body.classList.add('jellyquestRuntimeHomeActive');
         runtimeHomeUserId = user.Id;
     }
@@ -267,6 +279,7 @@
     }
 
     function loadRuntimeHome(force) {
+        if (isStaticPreview) return;
         if (!isHomeRoute()) {
             removeRuntimeHome();
             return;
@@ -341,7 +354,7 @@
 
     function ensureRuntimeGlobalTabs() {
         var header = document.querySelector('.skinHeader');
-        if (!isRuntimeShellRoute() || !header) {
+        if (isStaticPreview || !isRuntimeShellRoute() || !header) {
             var libraryProfile = document.querySelector('.jellyquestLibraryProfileTrigger');
             if (libraryProfile) {
                 if (profileSwitcherTrigger === libraryProfile) profileSwitcherTrigger = null;
@@ -674,6 +687,10 @@
     }
 
     function ensureRuntimeLibrary() {
+        if (isStaticPreview) {
+            removeRuntimeLibrary();
+            return;
+        }
         var descriptor = libraryDescriptor();
         if (!descriptor) {
             removeRuntimeLibrary();
@@ -1136,6 +1153,10 @@
     }
 
     function ensureRuntimeDetail() {
+        if (isStaticPreview) {
+            removeRuntimeDetail();
+            return;
+        }
         if (!isDetailRoute()) {
             removeRuntimeDetail();
             return;
@@ -1358,11 +1379,13 @@
     function scheduleMyListRefresh() {
         window.clearTimeout(myListRefreshTimer);
         myListRefreshTimer = window.setTimeout(function () {
+            runtimeHomeUserId = '';
             var section = document.querySelector('.jellyquestMyListSection');
             if (section) {
                 section.removeAttribute('data-jellyquest-userid');
             }
-            ensureMyListRow(true);
+            if (isHomeRoute()) loadRuntimeHome(true);
+            else ensureMyListRow(true);
             labelMyListButtons();
         }, 700);
     }
@@ -2115,7 +2138,7 @@
             oldTrigger.removeAttribute('tabindex');
             oldTrigger.removeAttribute('aria-label');
         });
-        var trigger = isRuntimeShellRoute()
+        var trigger = isRuntimeShellRoute() && !isStaticPreview
             ? document.querySelector('.jellyquestLibraryProfileTrigger')
             : document.querySelector('.pageTitleWithDefaultLogo:not(.jellyquestLibraryProfileTrigger)');
         if (!trigger) {
@@ -2386,7 +2409,9 @@
             var grid = card.closest('.jqHomeGrid');
             var row = runtimeHomeVisible(grid.querySelectorAll('.jellyquestRuntimeHomeCard'));
             var index = row.indexOf(card);
-            var sections = runtimeHomeVisible(root.querySelectorAll('.jqHomeSection'));
+            var sections = runtimeHomeVisible(root.querySelectorAll('.jqHomeSection')).filter(function (section) {
+                return runtimeHomeVisible(section.querySelectorAll('.jellyquestRuntimeHomeCard')).length > 0;
+            });
             var sectionIndex = sections.indexOf(card.closest('.jqHomeSection'));
             runtimeHomeLastCard = card;
             if (keyCode === 37) {
@@ -2400,7 +2425,7 @@
                     target = previous[Math.min(index, previous.length - 1)];
                 } else {
                     target = runtimeHomeNearest(card, runtimeHomeVisible(document.querySelectorAll(
-                        '.jellyquestProfileTrigger, .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)')), 'x');
+                        '.headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)')), 'x');
                 }
             } else if (keyCode === 40 && sectionIndex < sections.length - 1) {
                 var next = runtimeHomeVisible(sections[sectionIndex + 1].querySelectorAll('.jellyquestRuntimeHomeCard'));
@@ -2414,13 +2439,23 @@
             if (!target || !document.body.contains(target)) target = runtimeHomeLastCard;
             if (!target || !document.body.contains(target)) target = root.querySelector('.jellyquestRuntimeHomeCard');
             focusRuntimeHomeTarget(target, 37, railItem);
-        } else if (headerItem && keyCode === 40) {
-            target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
-            if (!target || !document.body.contains(target)) {
-                target = runtimeHomeNearest(headerItem,
-                    runtimeHomeVisible(root.querySelectorAll('.jqHomeSection:first-child .jellyquestRuntimeHomeCard')), 'x');
+        } else if (headerItem) {
+            var headers = runtimeHomeVisible(document.querySelectorAll(
+                '.jellyquestProfileTrigger, .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)'));
+            var headerIndex = headers.indexOf(headerItem);
+            if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
+            if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
+            if (keyCode === 40) {
+                target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
+                if (!target || !document.body.contains(target)) {
+                    target = headerItem.classList.contains('jellyquestProfileTrigger')
+                        ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
+                        : runtimeHomeNearest(headerItem,
+                            runtimeHomeVisible(root.querySelectorAll('.jqHomeSection .jellyquestRuntimeHomeCard')), 'x');
+                }
             }
-            focusRuntimeHomeTarget(target, 38, headerItem);
+            if (target) focusRuntimeHomeTarget(target, keyCode === 40 ? 38
+                : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0)), headerItem);
         }
 
         if (target) {
@@ -2545,6 +2580,18 @@
         })[0] || null;
     }
 
+    function runtimeDetailEdgeRow(candidates, edge) {
+        if (!candidates.length) return [];
+        var sorted = candidates.slice().sort(function (left, right) {
+            return runtimeHomeCenter(left).y - runtimeHomeCenter(right).y;
+        });
+        var anchor = runtimeHomeCenter(edge === 'bottom' ? sorted[sorted.length - 1] : sorted[0]).y;
+        return sorted.filter(function (candidate) {
+            var rect = candidate.getBoundingClientRect();
+            return Math.abs(runtimeHomeCenter(candidate).y - anchor) <= Math.max(12, rect.height * .45);
+        });
+    }
+
     function handleRuntimeDetailKeys(event) {
         if (!document.body.classList.contains('jellyquestRuntimeDetailActive')
                 || (playbackOptionsDialog && !playbackOptionsDialog.hidden)
@@ -2591,30 +2638,38 @@
         var contents = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeDetailContent'));
         var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab'));
         var target = null;
+        var remembered = current._jellyquestRuntimeReturn && current._jellyquestRuntimeReturn[keyCode];
 
-        if (action) {
+        if (remembered && document.body.contains(remembered)
+                && runtimeHomeVisible([remembered]).length) {
+            target = remembered;
+        }
+
+        if (!target && action) {
             var actionIndex = actions.indexOf(action);
             runtimeDetailLastFocus = action;
             if (keyCode === 37) target = actionIndex > 0 ? actions[actionIndex - 1]
                 : (libraryRail ? runtimeHomeNearest(action, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null);
             if (keyCode === 39 && actionIndex < actions.length - 1) target = actions[actionIndex + 1];
             if (keyCode === 38) target = headers[actionIndex < Math.ceil(actions.length / 2) ? 1 : 2] || headers[1] || headers[0];
-            if (keyCode === 40) target = lower.length
-                ? lower[Math.min(lower.length - 1, Math.round(actionIndex * (lower.length - 1) / Math.max(1, actions.length - 1)))] : null;
-        } else if (season) {
+            if (keyCode === 40) {
+                target = season && actionIndex === actions.length - 1
+                    ? season
+                    : runtimeHomeNearest(action, runtimeDetailEdgeRow(contents, 'top'), 'x');
+            }
+        } else if (!target && season) {
             runtimeDetailLastFocus = season;
             if (keyCode === 38) target = actions[actions.length - 1];
-            if (keyCode === 40) target = contents[0];
-        } else if (content) {
+            if (keyCode === 40) target = runtimeHomeNearest(season, runtimeDetailEdgeRow(contents, 'top'), 'x');
+        } else if (!target && content) {
             runtimeDetailLastFocus = content;
             target = runtimeDetailDirectional(content, contents.slice(), keyCode);
             if (!target && keyCode === 37) target = libraryRail
                 ? runtimeHomeNearest(content, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
             if (!target && keyCode === 38) {
-                target = season || actions[Math.min(actions.length - 1,
-                    Math.round(contents.indexOf(content) * (actions.length - 1) / Math.max(1, contents.length - 1)))];
+                target = runtimeHomeNearest(content, actions.concat(season ? [season] : []), 'x');
             }
-        } else if (headerItem) {
+        } else if (!target && headerItem) {
             var headerIndex = headers.indexOf(headerItem);
             if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
             if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
@@ -2624,14 +2679,15 @@
                     ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
                     : actions[headerIndex === headers.length - 1 ? actions.length - 1 : 0];
             }
-        } else if (railItem && keyCode === 39) {
+        } else if (!target && railItem && keyCode === 39) {
             target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
             if (!target || !document.body.contains(target)) target = runtimeDetailLastFocus;
             if (!target || !document.body.contains(target)) target = actions[0] || lower[0];
         }
 
         if (target) {
-            focusRuntimeHomeTarget(target, keyCode === 38 ? 40 : (keyCode === 37 ? 39 : 0), current);
+            focusRuntimeHomeTarget(target, keyCode === 38 ? 40
+                : (keyCode === 40 ? 38 : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0))), current);
             event.preventDefault();
             event.stopImmediatePropagation();
         }

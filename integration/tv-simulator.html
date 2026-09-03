@@ -33,14 +33,28 @@
       var stage = document.getElementById('stage');
       var tv = document.getElementById('tv');
       var lastTvFocus = null;
+      function isUsableTvTarget(element) {
+        if (!element || !tv.contentDocument.contains(element)) return false;
+        var rect = element.getBoundingClientRect();
+        var style = tv.contentWindow.getComputedStyle(element);
+        if (rect.width <= 0 || rect.height <= 0 || style.display === 'none' || style.visibility === 'hidden') return false;
+        var x = Math.max(0, Math.min(tv.contentWindow.innerWidth - 1, rect.left + rect.width / 2));
+        var y = Math.max(0, Math.min(tv.contentWindow.innerHeight - 1, rect.top + rect.height / 2));
+        var top = tv.contentDocument.elementFromPoint(x, y);
+        return !!top && (top === element || element.contains(top));
+      }
       function rememberTvFocus() {
         var active = tv.contentDocument && tv.contentDocument.activeElement;
-        if (active && active !== tv.contentDocument.body && active !== tv.contentDocument.documentElement) {
+        if (active && active !== tv.contentDocument.body && active !== tv.contentDocument.documentElement
+            && isUsableTvTarget(active)) {
           lastTvFocus = active;
         }
       }
       function bindTvFocus() {
         lastTvFocus = null;
+        tv.contentWindow.scrollTo(0, 0);
+        tv.contentDocument.documentElement.scrollTop = 0;
+        tv.contentDocument.body.scrollTop = 0;
         tv.contentDocument.addEventListener('focusin', rememberTvFocus, true);
         window.setTimeout(rememberTvFocus, 0);
       }
@@ -50,14 +64,20 @@
       }
       function sendKey(code) {
         var active = tv.contentDocument.activeElement;
-        var target = lastTvFocus && tv.contentDocument.contains(lastTvFocus)
-          ? lastTvFocus
-          : active || tv.contentWindow;
+        var target = isUsableTvTarget(lastTvFocus) ? lastTvFocus
+          : isUsableTvTarget(active) ? active : null;
+        if (!target) {
+          target = Array.prototype.slice.call(tv.contentDocument.querySelectorAll(
+            '[autofocus],button:not([disabled]),a[href],input:not([disabled]),select:not([disabled])'
+          )).filter(isUsableTvTarget)[0] || tv.contentWindow;
+          if (target !== tv.contentWindow && typeof target.focus === 'function') target.focus();
+        }
         var event = new tv.contentWindow.Event('keydown', { bubbles: true, cancelable: true });
         Object.defineProperty(event, 'keyCode', { value: code });
         target.dispatchEvent(event);
         if (code === 13 && !event.defaultPrevented && typeof target.click === 'function') target.click();
         if (code === 10182 && !event.defaultPrevented) document.getElementById('exitNotice').hidden = false;
+        window.setTimeout(rememberTvFocus, 0);
       }
       Array.prototype.forEach.call(document.querySelectorAll('[data-key]'), function (button) {
         button.addEventListener('mousedown', function (event) { event.preventDefault(); });

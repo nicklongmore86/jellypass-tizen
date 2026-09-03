@@ -17,4 +17,4 @@ cp "${project_dir}/jellyquest.css" "${project_dir}/jellyquest.js" "${project_dir
 
 echo "JellyQuest TV simulator: http://127.0.0.1:${preview_port}/tv-simulator.html"
 echo "Press Ctrl+C to stop the preview server."
-python3 -m http.server "${preview_port}" --directory "${preview_dir}"
+python3 -m http.server "${preview_port}" --bind 127.0.0.1 --directory "${preview_dir}"
