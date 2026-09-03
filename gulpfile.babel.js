@@ -61,6 +61,11 @@ function copy() {
         .pipe(gulp.dest(paths.assets.dest));
 }
 
+function copyJellyQuestRequests() {
+    return gulp.src('integration/jellyseerr-login.html')
+        .pipe(gulp.dest(paths.assets.dest));
+}
+
 // Add required tags to index.html
 function modifyIndex() {
     return gulp.src(paths.index.src)
@@ -133,13 +138,14 @@ function modifyIndex() {
 const build = gulp.series(
     clean,
     searchFonts,
-    gulp.parallel(copy, modifyIndex)
+    gulp.parallel(copy, copyJellyQuestRequests, modifyIndex)
 );
 
 // Export tasks so they can be run individually
 export {
     clean,
     copy,
+    copyJellyQuestRequests,
     modifyIndex
 };
 // Export default task

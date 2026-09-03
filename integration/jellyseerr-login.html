@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="jellyquest-requests-version" content="0.8.0">
   <title>JellyQuest Requests</title>
   <style>
     * { box-sizing: border-box; }
@@ -26,7 +27,7 @@
     .nav.active .nav-icon { color: #00c7db; }
     .nav:focus { background: #fff; color: #111; outline: none; }
     .nav:focus .nav-icon { color: #111; }
-    #topbar { align-items: center; background: #15171b; box-shadow: 0 .2rem .8rem #000; display: none; height: 5.25rem; left: 0; padding: 0 2.5rem; position: fixed; right: 0; top: 0; z-index: 5; }
+    #topbar { align-items: center; background: rgba(14,14,16,.96); box-shadow: 0 .2rem .8rem #000; display: none; height: 5.25rem; left: 0; padding: 0 1.4375rem; position: fixed; right: 0; top: 0; z-index: 5; }
     .requests-header-top { align-items: center; display: flex; height: auto; }
     #topPageTitle, #globalSearchForm { display: none; }
     #globalSearch { background: #20242a; border: .1rem solid #414750; border-radius: .4rem; color: #fff; font-size: 1.15rem; max-width: 38rem; padding: .72rem 1rem; width: 100%; }
@@ -78,6 +79,10 @@
     .dialog { background: #20242a; border: .1rem solid #59616d; border-radius: .45rem; box-shadow: 0 .8rem 2.4rem rgba(0,0,0,.82); max-height: 88%; max-width: 52rem; overflow-y: auto; padding: 1.75rem; width: 100%; }
     .dialog h2 { margin-bottom: .7rem; }
     .dialog p { color: #d0d3d7; font-size: 1.2rem; line-height: 1.45; }
+    .season-options { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.25rem; }
+    .season-options[hidden] { display: none; }
+    .season-toggle { background: #343a43; border: .12rem solid #565d68; border-radius: .4rem; min-width: 4.5rem; padding: .65rem .85rem; }
+    .season-toggle[aria-pressed="true"] { background: #fff; border-color: #fff; color: #111; font-weight: 700; }
     .dialog-actions { margin-top: 1.25rem; text-align: right; }
     .dialog-actions button { background: #343a43; border: .12rem solid #565d68; border-radius: .4rem; margin-left: .7rem; padding: .7rem 1rem; }
     .dialog-actions .primary { background: #fff; border-color: #fff; color: #111; font-weight: 700; }
@@ -135,6 +140,7 @@
       <h2 id="modalTitle"></h2>
       <div class="meta" id="modalMeta"></div>
       <p id="modalOverview"></p>
+      <div class="season-options" id="seasonOptions" aria-label="Seasons to request" hidden></div>
       <div class="dialog-actions">
         <button id="modalClose" type="button">Cancel</button>
         <button class="primary" id="modalRequest" type="button">Request</button>
@@ -150,10 +156,17 @@
       var app = document.getElementById('app');
       var modal = document.getElementById('modal');
       var selectedItem = null;
+      var selectedSeasons = [];
       var lastFocusedCard = null;
       var activeView = 'discover';
       var activeCategory = null;
       var categoryCache = {};
+      var bridgeFrame = null;
+      var bridgeOrigin = '';
+      var bridgeNonce = '';
+      var bridgeReadyPromise = null;
+      var bridgeRequestId = 0;
+      var bridgeRequests = {};
       var isPreview = /(?:\?|&)preview=1(?:&|$)/.test(window.location.search);
       var params = {};
       var categories = [
@@ -190,6 +203,102 @@
       });
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
       document.getElementById('requestsProfileName').textContent = params.user || 'Living Room';
+
+      function validBridgeUrl(url) {
+        try {
+          var parsed = new URL(url);
+          return parsed.protocol === 'https:'
+            && parsed.origin === 'https://jellyseerr.starrgroup.io'
+            && parsed.pathname === '/jellyquest-bridge/bridge.html';
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function randomNonce() {
+        var values = new Uint32Array(4);
+        window.crypto.getRandomValues(values);
+        return Array.prototype.map.call(values, function (value) { return value.toString(16); }).join('');
+      }
+
+      function handleBridgeMessage(event) {
+        var data = event.data || {};
+        if (!bridgeFrame || event.source !== bridgeFrame.contentWindow || event.origin !== bridgeOrigin
+            || data.source !== 'jellyquest-bridge' || data.nonce !== bridgeNonce) return;
+        if (data.type === 'ready' && bridgeReadyPromise && bridgeReadyPromise.resolve) {
+          window.clearTimeout(bridgeReadyPromise.timer);
+          bridgeReadyPromise.resolve();
+          bridgeReadyPromise.resolve = null;
+          return;
+        }
+        if (data.type === 'error' && bridgeReadyPromise && bridgeReadyPromise.reject) {
+          window.clearTimeout(bridgeReadyPromise.timer);
+          var reject = bridgeReadyPromise.reject;
+          bridgeReadyPromise = null;
+          if (bridgeFrame && bridgeFrame.parentNode) bridgeFrame.parentNode.removeChild(bridgeFrame);
+          bridgeFrame = null;
+          reject(new Error(data.error || 'Request bridge authentication failed.'));
+          return;
+        }
+        if (data.type !== 'response' || !bridgeRequests[data.id]) return;
+        var pending = bridgeRequests[data.id];
+        delete bridgeRequests[data.id];
+        window.clearTimeout(pending.timer);
+        if (data.ok) pending.resolve(data.data);
+        else pending.reject(new Error(data.error || 'Jellyseerr request failed.'));
+      }
+
+      function startBridge() {
+        if (isPreview) return Promise.resolve();
+        if (bridgeReadyPromise) return bridgeReadyPromise.promise;
+        if (!validBridgeUrl(params.bridge)) return Promise.reject(new Error('JellyQuest request bridge is not configured.'));
+        var bridgeUrl = new URL(params.bridge);
+        bridgeOrigin = bridgeUrl.origin;
+        bridgeNonce = randomNonce();
+        bridgeUrl.hash = 'user=' + encodeURIComponent(params.user || '')
+          + '&id=' + encodeURIComponent(params.id || '')
+          + '&nonce=' + encodeURIComponent(bridgeNonce);
+        bridgeFrame = document.createElement('iframe');
+        bridgeFrame.hidden = true;
+        bridgeFrame.setAttribute('aria-hidden', 'true');
+        bridgeFrame.src = bridgeUrl.href;
+        document.body.appendChild(bridgeFrame);
+        var holder = {};
+        holder.promise = new Promise(function (resolve, reject) {
+          holder.resolve = resolve;
+          holder.reject = reject;
+          holder.timer = window.setTimeout(function () {
+            bridgeReadyPromise = null;
+            if (bridgeFrame && bridgeFrame.parentNode) bridgeFrame.parentNode.removeChild(bridgeFrame);
+            bridgeFrame = null;
+            holder.reject(new Error('JellyQuest could not reach the request bridge.'));
+          }, 15000);
+        });
+        bridgeReadyPromise = holder;
+        return holder.promise;
+      }
+
+      function bridgeApi(path, options) {
+        return startBridge().then(function () {
+          return new Promise(function (resolve, reject) {
+            bridgeRequestId += 1;
+            var id = String(bridgeRequestId);
+            var timer = window.setTimeout(function () {
+              delete bridgeRequests[id];
+              reject(new Error('Jellyseerr request timed out.'));
+            }, 20000);
+            bridgeRequests[id] = { resolve: resolve, reject: reject, timer: timer };
+            bridgeFrame.contentWindow.postMessage({
+              source: 'jellyquest-app',
+              type: 'request',
+              nonce: bridgeNonce,
+              id: id,
+              path: path,
+              options: options || {}
+            }, bridgeOrigin);
+          });
+        });
+      }
 
       function isSafeReturnUrl(url) {
         return typeof url === 'string' && (
@@ -360,7 +469,8 @@
           return;
         }
         var remembered = current._jellyquestReturnFocus && current._jellyquestReturnFocus[direction];
-        if (remembered && document.body.contains(remembered) && isVisible(remembered)) {
+        var forceProfileToRail = current.id === 'requestsProfile' && direction === 'down';
+        if (!forceProfileToRail && remembered && document.body.contains(remembered) && isVisible(remembered)) {
           completeMove(event, current, remembered, direction);
           return;
         }
@@ -378,10 +488,19 @@
         var target = null;
 
         if (modal.style.display === 'flex') {
-          var modalButtons = elements.filter(function (element) { return element.tagName === 'BUTTON'; });
-          var modalIndex = modalButtons.indexOf(current);
-          if (direction === 'left' && modalIndex > 0) target = modalButtons[modalIndex - 1];
-          if (direction === 'right' && modalIndex < modalButtons.length - 1) target = modalButtons[modalIndex + 1];
+          var seasonButtons = elements.filter(function (element) { return element.classList.contains('season-toggle'); });
+          var actionButtons = elements.filter(function (element) { return element.closest('.dialog-actions'); });
+          var seasonIndex = seasonButtons.indexOf(current);
+          var actionIndex = actionButtons.indexOf(current);
+          if (seasonIndex !== -1) {
+            if (direction === 'left' && seasonIndex > 0) target = seasonButtons[seasonIndex - 1];
+            if (direction === 'right' && seasonIndex < seasonButtons.length - 1) target = seasonButtons[seasonIndex + 1];
+            if (direction === 'down') target = nearestByAxis(current, actionButtons.slice(), 'x');
+          } else if (actionIndex !== -1) {
+            if (direction === 'left' && actionIndex > 0) target = actionButtons[actionIndex - 1];
+            if (direction === 'right' && actionIndex < actionButtons.length - 1) target = actionButtons[actionIndex + 1];
+            if (direction === 'up' && seasonButtons.length) target = nearestByAxis(current, seasonButtons.slice(), 'x');
+          }
           completeMove(event, current, target, direction);
           return;
         }
@@ -397,7 +516,9 @@
         if (headerIndex !== -1) {
           if (direction === 'left' && headerIndex > 0) target = headerElements[headerIndex - 1];
           if (direction === 'right' && headerIndex < headerElements.length - 1) target = headerElements[headerIndex + 1];
-          if (direction === 'down') target = nearestByAxis(current, [workspaceEntryTarget()].filter(Boolean), 'x');
+          if (direction === 'down') target = current.id === 'requestsProfile'
+            ? activeRail
+            : nearestByAxis(current, [workspaceEntryTarget()].filter(Boolean), 'x');
           completeMove(event, current, target, direction);
           return;
         }
@@ -426,7 +547,7 @@
           if (direction === 'up') {
             target = discoverRowIndex > 0
               ? visibleCards(discoverRows[discoverRowIndex - 1])[Math.min(cardIndex, visibleCards(discoverRows[discoverRowIndex - 1]).length - 1)]
-              : nearestByAxis(current, headerElements.slice(), 'x');
+              : nearestByAxis(current, headerElements.slice(1), 'x');
           }
           if (direction === 'down' && discoverRowIndex < discoverRows.length - 1) {
             var nextCards = visibleCards(discoverRows[discoverRowIndex + 1]);
@@ -440,7 +561,7 @@
           var rows = Array.prototype.slice.call(document.querySelectorAll('#discoverRows .media-row')).filter(isVisible);
           var rowIndex = rows.indexOf(mediaRow);
           if (direction === 'left') target = visibleCards(mediaRow).slice(-1)[0];
-          if (direction === 'up') target = rowIndex > 0 ? rows[rowIndex - 1].querySelector('.see-more') : nearestByAxis(current, headerElements.slice(), 'x');
+          if (direction === 'up') target = rowIndex > 0 ? rows[rowIndex - 1].querySelector('.see-more') : nearestByAxis(current, headerElements.slice(1), 'x');
           if (direction === 'down' && rowIndex < rows.length - 1) target = rows[rowIndex + 1].querySelector('.see-more');
           completeMove(event, current, target, direction);
           return;
@@ -449,10 +570,10 @@
         if (current.classList.contains('card') || current.classList.contains('option-card')) {
           var container = current.closest('.cards');
           var topTargets = activeCategory
-            ? headerElements
+            ? headerElements.slice(1)
             : activeView === 'search'
               ? [document.getElementById('searchInput'), document.getElementById('searchButton')]
-              : headerElements;
+              : headerElements.slice(1);
           target = gridTarget(current, direction, visibleCards(container), topTargets, activeRail);
           completeMove(event, current, target, direction);
           return;
@@ -474,18 +595,7 @@
 
       function api(path, options) {
         if (isPreview) return Promise.resolve(previewApi(path, options));
-        var requestOptions = options || {};
-        requestOptions.credentials = 'same-origin';
-        requestOptions.headers = requestOptions.headers || { 'Accept': 'application/json' };
-        return fetch(path, requestOptions).then(function (response) {
-          return response.text().then(function (text) {
-            var data = text ? JSON.parse(text) : {};
-            if (!response.ok || response.status === 202) {
-              throw new Error(data.message || 'Jellyseerr returned ' + response.status + '.');
-            }
-            return data;
-          });
-        });
+        return bridgeApi(path, options);
       }
 
       function notice(text) {
@@ -666,7 +776,7 @@
           scroller.innerHTML = '<div class="empty">No titles are available in this category.</div>';
           return;
         }
-        items.slice(0, 10).forEach(function (item) {
+        items.slice(0, 7).forEach(function (item) {
           scroller.appendChild(category.type === 'genres' || category.type === 'options'
             ? createOptionCard(category, item)
             : createCard(item));
@@ -693,6 +803,7 @@
       }
 
       function showView(name) {
+        if (activeView === 'search' && name !== 'search') resetSearch();
         activeView = name;
         activeCategory = null;
         ['discover', 'category', 'search', 'requests'].forEach(function (view) {
@@ -715,6 +826,7 @@
       function openCategory(key, navName) {
         var category = categoryByKey(key);
         if (!category) return;
+        if (activeView === 'search') resetSearch();
         activeView = navName || 'category';
         activeCategory = key;
         ['discover', 'search', 'requests'].forEach(function (view) {
@@ -742,6 +854,7 @@
       }
 
       function openFilteredCategory(title, url) {
+        if (activeView === 'search') resetSearch();
         activeView = 'category';
         activeCategory = 'filter';
         ['discover', 'search', 'requests'].forEach(function (view) {
@@ -775,6 +888,12 @@
         }).catch(function (error) { notice(error.message); });
       }
 
+      function resetSearch() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('globalSearch').value = '';
+        document.getElementById('searchCards').innerHTML = '';
+      }
+
       function loadMyRequests() {
         notice('Loading your requests…');
         api('/api/v1/request?filter=all&take=20&sort=modified&skip=0').then(function (data) {
@@ -794,18 +913,73 @@
       function openModal(item) {
         var status = mediaStatus(item);
         selectedItem = item;
+        selectedSeasons = [];
         document.getElementById('modalTitle').textContent = itemTitle(item);
         document.getElementById('modalMeta').textContent = (item.mediaType === 'tv' ? 'TV Show' : 'Movie') + (itemYear(item) ? ' · ' + itemYear(item) : '');
         document.getElementById('modalOverview').textContent = item.overview || 'No description is available.';
-        document.getElementById('modalRequest').textContent = status.requestable ? (item.mediaType === 'tv' ? 'Request all available seasons' : 'Request movie') : status.text;
+        document.getElementById('modalRequest').textContent = status.requestable ? (item.mediaType === 'tv' ? 'Loading seasons…' : 'Request movie') : status.text;
         document.getElementById('modalRequest').disabled = !status.requestable;
+        renderSeasonOptions(item, status);
         modal.style.display = 'flex';
         (status.requestable ? document.getElementById('modalRequest') : document.getElementById('modalClose')).focus();
+        if (item.mediaType === 'tv' && status.requestable && !(item.seasons && item.seasons.length)) {
+          api('/api/v1/tv/' + item.id).then(function (details) {
+            if (selectedItem !== item || modal.style.display !== 'flex') return;
+            details.mediaType = 'tv';
+            selectedItem = details;
+            document.getElementById('modalOverview').textContent = details.overview || 'No description is available.';
+            renderSeasonOptions(details, mediaStatus(details));
+          }).catch(function () {
+            if (selectedItem === item) renderSeasonOptions(item, status);
+          });
+        }
+      }
+
+      function renderSeasonOptions(item, status) {
+        var container = document.getElementById('seasonOptions');
+        var requestButton = document.getElementById('modalRequest');
+        var seasons = item.mediaType === 'tv' ? (item.seasons || []).filter(function (season) {
+          return Number(season.seasonNumber) > 0;
+        }) : [];
+        container.innerHTML = '';
+        container.hidden = !status.requestable || !seasons.length;
+        selectedSeasons = seasons.map(function (season) { return Number(season.seasonNumber); });
+        seasons.forEach(function (season) {
+          var number = Number(season.seasonNumber);
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'season-toggle';
+          button.setAttribute('aria-pressed', 'true');
+          button.textContent = 'Season ' + number;
+          button.addEventListener('click', function () {
+            var selected = selectedSeasons.indexOf(number);
+            if (selected === -1) selectedSeasons.push(number);
+            else selectedSeasons.splice(selected, 1);
+            selectedSeasons.sort(function (left, right) { return left - right; });
+            button.setAttribute('aria-pressed', selected === -1 ? 'true' : 'false');
+            updateSeasonRequestButton(requestButton, seasons.length);
+          });
+          container.appendChild(button);
+        });
+        if (item.mediaType === 'tv' && status.requestable) updateSeasonRequestButton(requestButton, seasons.length);
+      }
+
+      function updateSeasonRequestButton(button, seasonCount) {
+        if (!seasonCount) {
+          button.disabled = false;
+          button.textContent = 'Request all available seasons';
+          return;
+        }
+        button.disabled = !selectedSeasons.length;
+        button.textContent = selectedSeasons.length
+          ? 'Request ' + selectedSeasons.length + (selectedSeasons.length === 1 ? ' season' : ' seasons')
+          : 'Select at least one season';
       }
 
       function closeModal() {
         modal.style.display = 'none';
         selectedItem = null;
+        selectedSeasons = [];
         if (lastFocusedCard && document.body.contains(lastFocusedCard)) lastFocusedCard.focus();
       }
 
@@ -814,7 +988,7 @@
         var item = selectedItem;
         var button = document.getElementById('modalRequest');
         var body = { mediaId: item.id, mediaType: item.mediaType };
-        if (item.mediaType === 'tv') body.seasons = 'all';
+        if (item.mediaType === 'tv') body.seasons = selectedSeasons.length ? selectedSeasons.slice() : 'all';
         button.disabled = true;
         button.textContent = 'Requesting…';
         api('/api/v1/request', {
@@ -828,7 +1002,8 @@
           item.mediaInfo.status = 2;
         }).catch(function (error) {
           button.disabled = false;
-          button.textContent = item.mediaType === 'tv' ? 'Request all available seasons' : 'Request movie';
+          if (item.mediaType === 'tv') updateSeasonRequestButton(button, (item.seasons || []).length);
+          else button.textContent = 'Request movie';
           document.getElementById('modalOverview').textContent = error.message;
         });
       }
@@ -856,7 +1031,8 @@
             firstAirDate: index % 3 === 1 ? String(2026 - index % 4) + '-01-01' : undefined,
             overview: 'Preview description for ' + name + '. Jellyseerr remains the source for live title details and request status.',
             previewColor: colors[index % colors.length],
-            mediaInfo: index === 2 ? { status: 5 } : index === 5 ? { status: 2 } : undefined
+            mediaInfo: index === 2 ? { status: 5 } : index === 5 ? { status: 2 } : undefined,
+            seasons: index % 3 === 1 ? [1, 2, 3].map(function (number) { return { seasonNumber: number }; }) : undefined
           };
         });
       }
@@ -885,6 +1061,12 @@
           return { results: catalog.filter(function (item) { return itemTitle(item).toLowerCase().indexOf(queryMatch) !== -1; }) };
         }
         if (path === '/api/v1/request' && options && options.method === 'POST') return { id: 999 };
+        if (path.indexOf('/api/v1/discover/tv') === 0) {
+          return { page: 1, totalPages: 1, results: catalog.filter(function (item) { return item.mediaType === 'tv'; }) };
+        }
+        if (path.indexOf('/api/v1/discover/movies') === 0) {
+          return { page: 1, totalPages: 1, results: catalog.filter(function (item) { return item.mediaType === 'movie'; }) };
+        }
         return { page: 1, totalPages: 2, totalResults: catalog.length, results: catalog };
       }
 
@@ -907,33 +1089,7 @@
           showError('JellyQuest did not provide a valid Jellyfin profile. Return and sign in again.');
           return;
         }
-
-        fetch('/api/v1/auth/me', { credentials: 'same-origin', cache: 'no-store' })
-          .then(function (response) {
-            return response.ok ? response.json() : null;
-          })
-          .then(function (currentUser) {
-            if (currentUser && String(currentUser.jellyfinUserId).toLowerCase() === params.id.toLowerCase()) {
-              showRequests();
-              return null;
-            }
-            return fetch('/api/v1/auth/jellyfin', {
-              method: 'POST',
-              credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              body: JSON.stringify({ username: params.user, password: '', email: params.user })
-            }).then(function (response) {
-              if (!response.ok) {
-                throw new Error('Jellyseerr rejected the Jellyfin profile (' + response.status + ').');
-              }
-              return response.json();
-            }).then(function (signedInUser) {
-              if (String(signedInUser.jellyfinUserId).toLowerCase() !== params.id.toLowerCase()) {
-                throw new Error('Jellyseerr returned a different Jellyfin profile.');
-              }
-              showRequests();
-            });
-          })
+        startBridge().then(showRequests)
           .catch(function (error) {
             showError(error.message || 'Unable to sign in to Jellyseerr.');
           });
@@ -960,6 +1116,7 @@
       window.addEventListener('keydown', handleBack, true);
       window.addEventListener('keydown', handleDirectionalKey, true);
       window.addEventListener('tizenhwkey', handleBack, true);
+      window.addEventListener('message', handleBridgeMessage);
       authenticate();
     })();
   </script>

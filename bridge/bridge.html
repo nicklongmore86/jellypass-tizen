@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <title>JellyQuest request bridge</title>
+</head>
+<body>
+<script>
+  (function () {
+    'use strict';
+
+    var params = {};
+    var sessionToken = '';
+    window.location.hash.slice(1).split('&').forEach(function (part) {
+      var separator = part.indexOf('=');
+      if (separator > 0) params[decodeURIComponent(part.slice(0, separator))] = decodeURIComponent(part.slice(separator + 1));
+    });
+    window.history.replaceState(null, '', window.location.pathname);
+
+    function reply(message) {
+      message.source = 'jellyquest-bridge';
+      message.nonce = params.nonce;
+      window.parent.postMessage(message, '*');
+    }
+
+    function createSession() {
+      return fetch('/jellyquest-bridge/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: params.user, id: params.id })
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) throw new Error(data.error || 'Request bridge authentication failed.');
+          sessionToken = data.token;
+          reply({ type: 'ready' });
+        });
+      });
+    }
+
+    window.addEventListener('message', function (event) {
+      var data = event.data || {};
+      if (event.source !== window.parent || data.source !== 'jellyquest-app'
+          || data.nonce !== params.nonce || data.type !== 'request' || !sessionToken) return;
+      fetch('/jellyquest-bridge/proxy', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + sessionToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: data.path, options: data.options || {} })
+      }).then(function (response) {
+        return response.json().then(function (result) {
+          reply({ type: 'response', id: data.id, ok: response.ok, data: result.data, error: result.error });
+        });
+      }).catch(function (error) {
+        reply({ type: 'response', id: data.id, ok: false, error: error.message });
+      });
+    });
+
+    createSession().catch(function (error) { reply({ type: 'error', error: error.message }); });
+  })();
+</script>
+</body>
+</html>

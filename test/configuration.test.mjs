@@ -28,6 +28,7 @@ test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     const metadata = JSON.parse(fs.readFileSync(path.join(outputDirectory, 'jellyquest-build.json'), 'utf8'));
     assert.equal(metadata.household, 'farmhouse');
     assert.equal(metadata.requestsUrl, 'https://jellyseerr.starrgroup.io');
+    assert.equal(metadata.requestsPageVersion, '0.8.0');
     assert.match(metadata.jellyfinWebRef, /^[a-f0-9]{40}$/);
 });
 
@@ -46,6 +47,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
     assert.match(policy, /openRequests/);
+    assert.match(policy, /requestsPageVersion/);
     assert.match(policy, /getCurrentUser/);
     assert.match(policy, /jellyquestRequestsTab/);
     assert.match(policy, /headerTabs \.tabs-viewmenubar \.emby-tabs-slider/);
@@ -55,6 +57,33 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /Filters: 'IsFavorite'/);
     assert.match(policy, /IncludeItemTypes: 'Movie,Series'/);
     assert.match(policy, /jellyquestMyListSection/);
+    assert.match(policy, /jellyquestRuntimeHomeRoot/);
+    assert.match(policy, /Continue Watching/);
+    assert.match(policy, /Recently Added/);
+    assert.match(policy, /function handleRuntimeHomeKeys/);
+    assert.match(policy, /grid\.appendChild\(createRuntimeHomeCard/);
+    assert.match(policy, /jellyquestRuntimeLibraryRoot/);
+    assert.match(policy, /function handleRuntimeLibraryKeys/);
+    assert.match(policy, /StartIndex: reset \? 0 : runtimeLibraryState\.items\.length/);
+    assert.match(policy, /runtimeLibraryState\.pageSize/);
+    assert.match(policy, /Filters = 'IsUnplayed'/);
+    assert.match(policy, /query\.GenreIds/);
+    assert.match(policy, /getGenres/);
+    assert.match(policy, /Recently added/);
+    assert.match(policy, /Community rating/);
+    assert.match(policy, /jellyquestGlobalTabs/);
+    assert.match(policy, /jellyquestRuntimeDetailRoot/);
+    assert.match(policy, /function handleRuntimeDetailKeys/);
+    assert.match(policy, /hash: window\.location\.hash/);
+    assert.match(policy, /window\.location\.hash = runtimeDetailOrigin\.hash/);
+    assert.match(policy, /detailMenuOpen/);
+    assert.match(policy, /nativeDetailActionDefinitions/);
+    assert.match(policy, /getSimilarItems/);
+    assert.match(policy, /getSeasons/);
+    assert.match(policy, /SeasonId/);
+    assert.match(policy, /Game Chapters/);
+    assert.match(policy, /Scores and outcome hidden/);
+    assert.match(policy, /playRuntimeDetailChapter/);
     assert.match(policy, /Add to My List/);
     assert.match(policy, /getNextUpEpisodes/);
     assert.match(policy, /getEpisodes/);
@@ -99,19 +128,27 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.jellyquestBrandIcon/);
     assert.match(styles, /flex-direction: column/);
     assert.match(styles, /\.jellyquestLibraryRail/);
-    assert.match(styles, /width: 3\.75em/);
-    assert.match(styles, /width: 16em/);
+    assert.match(styles, /width: 60px/);
+    assert.match(styles, /width: 256px/);
     assert.match(styles, /overflow-y: auto/);
     assert.match(styles, /margin-top: auto/);
     assert.match(styles, /margin-bottom: auto/);
     assert.match(styles, /\.skinHeader \{/);
     assert.match(styles, /\.skinHeader \.headerTabs/);
-    assert.match(styles, /height: 5\.25em !important/);
+    assert.match(styles, /height: 84px !important/);
     assert.match(styles, /\.jellyquestMyListCards/);
     assert.match(styles, /\.jellyquestHiddenFavoritesTab/);
-    assert.match(styles, /margin-left: 3\.75em/);
-    assert.match(styles, /width: calc\(100% - 3\.75em\)/);
-    assert.match(policy, /jellyquest-login\.html/);
+    assert.match(styles, /margin-left: 60px/);
+    assert.match(styles, /width: calc\(100% - 60px\)/);
+    assert.match(styles, /grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
+    assert.match(styles, /\.jellyquestRuntimeHomeRoot/);
+    assert.match(styles, /\.jellyquestRuntimeLibraryRoot/);
+    assert.match(styles, /\.jellyquestRuntimeLibraryMenu/);
+    assert.match(styles, /\.jellyquestGlobalTabs/);
+    assert.match(styles, /\.jellyquestRuntimeDetailRoot/);
+    assert.match(styles, /\.jqEpisodeRow/);
+    assert.match(styles, /\.jqChapterRow/);
+    assert.match(policy, /www\/jellyseerr-login\.html/);
     assert.match(policy, /'#user='/);
     assert.match(policy, /'&return='/);
     assert.doesNotMatch(policy, /api[_-]?key/i);
@@ -120,13 +157,29 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.doesNotMatch(manifest, /AprZAARz4r\.Jellyfin/);
 });
 
+test('keeps development configuration and notes out of the TV package', () => {
+    const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
+
+    assert.match(packager, /-e DETAIL_ACTIONS\.md/);
+    assert.match(packager, /-e jellyquest\.config\.json/);
+    assert.match(packager, /-e "integration\/\*"/);
+    assert.match(packager, /-e "bridge\/\*"/);
+    assert.match(packager, /www\/jellyseerr-login\.html/);
+});
+
 test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without logging it in the URL', () => {
     const bootstrap = fs.readFileSync(path.join(root, 'integration/jellyseerr-login.html'), 'utf8');
+    const bridge = fs.readFileSync(path.join(root, 'bridge/server.mjs'), 'utf8');
 
-    assert.match(bootstrap, /\/api\/v1\/auth\/jellyfin/);
-    assert.match(bootstrap, /\/api\/v1\/auth\/me/);
-    assert.match(bootstrap, /password: ''/);
-    assert.match(bootstrap, /signedInUser\.jellyfinUserId/);
+    assert.match(bootstrap, /function startBridge/);
+    assert.match(bootstrap, /function bridgeApi/);
+    assert.match(bootstrap, /jellyquest-bridge\/bridge\.html/);
+    assert.doesNotMatch(bootstrap, /\/api\/v1\/auth\/jellyfin/);
+    assert.match(bridge, /\/api\/v1\/auth\/jellyfin/);
+    assert.match(bridge, /password: ''/);
+    assert.match(bridge, /auth\.data\.jellyfinUserId/);
+    assert.match(bridge, /allowedRequest/);
+    assert.match(bridge, /crypto\.randomBytes\(32\)/);
     assert.match(bootstrap, /\/api\/v1\/discover\/movies/);
     assert.match(bootstrap, /\/api\/v1\/discover\/tv/);
     assert.match(bootstrap, /\/api\/v1\/search\?query=/);
@@ -152,6 +205,13 @@ test('Jellyseerr bootstrap maps and verifies the Jellyfin identity without loggi
     assert.match(bootstrap, /Movie Genres/);
     assert.match(bootstrap, /TV Genres/);
     assert.match(bootstrap, /See More/);
+    assert.match(bootstrap, /items\.slice\(0, 7\)/);
+    assert.match(bootstrap, /function resetSearch/);
+    assert.match(bootstrap, /current\.id === 'requestsProfile'/);
+    assert.match(bootstrap, /src="\.\.\/icon\.png"/);
+    assert.match(bootstrap, /id="seasonOptions"/);
+    assert.match(bootstrap, /function renderSeasonOptions/);
+    assert.match(bootstrap, /body\.seasons = selectedSeasons\.length \? selectedSeasons\.slice\(\) : 'all'/);
     assert.match(bootstrap, /previewApi/);
     assert.match(bootstrap, /class="brand-mark"/);
     assert.match(bootstrap, /id="requestsHomeTab"/);

@@ -2,6 +2,7 @@
     'use strict';
 
     var requestsUrl;
+    var requestsPageVersion;
     var openingRequests = false;
     var profileSwitcher;
     var profileSwitcherTrigger;
@@ -10,10 +11,35 @@
     var jellyfinIconUrl = jellyquestScript && jellyquestScript.src
         ? new URL('icon.png', jellyquestScript.src).href
         : 'icon.png';
+    var localRequestsUrl = jellyquestScript && jellyquestScript.src
+        ? new URL('www/jellyseerr-login.html', jellyquestScript.src).href
+        : 'www/jellyseerr-login.html';
     var libraryRail;
     var libraryRailSignature = '';
     var myListLoading = false;
     var myListRefreshTimer;
+    var runtimeHomeLoading = false;
+    var runtimeHomeUserId = '';
+    var runtimeHomeLastCard;
+    var runtimeLibraryState = {
+        genreId: '',
+        genreName: '',
+        items: [],
+        loading: false,
+        pageSize: 70,
+        requestId: 0,
+        signature: '',
+        sort: 'recent',
+        total: 0,
+        unwatched: false
+    };
+    var runtimeLibraryLastCard;
+    var runtimeLibraryMenu;
+    var runtimeLibraryMenuTrigger;
+    var runtimeGlobalTabs;
+    var runtimeDetailOrigin;
+    var runtimeDetailState = { id: '', loading: false, requestId: 0 };
+    var runtimeDetailLastFocus;
     var detailActionLoading = false;
     var detailActionState;
     var playbackOptionsDialog;
@@ -40,6 +66,1093 @@
 
     function isHomeRoute() {
         return /^#\/home(?:\.html)?(?:\?|$)/.test(window.location.hash);
+    }
+
+    function isLibraryRoute() {
+        return /^#\/(?:movies|tv)(?:\.html)?(?:\?|$)/.test(window.location.hash);
+    }
+
+    function isDetailRoute() {
+        return /^#\/details(?:\.html)?(?:\?|$)/.test(window.location.hash);
+    }
+
+    function isRuntimeShellRoute() {
+        return isLibraryRoute() || isDetailRoute();
+    }
+
+    function hashParameter(name) {
+        var queryIndex = window.location.hash.indexOf('?');
+        if (queryIndex === -1) return '';
+        return new URLSearchParams(window.location.hash.slice(queryIndex + 1)).get(name) || '';
+    }
+
+    function libraryDescriptor() {
+        if (!isLibraryRoute()) return null;
+        var parentId = hashParameter('topParentId');
+        var isSeries = /^#\/tv/.test(window.location.hash);
+        var title = isSeries ? 'Shows' : 'Movies';
+        document.querySelectorAll('.libraryMenuOptions .lnkMediaFolder').forEach(function (link) {
+            if (link.getAttribute('data-itemid') === parentId) {
+                var label = link.querySelector('.sectionName, .navMenuOptionText');
+                if (label && label.textContent.trim()) title = label.textContent.trim();
+            }
+        });
+        return {
+            itemType: isSeries ? 'Series' : 'Movie',
+            parentId: parentId,
+            signature: (isSeries ? 'series:' : 'movie:') + parentId,
+            title: title
+        };
+    }
+
+    function resultItems(result) {
+        return result && result.Items ? result.Items : [];
+    }
+
+    function safeHomeQuery(promise, label) {
+        return promise.catch(function (error) {
+            console.error('[JellyQuest] Unable to load ' + label + ':', error);
+            return { Items: [] };
+        });
+    }
+
+    function runtimeImageUrl(apiClient, item) {
+        if (!item || !item.ImageTags || !item.ImageTags.Primary || typeof apiClient.getImageUrl !== 'function') {
+            return '';
+        }
+        return apiClient.getImageUrl(item.Id, {
+            type: 'Primary',
+            tag: item.ImageTags.Primary,
+            width: 360,
+            quality: 90
+        });
+    }
+
+    function runtimeDuration(ticks) {
+        var minutes = Math.max(0, Math.round((ticks || 0) / 600000000));
+        if (!minutes) return '';
+        var hours = Math.floor(minutes / 60);
+        var remainder = minutes % 60;
+        return hours ? hours + 'h' + (remainder ? ' ' + remainder + 'm' : '') : minutes + 'm';
+    }
+
+    function runtimeCardLabel(item) {
+        if (item.Type === 'Episode') {
+            var season = item.ParentIndexNumber == null ? '' : 'S' + item.ParentIndexNumber;
+            var episode = item.IndexNumber == null ? '' : ' E' + item.IndexNumber;
+            return (season + episode).trim() || 'Episode';
+        }
+        return item.Type === 'Series' ? 'Series' : (item.Type || 'Video');
+    }
+
+    function runtimeCardMeta(item, rowKey) {
+        var userData = item.UserData || {};
+        if (rowKey === 'continue') {
+            var remaining = Math.max(0, (item.RunTimeTicks || 0) - (userData.PlaybackPositionTicks || 0));
+            return runtimeDuration(remaining) ? runtimeDuration(remaining) + ' remaining' : 'Resume';
+        }
+        if (item.Type === 'Episode') {
+            var episodeNumber = item.IndexNumber == null ? '' : 'Episode ' + item.IndexNumber;
+            return [episodeNumber, item.Name].filter(Boolean).join(' · ');
+        }
+        var details = [];
+        if (item.ProductionYear) details.push(item.ProductionYear);
+        if (item.OfficialRating) details.push(item.OfficialRating);
+        var duration = runtimeDuration(item.RunTimeTicks);
+        if (duration) details.push(duration);
+        return details.join(' · ') || (item.Type === 'Series' ? 'Show' : (item.Type || 'Video'));
+    }
+
+    function createRuntimeHomeCard(apiClient, item, rowKey) {
+        var card = document.createElement('a');
+        var poster = document.createElement('span');
+        var badge = document.createElement('span');
+        var fallback = document.createElement('span');
+        var title = document.createElement('span');
+        var meta = document.createElement('span');
+        var progress = document.createElement('span');
+        var progressFill = document.createElement('span');
+        var serverId = item.ServerId || (typeof apiClient.serverId === 'function' ? apiClient.serverId() : '');
+        var imageUrl = runtimeImageUrl(apiClient, item);
+        var displayName = item.Type === 'Episode' && item.SeriesName ? item.SeriesName : (item.Name || 'Untitled');
+
+        card.className = 'jqMovieCard jellyquestRuntimeHomeCard';
+        card.href = '#/details?id=' + encodeURIComponent(item.Id)
+            + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
+        card.setAttribute('aria-label', displayName);
+        poster.className = 'jqPoster';
+        if (imageUrl) poster.style.backgroundImage = 'url("' + imageUrl.replace(/"/g, '%22') + '")';
+        else poster.classList.add('is-placeholder');
+        badge.className = 'jqHomeBadge';
+        badge.textContent = runtimeCardLabel(item);
+        fallback.className = 'jqPosterArt';
+        fallback.textContent = imageUrl ? '' : displayName;
+        title.className = 'jqMovieName';
+        title.textContent = displayName;
+        meta.className = 'jqMovieMeta';
+        meta.textContent = runtimeCardMeta(item, rowKey);
+        poster.appendChild(badge);
+        poster.appendChild(fallback);
+        if (rowKey === 'continue' && item.UserData && item.RunTimeTicks) {
+            progress.className = 'jqHomeProgress';
+            progressFill.style.width = Math.min(100, Math.max(0,
+                item.UserData.PlaybackPositionTicks * 100 / item.RunTimeTicks)) + '%';
+            progress.appendChild(progressFill);
+            poster.appendChild(progress);
+        }
+        card.appendChild(poster);
+        card.appendChild(title);
+        card.appendChild(meta);
+        return card;
+    }
+
+    function appendRuntimeHomeRow(root, apiClient, definition, items, user) {
+        if (!items.length) return;
+        var section = document.createElement('section');
+        var heading = document.createElement('div');
+        var title = document.createElement('h2');
+        var note = document.createElement('span');
+        var grid = document.createElement('div');
+        section.className = 'jqHomeSection';
+        section.setAttribute('data-jellyquest-row', definition.key);
+        heading.className = 'jqHomeHeading';
+        title.textContent = definition.title;
+        note.textContent = definition.key === 'favorites' && user.Name
+            ? 'Saved for ' + user.Name
+            : definition.note;
+        grid.className = 'jqHomeGrid';
+        items.slice(0, 7).forEach(function (item) {
+            grid.appendChild(createRuntimeHomeCard(apiClient, item, definition.key));
+        });
+        heading.appendChild(title);
+        heading.appendChild(note);
+        section.appendChild(heading);
+        section.appendChild(grid);
+        root.appendChild(section);
+    }
+
+    function renderRuntimeHome(container, apiClient, user, rows) {
+        var existing = container.querySelector('.jellyquestRuntimeHomeRoot');
+        var root = existing || document.createElement('main');
+        root.innerHTML = '';
+        root.className = 'jellyquestRuntimeHomeRoot jqHomeWorkspace';
+        root.setAttribute('data-jellyquest-userid', user.Id);
+        [
+            { key: 'continue', title: 'Continue Watching', note: 'Resume where you left off' },
+            { key: 'favorites', title: 'My List', note: 'Your saved titles' },
+            { key: 'nextup', title: 'Next Up', note: 'New and unwatched episodes' },
+            { key: 'recent', title: 'Recently Added', note: 'Movies and shows' }
+        ].forEach(function (definition) {
+            appendRuntimeHomeRow(root, apiClient, definition, rows[definition.key], user);
+        });
+        if (!root.children.length) {
+            if (existing) existing.parentNode.removeChild(existing);
+            document.body.classList.remove('jellyquestRuntimeHomeActive');
+            return;
+        }
+        if (!existing) container.insertBefore(root, container.firstElementChild);
+        document.body.classList.add('jellyquestRuntimeHomeActive');
+        runtimeHomeUserId = user.Id;
+    }
+
+    function removeRuntimeHome() {
+        document.body.classList.remove('jellyquestRuntimeHomeActive');
+        var root = document.querySelector('.jellyquestRuntimeHomeRoot');
+        if (root && !isHomeRoute()) root.parentNode.removeChild(root);
+        if (!isHomeRoute()) {
+            runtimeHomeUserId = '';
+            runtimeHomeLastCard = null;
+        }
+    }
+
+    function loadRuntimeHome(force) {
+        if (!isHomeRoute()) {
+            removeRuntimeHome();
+            return;
+        }
+        var container = document.querySelector('#homeTab .sections.homeSectionsContainer, #homeTab .sections');
+        var apiClient = window.ApiClient;
+        if (!container || !apiClient || typeof apiClient.getCurrentUser !== 'function'
+                || typeof apiClient.getItems !== 'function' || runtimeHomeLoading) return;
+        var existing = container.querySelector('.jellyquestRuntimeHomeRoot');
+        if (!force && existing && runtimeHomeUserId) {
+            document.body.classList.add('jellyquestRuntimeHomeActive');
+            return;
+        }
+        runtimeHomeLoading = true;
+        apiClient.getCurrentUser(false).then(function (user) {
+            if (!user || !user.Id) throw new Error('Jellyfin did not return the current profile.');
+            var common = {
+                Recursive: true,
+                Fields: 'PrimaryImageAspectRatio,Overview',
+                EnableTotalRecordCount: false,
+                Limit: 7
+            };
+            return Promise.all([
+                safeHomeQuery(apiClient.getItems(user.Id, Object.assign({}, common, {
+                    Filters: 'IsResumable',
+                    IncludeItemTypes: 'Movie,Episode',
+                    SortBy: 'DatePlayed',
+                    SortOrder: 'Descending'
+                })), 'Continue Watching'),
+                safeHomeQuery(apiClient.getItems(user.Id, Object.assign({}, common, {
+                    Filters: 'IsFavorite',
+                    IncludeItemTypes: 'Movie,Series',
+                    SortBy: 'SortName',
+                    SortOrder: 'Ascending',
+                    CollapseBoxSetItems: false,
+                    ExcludeLocationTypes: 'Virtual'
+                })), 'My List'),
+                typeof apiClient.getNextUpEpisodes === 'function'
+                    ? safeHomeQuery(apiClient.getNextUpEpisodes({
+                        UserId: user.Id,
+                        Limit: 7,
+                        Fields: 'PrimaryImageAspectRatio,Overview',
+                        EnableTotalRecordCount: false
+                    }), 'Next Up')
+                    : Promise.resolve({ Items: [] }),
+                safeHomeQuery(apiClient.getItems(user.Id, Object.assign({}, common, {
+                    IncludeItemTypes: 'Movie,Series',
+                    SortBy: 'DateCreated',
+                    SortOrder: 'Descending'
+                })), 'Recently Added')
+            ]).then(function (results) {
+                return {
+                    user: user,
+                    rows: {
+                        continue: resultItems(results[0]),
+                        favorites: resultItems(results[1]),
+                        nextup: resultItems(results[2]),
+                        recent: resultItems(results[3])
+                    }
+                };
+            });
+        }).then(function (result) {
+            if (isHomeRoute() && document.body.contains(container)) {
+                renderRuntimeHome(container, apiClient, result.user, result.rows);
+            }
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to load Home:', error);
+        }).then(function () {
+            runtimeHomeLoading = false;
+        });
+    }
+
+    function ensureRuntimeGlobalTabs() {
+        var header = document.querySelector('.skinHeader');
+        if (!isRuntimeShellRoute() || !header) {
+            var libraryProfile = document.querySelector('.jellyquestLibraryProfileTrigger');
+            if (libraryProfile) {
+                if (profileSwitcherTrigger === libraryProfile) profileSwitcherTrigger = null;
+                libraryProfile.parentNode.removeChild(libraryProfile);
+            }
+            if (runtimeGlobalTabs && runtimeGlobalTabs.parentNode) runtimeGlobalTabs.parentNode.removeChild(runtimeGlobalTabs);
+            runtimeGlobalTabs = null;
+            return;
+        }
+        var profile = header.querySelector('.jellyquestLibraryProfileTrigger');
+        if (!profile) {
+            profile = document.createElement('button');
+            profile.type = 'button';
+            profile.className = 'jellyquestLibraryProfileTrigger pageTitleWithDefaultLogo';
+            header.appendChild(profile);
+            ensureProfileSwitcher();
+        }
+        if (runtimeGlobalTabs && document.body.contains(runtimeGlobalTabs)) return;
+        runtimeGlobalTabs = document.createElement('nav');
+        runtimeGlobalTabs.className = 'jellyquestGlobalTabs';
+        runtimeGlobalTabs.setAttribute('aria-label', 'Primary navigation');
+        var home = document.createElement('button');
+        var requests = document.createElement('button');
+        home.type = 'button';
+        home.className = 'jellyquestGlobalTab';
+        home.textContent = 'Home';
+        home.addEventListener('click', function () { window.location.hash = '#/home'; });
+        requests.type = 'button';
+        requests.className = 'jellyquestGlobalTab';
+        requests.textContent = 'Requests';
+        requests.addEventListener('click', function () { openRequests(requestsUrl); });
+        runtimeGlobalTabs.appendChild(home);
+        runtimeGlobalTabs.appendChild(requests);
+        header.appendChild(runtimeGlobalTabs);
+    }
+
+    function runtimeLibrarySortDefinition(key) {
+        return {
+            recent: { label: 'Recently added', by: 'DateCreated', order: 'Descending' },
+            name: { label: 'Name', by: 'SortName', order: 'Ascending' },
+            date: { label: 'Release date', by: 'PremiereDate', order: 'Descending' },
+            rating: { label: 'Community rating', by: 'CommunityRating', order: 'Descending' },
+            runtime: { label: 'Runtime', by: 'Runtime', order: 'Descending' }
+        }[key] || { label: 'Recently added', by: 'DateCreated', order: 'Descending' };
+    }
+
+    function runtimeLibraryMeta(item, descriptor) {
+        if (descriptor.itemType === 'Series') {
+            var seasons = item.ChildCount == null ? '' : item.ChildCount + (item.ChildCount === 1 ? ' season' : ' seasons');
+            var unwatched = item.UserData && item.UserData.UnplayedItemCount;
+            return [seasons, unwatched ? unwatched + ' unwatched' : ''].filter(Boolean).join(' · ')
+                || (item.ProductionYear || 'Series');
+        }
+        return runtimeCardMeta(item, 'library');
+    }
+
+    function createRuntimeLibraryCard(apiClient, item, descriptor) {
+        var card = document.createElement('a');
+        var poster = document.createElement('span');
+        var fallback = document.createElement('span');
+        var title = document.createElement('span');
+        var meta = document.createElement('span');
+        var serverId = item.ServerId || (typeof apiClient.serverId === 'function' ? apiClient.serverId() : '');
+        var imageUrl = runtimeImageUrl(apiClient, item);
+        card.className = 'jqMovieCard jellyquestRuntimeLibraryCard';
+        if (descriptor.itemType === 'Series') card.classList.add('jqShowCard');
+        card.href = '#/details?id=' + encodeURIComponent(item.Id)
+            + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
+        card.setAttribute('aria-label', item.Name || descriptor.itemType);
+        card.setAttribute('data-itemid', item.Id);
+        poster.className = 'jqPoster';
+        if (imageUrl) poster.style.backgroundImage = 'url("' + imageUrl.replace(/"/g, '%22') + '")';
+        else poster.classList.add('is-placeholder');
+        fallback.className = 'jqPosterArt';
+        fallback.textContent = imageUrl ? '' : (item.Name || '');
+        title.className = 'jqMovieName';
+        title.textContent = item.Name || '';
+        meta.className = 'jqMovieMeta';
+        meta.textContent = runtimeLibraryMeta(item, descriptor);
+        poster.appendChild(fallback);
+        card.appendChild(poster);
+        card.appendChild(title);
+        card.appendChild(meta);
+        return card;
+    }
+
+    function closeRuntimeLibraryMenu(restoreFocus) {
+        if (!runtimeLibraryMenu) return false;
+        runtimeLibraryMenu.parentNode.removeChild(runtimeLibraryMenu);
+        runtimeLibraryMenu = null;
+        if (restoreFocus && runtimeLibraryMenuTrigger && document.body.contains(runtimeLibraryMenuTrigger)) {
+            runtimeLibraryMenuTrigger.focus();
+        }
+        runtimeLibraryMenuTrigger = null;
+        return true;
+    }
+
+    function positionRuntimeLibraryMenu() {
+        if (!runtimeLibraryMenu || !runtimeLibraryMenuTrigger) return;
+        var rect = runtimeLibraryMenuTrigger.getBoundingClientRect();
+        var left = Math.max(16, Math.min(rect.right - runtimeLibraryMenu.offsetWidth,
+            window.innerWidth - runtimeLibraryMenu.offsetWidth - 16));
+        var top = Math.min(rect.bottom + 10, window.innerHeight - runtimeLibraryMenu.offsetHeight - 16);
+        runtimeLibraryMenu.style.left = Math.round(left) + 'px';
+        runtimeLibraryMenu.style.top = Math.round(top) + 'px';
+    }
+
+    function openRuntimeLibraryMenu(trigger, title, definitions, selected, onSelect) {
+        closeRuntimeLibraryMenu(false);
+        runtimeLibraryMenuTrigger = trigger;
+        runtimeLibraryMenu = document.createElement('div');
+        runtimeLibraryMenu.className = 'jellyquestRuntimeLibraryMenu';
+        runtimeLibraryMenu.setAttribute('role', 'menu');
+        runtimeLibraryMenu.setAttribute('aria-label', title);
+        var heading = document.createElement('h2');
+        heading.textContent = title;
+        runtimeLibraryMenu.appendChild(heading);
+        definitions.forEach(function (definition) {
+            var option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'jellyquestRuntimeLibraryOption';
+            option.textContent = definition.label;
+            option.setAttribute('role', 'menuitemradio');
+            option.setAttribute('aria-checked', definition.key === selected ? 'true' : 'false');
+            if (definition.key === selected) option.classList.add('is-selected');
+            option.addEventListener('click', function () {
+                closeRuntimeLibraryMenu(false);
+                onSelect(definition);
+            });
+            runtimeLibraryMenu.appendChild(option);
+        });
+        document.body.appendChild(runtimeLibraryMenu);
+        positionRuntimeLibraryMenu();
+        (runtimeLibraryMenu.querySelector('.is-selected') || runtimeLibraryMenu.querySelector('button')).focus();
+    }
+
+    function createRuntimeLibraryRoot(descriptor) {
+        var root = document.createElement('main');
+        var toolbar = document.createElement('div');
+        var heading = document.createElement('h1');
+        var count = document.createElement('span');
+        var controls = document.createElement('div');
+        var all = document.createElement('button');
+        var unwatched = document.createElement('button');
+        var genres = document.createElement('button');
+        var sort = document.createElement('button');
+        var grid = document.createElement('div');
+        var status = document.createElement('div');
+
+        root.className = 'jellyquestRuntimeLibraryRoot jqMediaWorkspace';
+        root.setAttribute('data-library-signature', descriptor.signature);
+        toolbar.className = 'jqLibraryToolbar';
+        heading.className = 'jqLibraryTitle';
+        heading.textContent = descriptor.title + ' ';
+        count.className = 'jqLibraryCount';
+        count.textContent = 'Loading…';
+        heading.appendChild(count);
+        controls.className = 'jqLibraryControls';
+        all.type = unwatched.type = genres.type = sort.type = 'button';
+        all.className = 'jqFilter jqLibraryAll active';
+        all.textContent = 'All';
+        unwatched.className = 'jqFilter jqLibraryUnwatched';
+        unwatched.textContent = 'Unwatched';
+        genres.className = 'jqFilter jqLibraryGenres';
+        genres.textContent = 'Genres';
+        sort.className = 'jqSort jqLibrarySort';
+        sort.innerHTML = '<span class="jqLibrarySortLabel">Recently added</span> <span aria-hidden="true">▾</span>';
+        controls.appendChild(all);
+        controls.appendChild(unwatched);
+        controls.appendChild(genres);
+        controls.appendChild(sort);
+        toolbar.appendChild(heading);
+        toolbar.appendChild(controls);
+        grid.className = 'jqMovieGrid';
+        status.className = 'jellyquestRuntimeLibraryStatus';
+        status.textContent = 'Loading ' + descriptor.title.toLowerCase() + '…';
+        root.appendChild(toolbar);
+        root.appendChild(grid);
+        root.appendChild(status);
+
+        all.addEventListener('click', function () {
+            runtimeLibraryState.unwatched = false;
+            runtimeLibraryState.genreId = '';
+            runtimeLibraryState.genreName = '';
+            loadRuntimeLibrary(true);
+        });
+        unwatched.addEventListener('click', function () {
+            runtimeLibraryState.unwatched = true;
+            runtimeLibraryState.genreId = '';
+            runtimeLibraryState.genreName = '';
+            loadRuntimeLibrary(true);
+        });
+        genres.addEventListener('click', function () {
+            var definitions = runtimeLibraryState.genres || [];
+            if (!definitions.length) return;
+            openRuntimeLibraryMenu(genres, 'Genres', definitions, runtimeLibraryState.genreId, function (definition) {
+                runtimeLibraryState.unwatched = false;
+                runtimeLibraryState.genreId = definition.key;
+                runtimeLibraryState.genreName = definition.label;
+                loadRuntimeLibrary(true);
+            });
+        });
+        sort.addEventListener('click', function () {
+            var definitions = ['recent', 'name', 'date', 'rating', 'runtime'].map(function (key) {
+                return { key: key, label: runtimeLibrarySortDefinition(key).label };
+            });
+            openRuntimeLibraryMenu(sort, 'Sort by', definitions, runtimeLibraryState.sort, function (definition) {
+                runtimeLibraryState.sort = definition.key;
+                loadRuntimeLibrary(true);
+            });
+        });
+        return root;
+    }
+
+    function updateRuntimeLibraryControls(root) {
+        root.querySelector('.jqLibraryAll').classList.toggle('active', !runtimeLibraryState.unwatched && !runtimeLibraryState.genreId);
+        root.querySelector('.jqLibraryUnwatched').classList.toggle('active', runtimeLibraryState.unwatched);
+        var genres = root.querySelector('.jqLibraryGenres');
+        genres.classList.toggle('active', Boolean(runtimeLibraryState.genreId));
+        genres.textContent = runtimeLibraryState.genreName || 'Genres';
+        root.querySelector('.jqLibrarySortLabel').textContent = runtimeLibrarySortDefinition(runtimeLibraryState.sort).label;
+    }
+
+    function renderRuntimeLibraryItems(root, descriptor, apiClient, result, reset) {
+        var grid = root.querySelector('.jqMovieGrid');
+        var incoming = resultItems(result);
+        if (reset) {
+            grid.innerHTML = '';
+            runtimeLibraryState.items = [];
+        }
+        incoming.forEach(function (item) {
+            runtimeLibraryState.items.push(item);
+            grid.appendChild(createRuntimeLibraryCard(apiClient, item, descriptor));
+        });
+        runtimeLibraryState.total = result && typeof result.TotalRecordCount === 'number'
+            ? result.TotalRecordCount : runtimeLibraryState.items.length;
+        var count = root.querySelector('.jqLibraryCount');
+        count.textContent = runtimeLibraryState.total + (descriptor.itemType === 'Series' ? ' series' : ' titles');
+        var status = root.querySelector('.jellyquestRuntimeLibraryStatus');
+        if (!runtimeLibraryState.items.length) {
+            status.textContent = 'No ' + descriptor.title.toLowerCase() + ' match this filter.';
+            status.hidden = false;
+        } else if (runtimeLibraryState.items.length < runtimeLibraryState.total) {
+            status.textContent = 'Loading more as you browse…';
+            status.hidden = false;
+        } else {
+            status.hidden = true;
+        }
+        updateRuntimeLibraryControls(root);
+    }
+
+    function loadRuntimeLibrary(reset) {
+        var descriptor = libraryDescriptor();
+        var root = document.querySelector('.jellyquestRuntimeLibraryRoot');
+        var apiClient = window.ApiClient;
+        if (!descriptor || !root || !apiClient || runtimeLibraryState.loading
+                || typeof apiClient.getCurrentUser !== 'function' || typeof apiClient.getItems !== 'function') return;
+        if (!reset && runtimeLibraryState.items.length >= runtimeLibraryState.total) return;
+        runtimeLibraryState.loading = true;
+        runtimeLibraryState.requestId += 1;
+        var requestId = runtimeLibraryState.requestId;
+        var querySignature = descriptor.signature;
+        var sort = runtimeLibrarySortDefinition(runtimeLibraryState.sort);
+        apiClient.getCurrentUser(false).then(function (user) {
+            var query = {
+                ParentId: descriptor.parentId,
+                Recursive: true,
+                IncludeItemTypes: descriptor.itemType,
+                Fields: 'PrimaryImageAspectRatio,Overview,MediaSourceCount',
+                ImageTypeLimit: 1,
+                EnableImageTypes: 'Primary',
+                EnableTotalRecordCount: true,
+                StartIndex: reset ? 0 : runtimeLibraryState.items.length,
+                Limit: runtimeLibraryState.pageSize,
+                SortBy: sort.by,
+                SortOrder: sort.order
+            };
+            if (runtimeLibraryState.unwatched) query.Filters = 'IsUnplayed';
+            if (runtimeLibraryState.genreId) query.GenreIds = runtimeLibraryState.genreId;
+            return apiClient.getItems(user.Id, query);
+        }).then(function (result) {
+            if (requestId === runtimeLibraryState.requestId && isLibraryRoute()
+                    && libraryDescriptor().signature === querySignature && document.body.contains(root)) {
+                renderRuntimeLibraryItems(root, descriptor, apiClient, result, reset);
+            }
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to load library:', error);
+            var status = root.querySelector('.jellyquestRuntimeLibraryStatus');
+            status.textContent = 'Unable to load this library.';
+            status.hidden = false;
+        }).then(function () {
+            if (requestId === runtimeLibraryState.requestId) runtimeLibraryState.loading = false;
+        });
+    }
+
+    function loadRuntimeLibraryGenres(descriptor) {
+        var apiClient = window.ApiClient;
+        if (!apiClient || typeof apiClient.getGenres !== 'function') return;
+        apiClient.getCurrentUser(false).then(function (user) {
+            return apiClient.getGenres(user.Id, {
+                ParentId: descriptor.parentId,
+                IncludeItemTypes: descriptor.itemType,
+                Recursive: true,
+                SortBy: 'SortName',
+                SortOrder: 'Ascending',
+                EnableTotalRecordCount: false
+            });
+        }).then(function (result) {
+            runtimeLibraryState.genres = resultItems(result).map(function (genre) {
+                return { key: genre.Id, label: genre.Name };
+            });
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to load genres:', error);
+            runtimeLibraryState.genres = [];
+        });
+    }
+
+    function removeRuntimeLibrary() {
+        var detailMenuOpen = isDetailRoute() && runtimeLibraryMenuTrigger
+            && runtimeLibraryMenuTrigger.classList.contains('jqSeasonSelect');
+        if (!detailMenuOpen) closeRuntimeLibraryMenu(false);
+        document.body.classList.remove('jellyquestRuntimeLibraryActive');
+        var root = document.querySelector('.jellyquestRuntimeLibraryRoot');
+        if (root && !isLibraryRoute()) root.parentNode.removeChild(root);
+        if (!isLibraryRoute()) {
+            runtimeLibraryState.signature = '';
+            runtimeLibraryLastCard = null;
+            ensureRuntimeGlobalTabs();
+        }
+    }
+
+    function ensureRuntimeLibrary() {
+        var descriptor = libraryDescriptor();
+        if (!descriptor) {
+            removeRuntimeLibrary();
+            return;
+        }
+        runtimeDetailOrigin = {
+            hash: window.location.hash,
+            itemType: descriptor.itemType,
+            parentId: descriptor.parentId,
+            title: descriptor.title
+        };
+        var root = document.querySelector('.jellyquestRuntimeLibraryRoot');
+        if (runtimeLibraryState.signature !== descriptor.signature) {
+            if (root) root.parentNode.removeChild(root);
+            runtimeLibraryState.genreId = '';
+            runtimeLibraryState.genreName = '';
+            runtimeLibraryState.genres = [];
+            runtimeLibraryState.items = [];
+            runtimeLibraryState.loading = false;
+            runtimeLibraryState.requestId += 1;
+            runtimeLibraryState.signature = descriptor.signature;
+            runtimeLibraryState.sort = 'recent';
+            runtimeLibraryState.total = 0;
+            runtimeLibraryState.unwatched = false;
+            root = null;
+        }
+        ensureRuntimeGlobalTabs();
+        if (!root) {
+            root = createRuntimeLibraryRoot(descriptor);
+            document.body.appendChild(root);
+            document.body.classList.add('jellyquestRuntimeLibraryActive');
+            loadRuntimeLibraryGenres(descriptor);
+            loadRuntimeLibrary(true);
+        } else {
+            document.body.classList.add('jellyquestRuntimeLibraryActive');
+        }
+    }
+
+    function detailBackdropUrl(apiClient, item) {
+        if (!item.BackdropImageTags || !item.BackdropImageTags.length || typeof apiClient.getImageUrl !== 'function') return '';
+        return apiClient.getImageUrl(item.Id, {
+            type: 'Backdrop',
+            tag: item.BackdropImageTags[0],
+            width: 1920,
+            quality: 90
+        });
+    }
+
+    function runtimeDetailQuality(item) {
+        var source = item.MediaSources && item.MediaSources[0];
+        var video = source && source.MediaStreams && source.MediaStreams.filter(function (stream) {
+            return stream.Type === 'Video';
+        })[0];
+        if (!video) return '';
+        var quality = video.Width >= 3800 ? '4K' : video.Width >= 1900 ? '1080p' : video.Width ? video.Width + 'p' : '';
+        if (video.VideoRange && video.VideoRange !== 'SDR' && video.VideoRange !== 'Unknown') quality += ' HDR';
+        return quality.trim();
+    }
+
+    function runtimeDetailDate(item) {
+        if (!item.PremiereDate) return item.ProductionYear || '';
+        var value = new Date(item.PremiereDate);
+        if (Number.isNaN(value.getTime())) return item.ProductionYear || '';
+        return value.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function runtimeDetailMeta(item, sports) {
+        var values = [];
+        values.push(sports ? runtimeDetailDate(item) : item.ProductionYear);
+        if (item.OfficialRating) values.push(item.OfficialRating);
+        var duration = runtimeDuration(item.RunTimeTicks);
+        if (duration) values.push(duration);
+        var quality = runtimeDetailQuality(item);
+        if (quality) values.push(quality);
+        if (item.CommunityRating) values.push('★ ' + Number(item.CommunityRating).toFixed(1));
+        return values.filter(Boolean);
+    }
+
+    function nativeDetailActionDefinitions(item) {
+        if (item.Type === 'Series') {
+            return [
+                ['.jellyquestResumeEpisodeAction', 'Resume'],
+                ['.jellyquestRestartEpisodeAction', 'Restart Episode'],
+                ['.jellyquestContinueEpisodeAction', 'Continue'],
+                ['.btnPlayTrailer', 'Trailer'],
+                ['.jellyquestHighlightsAction', 'Highlights'],
+                ['.btnUserRating', 'Add to My List'],
+                ['.btnMoreCommands', 'More']
+            ];
+        }
+        return [
+            ['.btnPlay', 'Play'],
+            ['.btnReplay', 'Start Over'],
+            ['.btnPlayTrailer', 'Trailer'],
+            ['.jellyquestHighlightsAction', 'Highlights'],
+            ['.btnUserRating', 'Add to My List'],
+            ['.btnMoreCommands', 'More']
+        ];
+    }
+
+    function visibleNativeDetailAction(selector) {
+        var button = document.querySelector('.itemDetailPage .mainDetailButtons ' + selector);
+        if (!button || button.hidden || button.classList.contains('hide')) return null;
+        return button;
+    }
+
+    function nativeDetailActionLabel(button, fallback) {
+        return button.getAttribute('aria-label') || button.title
+            || (button.textContent || '').replace(/\s+/g, ' ').trim() || fallback;
+    }
+
+    function syncRuntimeDetailActions() {
+        var root = document.querySelector('.jellyquestRuntimeDetailRoot');
+        var item = runtimeDetailState.item;
+        if (!root || !item) return;
+        var definitions = nativeDetailActionDefinitions(item).map(function (definition) {
+            var nativeButton = visibleNativeDetailAction(definition[0]);
+            return nativeButton ? {
+                fallback: definition[1],
+                label: nativeDetailActionLabel(nativeButton, definition[1]),
+                selector: definition[0]
+            } : null;
+        }).filter(Boolean);
+        var signature = definitions.map(function (definition) {
+            return definition.selector + ':' + definition.label;
+        }).join('|');
+        var actions = root.querySelector('.jqActions');
+        if (actions.getAttribute('data-action-signature') === signature) return;
+        var focusedSelector = document.activeElement && document.activeElement.getAttribute
+            ? document.activeElement.getAttribute('data-native-selector') : '';
+        actions.innerHTML = '';
+        actions.setAttribute('data-action-signature', signature);
+        definitions.forEach(function (definition, index) {
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'jqAction jellyquestRuntimeDetailAction';
+            if (index === 0) button.classList.add('primary');
+            button.setAttribute('data-native-selector', definition.selector);
+            button.textContent = definition.selector === '.btnPlay' || /Resume|Continue/.test(definition.label)
+                ? '▶ ' + definition.label
+                : definition.selector === '.btnReplay' || definition.selector === '.jellyquestRestartEpisodeAction'
+                    ? '↺ ' + definition.label : definition.label;
+            button.addEventListener('click', function () {
+                var nativeButton = visibleNativeDetailAction(definition.selector);
+                if (nativeButton) nativeButton.click();
+                if (definition.selector === '.btnUserRating') {
+                    window.setTimeout(function () {
+                        labelMyListButtons();
+                        syncRuntimeDetailActions();
+                    }, 500);
+                }
+            });
+            actions.appendChild(button);
+        });
+        if (focusedSelector) {
+            var replacement = actions.querySelector('[data-native-selector="' + focusedSelector + '"]');
+            if (replacement) replacement.focus();
+        }
+    }
+
+    function createRuntimeDetailLink(apiClient, item, className) {
+        var card = document.createElement('a');
+        var image = document.createElement('span');
+        var name = document.createElement('span');
+        var meta = document.createElement('span');
+        var imageUrl = runtimeImageUrl(apiClient, item);
+        var serverId = item.ServerId || (typeof apiClient.serverId === 'function' ? apiClient.serverId() : '');
+        card.className = className + ' jellyquestRuntimeDetailContent';
+        card.href = '#/details?id=' + encodeURIComponent(item.Id)
+            + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
+        card.setAttribute('aria-label', item.Name || 'Media item');
+        image.className = className.indexOf('Episode') !== -1 ? 'jqEpisodeImage' : 'jqCollectionImage';
+        if (imageUrl) image.style.backgroundImage = 'url("' + imageUrl.replace(/"/g, '%22') + '")';
+        name.className = className.indexOf('Episode') !== -1 ? 'jqEpisodeTitle' : 'jqCollectionName';
+        name.textContent = item.Name || '';
+        meta.className = className.indexOf('Episode') !== -1 ? 'jqEpisodeMeta' : 'jqCollectionYear';
+        meta.textContent = item.Type === 'Episode'
+            ? [runtimeDuration(item.RunTimeTicks), item.UserData && item.UserData.Played ? 'Watched' : ''].filter(Boolean).join(' · ')
+            : [item.ProductionYear, item.UserData && item.UserData.Played ? 'Watched' : ''].filter(Boolean).join(' · ');
+        if (item.Type === 'Episode') {
+            var number = document.createElement('span');
+            number.className = 'jqEpisodeNumber';
+            number.textContent = item.IndexNumber == null ? 'Episode' : 'E' + item.IndexNumber;
+            image.appendChild(number);
+            if (item.UserData && item.RunTimeTicks && item.UserData.PlaybackPositionTicks) {
+                var progress = document.createElement('span');
+                var fill = document.createElement('span');
+                progress.className = 'jqEpisodeProgress';
+                fill.style.width = Math.min(100, item.UserData.PlaybackPositionTicks * 100 / item.RunTimeTicks) + '%';
+                progress.appendChild(fill);
+                image.appendChild(progress);
+            }
+        }
+        card.appendChild(image);
+        card.appendChild(name);
+        card.appendChild(meta);
+        return card;
+    }
+
+    function playRuntimeDetailChapter(item, ticks) {
+        var actions = document.querySelector('.itemDetailPage .mainDetailButtons');
+        if (!actions) return;
+        var nativeButton = createPlaybackAction('jellyquestRuntimeChapterAction', 'Play chapter', item, ticks);
+        nativeButton.hidden = true;
+        actions.appendChild(nativeButton);
+        nativeButton.click();
+        window.setTimeout(function () {
+            if (nativeButton.parentNode) nativeButton.parentNode.removeChild(nativeButton);
+        }, 1000);
+    }
+
+    function renderRuntimeDetailLower(root, apiClient, item, model) {
+        var lower = root.querySelector('.jellyquestRuntimeDetailLower');
+        lower.innerHTML = '';
+        if (model.sports && item.Chapters && item.Chapters.length) {
+            lower.className = 'jellyquestRuntimeDetailLower jqChapterSection';
+            lower.innerHTML = '<div class="jqSectionHeading"><h2>Game Chapters</h2><span>Jump without scrubbing</span></div>';
+            var chapterRow = document.createElement('div');
+            chapterRow.className = 'jqChapterRow';
+            item.Chapters.slice(0, 10).forEach(function (chapter, index) {
+                var button = document.createElement('button');
+                var image = document.createElement('span');
+                var name = document.createElement('span');
+                var time = document.createElement('span');
+                button.type = 'button';
+                button.className = 'jqChapterCard jellyquestRuntimeDetailContent';
+                button.setAttribute('aria-label', chapter.Name || 'Chapter ' + (index + 1));
+                image.className = 'jqChapterImage';
+                name.className = 'jqChapterName';
+                name.textContent = chapter.Name || 'Chapter ' + (index + 1);
+                time.className = 'jqChapterTime';
+                time.textContent = runtimeDuration(chapter.StartPositionTicks).replace('h ', ':').replace('m', ':00') || '00:00';
+                image.appendChild(name);
+                button.appendChild(image);
+                button.appendChild(time);
+                button.addEventListener('click', function () { playRuntimeDetailChapter(item, chapter.StartPositionTicks); });
+                chapterRow.appendChild(button);
+            });
+            lower.appendChild(chapterRow);
+            return;
+        }
+        if (item.Type === 'Series') {
+            lower.className = 'jellyquestRuntimeDetailLower jqEpisodeSection';
+            var heading = document.createElement('div');
+            var title = document.createElement('h2');
+            var season = document.createElement('button');
+            var row = document.createElement('div');
+            heading.className = 'jqSectionHeading';
+            title.textContent = 'Episodes';
+            season.type = 'button';
+            season.className = 'jqSeasonSelect';
+            season.textContent = model.selectedSeason ? model.selectedSeason.Name : 'Season';
+            season.addEventListener('click', function () {
+                var definitions = (model.seasons || []).map(function (value) { return { key: value.Id, label: value.Name }; });
+                openRuntimeLibraryMenu(season, 'Season', definitions,
+                    model.selectedSeason && model.selectedSeason.Id, function (definition) {
+                        loadRuntimeDetailEpisodes(definition.key);
+                    });
+            });
+            heading.appendChild(title);
+            heading.appendChild(season);
+            row.className = 'jqEpisodeRow';
+            (model.episodes || []).slice(0, 20).forEach(function (episode) {
+                row.appendChild(createRuntimeDetailLink(apiClient, episode, 'jqEpisodeCard'));
+            });
+            lower.appendChild(heading);
+            lower.appendChild(row);
+            return;
+        }
+        lower.className = 'jellyquestRuntimeDetailLower jqCollectionSection';
+        lower.innerHTML = '<div class="jqSectionHeading"><h2>More Like This</h2><span>From your Jellyfin libraries</span></div>';
+        var similarRow = document.createElement('div');
+        similarRow.className = 'jqCollectionRow';
+        (model.similar || []).slice(0, 5).forEach(function (similar) {
+            similarRow.appendChild(createRuntimeDetailLink(apiClient, similar, 'jqCollectionCard'));
+        });
+        lower.appendChild(similarRow);
+        lower.hidden = !similarRow.children.length;
+    }
+
+    function createRuntimeDetailRoot(apiClient, item, model) {
+        var root = document.createElement('main');
+        var hero = document.createElement('section');
+        var copy = document.createElement('div');
+        var eyebrow = document.createElement('div');
+        var title = document.createElement('h1');
+        var meta = document.createElement('div');
+        var overview = document.createElement('p');
+        var actions = document.createElement('div');
+        var lower = document.createElement('section');
+        var backdrop = detailBackdropUrl(apiClient, item);
+        root.className = 'jellyquestRuntimeDetailRoot jqDetailWorkspace';
+        if (item.Type === 'Series') root.classList.add('jqShowDetailWorkspace');
+        if (model.sports) root.classList.add('jqSportsDetailWorkspace');
+        root.setAttribute('data-itemid', item.Id);
+        hero.className = 'jqDetailHero' + (item.Type === 'Series' ? ' jqShowHero' : '') + (model.sports ? ' jqSportsHero' : '');
+        if (backdrop) hero.style.backgroundImage = 'linear-gradient(90deg, #101318 7%, rgba(16,19,24,.95) 43%, rgba(16,19,24,.32) 76%, #101318), url("' + backdrop.replace(/"/g, '%22') + '")';
+        copy.className = 'jqDetailCopy';
+        eyebrow.className = 'jqDetailEyebrow';
+        eyebrow.textContent = model.sports ? (model.originTitle || 'Sports event')
+            : item.Type === 'Series' ? 'Series' : item.Type === 'Episode' ? 'Episode' : 'Movie';
+        title.className = 'jqDetailTitle';
+        title.textContent = item.Name || '';
+        meta.className = 'jqDetailMeta';
+        runtimeDetailMeta(item, model.sports).forEach(function (value, index) {
+            var span = document.createElement('span');
+            span.textContent = value;
+            if (index === 1 && item.OfficialRating) span.className = 'jqRating';
+            meta.appendChild(span);
+        });
+        overview.className = 'jqDetailOverview';
+        overview.textContent = model.sports
+            ? 'Resume this event without revealing the final score or outcome.'
+            : (item.Overview || '');
+        actions.className = 'jqActions';
+        copy.appendChild(eyebrow);
+        copy.appendChild(title);
+        copy.appendChild(meta);
+        if (overview.textContent) copy.appendChild(overview);
+        copy.appendChild(actions);
+        if (model.sports) {
+            var spoiler = document.createElement('div');
+            spoiler.className = 'jqSpoilerSafe';
+            spoiler.textContent = '◉ Scores and outcome hidden';
+            copy.appendChild(spoiler);
+        }
+        hero.appendChild(copy);
+        lower.className = 'jellyquestRuntimeDetailLower';
+        root.appendChild(hero);
+        root.appendChild(lower);
+        renderRuntimeDetailLower(root, apiClient, item, model);
+        return root;
+    }
+
+    function loadRuntimeDetailEpisodes(seasonId) {
+        var state = runtimeDetailState;
+        if (!state.item || state.item.Type !== 'Series' || !seasonId) return;
+        var season = (state.model.seasons || []).filter(function (value) { return value.Id === seasonId; })[0];
+        window.ApiClient.getEpisodes(state.item.Id, {
+            UserId: state.user.Id,
+            SeasonId: seasonId,
+            Fields: 'PrimaryImageAspectRatio,Overview',
+            IsMissing: false,
+            IsVirtualUnaired: false,
+            Limit: 100
+        }).then(function (result) {
+            if (runtimeDetailState.id !== state.id) return;
+            state.model.selectedSeason = season;
+            state.model.episodes = resultItems(result);
+            var root = document.querySelector('.jellyquestRuntimeDetailRoot');
+            if (root) renderRuntimeDetailLower(root, window.ApiClient, state.item, state.model);
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to load episodes:', error);
+        });
+    }
+
+    function renderRuntimeDetail(apiClient, user, item, model) {
+        var old = document.querySelector('.jellyquestRuntimeDetailRoot');
+        if (old) old.parentNode.removeChild(old);
+        var root = createRuntimeDetailRoot(apiClient, item, model);
+        document.body.appendChild(root);
+        runtimeDetailState.item = item;
+        runtimeDetailState.user = user;
+        runtimeDetailState.model = model;
+        document.body.classList.add('jellyquestRuntimeDetailActive');
+        ensureRuntimeGlobalTabs();
+        syncRuntimeDetailActions();
+    }
+
+    function loadRuntimeDetail() {
+        var id = detailItemId();
+        var apiClient = window.ApiClient;
+        if (!isDetailRoute() || !id || !apiClient || runtimeDetailState.loading
+                || typeof apiClient.getCurrentUser !== 'function' || typeof apiClient.getItem !== 'function') return;
+        runtimeDetailState.loading = true;
+        runtimeDetailState.requestId += 1;
+        var requestId = runtimeDetailState.requestId;
+        runtimeDetailState.id = id;
+        apiClient.getCurrentUser(false).then(function (user) {
+            return Promise.all([
+                apiClient.getItem(user.Id, id),
+                typeof apiClient.getAncestorItems === 'function' ? apiClient.getAncestorItems(id, user.Id) : Promise.resolve([])
+            ]).then(function (results) {
+                var item = results[0];
+                var ancestors = results[1] || [];
+                var originTitle = runtimeDetailOrigin && runtimeDetailOrigin.title;
+                if (!originTitle) {
+                    var folder = ancestors.filter(function (value) { return value.Type === 'CollectionFolder'; })[0];
+                    originTitle = folder && folder.Name;
+                }
+                var sports = /sport/i.test(originTitle || '');
+                if (item.Type === 'Series' && typeof apiClient.getSeasons === 'function') {
+                    return Promise.all([
+                        apiClient.getSeasons(item.Id, { UserId: user.Id, Fields: 'PrimaryImageAspectRatio' }),
+                        typeof apiClient.getNextUpEpisodes === 'function'
+                            ? apiClient.getNextUpEpisodes({ SeriesId: item.Id, UserId: user.Id, Limit: 1 })
+                            : Promise.resolve({ Items: [] })
+                    ]).then(function (seriesResults) {
+                        var seasons = resultItems(seriesResults[0]);
+                        var next = resultItems(seriesResults[1])[0];
+                        var selected = seasons.filter(function (season) { return next && season.Id === next.SeasonId; })[0]
+                            || seasons.filter(function (season) { return season.IndexNumber > 0; })[0] || seasons[0];
+                        var episodes = selected && typeof apiClient.getEpisodes === 'function'
+                            ? apiClient.getEpisodes(item.Id, {
+                                UserId: user.Id,
+                                SeasonId: selected.Id,
+                                Fields: 'PrimaryImageAspectRatio,Overview',
+                                IsMissing: false,
+                                IsVirtualUnaired: false,
+                                Limit: 100
+                            }) : Promise.resolve({ Items: [] });
+                        return episodes.then(function (episodeResult) {
+                            return { user: user, item: item, model: {
+                                episodes: resultItems(episodeResult),
+                                originTitle: originTitle,
+                                seasons: seasons,
+                                selectedSeason: selected,
+                                sports: sports
+                            } };
+                        });
+                    });
+                }
+                var similar = !sports && typeof apiClient.getSimilarItems === 'function'
+                    ? apiClient.getSimilarItems(item.Id, {
+                        UserId: user.Id,
+                        Limit: 5,
+                        Fields: 'PrimaryImageAspectRatio,Overview'
+                    }) : Promise.resolve({ Items: [] });
+                return similar.then(function (similarResult) {
+                    return { user: user, item: item, model: {
+                        originTitle: originTitle,
+                        similar: resultItems(similarResult),
+                        sports: sports
+                    } };
+                });
+            });
+        }).then(function (result) {
+            if (requestId === runtimeDetailState.requestId && isDetailRoute() && detailItemId() === id) {
+                renderRuntimeDetail(apiClient, result.user, result.item, result.model);
+            }
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to load detail:', error);
+        }).then(function () {
+            if (requestId === runtimeDetailState.requestId) runtimeDetailState.loading = false;
+        });
+    }
+
+    function removeRuntimeDetail() {
+        if (isDetailRoute()) return;
+        document.body.classList.remove('jellyquestRuntimeDetailActive');
+        var root = document.querySelector('.jellyquestRuntimeDetailRoot');
+        if (root) root.parentNode.removeChild(root);
+        runtimeDetailState.id = '';
+        runtimeDetailState.item = null;
+        runtimeDetailState.model = null;
+        runtimeDetailState.requestId += 1;
+        runtimeDetailState.loading = false;
+        runtimeDetailLastFocus = null;
+        ensureRuntimeGlobalTabs();
+    }
+
+    function ensureRuntimeDetail() {
+        if (!isDetailRoute()) {
+            removeRuntimeDetail();
+            return;
+        }
+        var id = detailItemId();
+        var root = document.querySelector('.jellyquestRuntimeDetailRoot');
+        if (root && root.getAttribute('data-itemid') === id) {
+            document.body.classList.add('jellyquestRuntimeDetailActive');
+            ensureRuntimeGlobalTabs();
+            syncRuntimeDetailActions();
+            return;
+        }
+        if (root) root.parentNode.removeChild(root);
+        if (runtimeDetailState.id !== id) {
+            runtimeDetailState.loading = false;
+            runtimeDetailState.requestId += 1;
+        }
+        loadRuntimeDetail();
     }
 
     function ensureRequestsTab() {
@@ -165,6 +1278,11 @@
     }
 
     function ensureMyListRow(force) {
+        if (isHomeRoute()) {
+            loadRuntimeHome(force);
+            return;
+        }
+        removeRuntimeHome();
         var existing = document.querySelector('.jellyquestMyListSection');
         if (!isHomeRoute()) {
             if (existing) {
@@ -996,7 +2114,9 @@
             oldTrigger.removeAttribute('tabindex');
             oldTrigger.removeAttribute('aria-label');
         });
-        var trigger = document.querySelector('.pageTitleWithDefaultLogo');
+        var trigger = isRuntimeShellRoute()
+            ? document.querySelector('.jellyquestLibraryProfileTrigger')
+            : document.querySelector('.pageTitleWithDefaultLogo:not(.jellyquestLibraryProfileTrigger)');
         if (!trigger) {
             return;
         }
@@ -1212,6 +2332,310 @@
         refreshLibraryRailLinks();
     }
 
+    function runtimeHomeVisible(elements) {
+        return Array.prototype.filter.call(elements, function (element) {
+            var rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        });
+    }
+
+    function runtimeHomeCenter(element) {
+        var rect = element.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+
+    function runtimeHomeNearest(origin, candidates, axis) {
+        var point = runtimeHomeCenter(origin);
+        return candidates.sort(function (left, right) {
+            return Math.abs(runtimeHomeCenter(left)[axis] - point[axis])
+                - Math.abs(runtimeHomeCenter(right)[axis] - point[axis]);
+        })[0] || null;
+    }
+
+    function focusRuntimeHomeTarget(target, returnKey, origin) {
+        if (!target) return false;
+        if (returnKey && origin) {
+            target._jellyquestRuntimeReturn = target._jellyquestRuntimeReturn || {};
+            target._jellyquestRuntimeReturn[returnKey] = origin;
+        }
+        target.focus();
+        if (typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+        return true;
+    }
+
+    function handleRuntimeHomeKeys(event) {
+        if (!document.body.classList.contains('jellyquestRuntimeHomeActive')
+                || (playbackOptionsDialog && !playbackOptionsDialog.hidden)
+                || (profileSwitcher && !profileSwitcher.hidden)) return;
+        var keyCode = event.keyCode;
+        if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
+        var current = document.activeElement;
+        var card = current && current.closest ? current.closest('.jellyquestRuntimeHomeCard') : null;
+        var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
+        var headerItem = current && current.closest
+            ? current.closest('.jellyquestProfileTrigger, .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)')
+            : null;
+        var root = document.querySelector('.jellyquestRuntimeHomeRoot');
+        if (!root || (!card && !railItem && !headerItem)) return;
+        var target = null;
+
+        if (card) {
+            var grid = card.closest('.jqHomeGrid');
+            var row = runtimeHomeVisible(grid.querySelectorAll('.jellyquestRuntimeHomeCard'));
+            var index = row.indexOf(card);
+            var sections = runtimeHomeVisible(root.querySelectorAll('.jqHomeSection'));
+            var sectionIndex = sections.indexOf(card.closest('.jqHomeSection'));
+            runtimeHomeLastCard = card;
+            if (keyCode === 37) {
+                target = index > 0 ? row[index - 1] : (libraryRail ? runtimeHomeNearest(card,
+                    runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null);
+            } else if (keyCode === 39 && index < row.length - 1) {
+                target = row[index + 1];
+            } else if (keyCode === 38) {
+                if (sectionIndex > 0) {
+                    var previous = runtimeHomeVisible(sections[sectionIndex - 1].querySelectorAll('.jellyquestRuntimeHomeCard'));
+                    target = previous[Math.min(index, previous.length - 1)];
+                } else {
+                    target = runtimeHomeNearest(card, runtimeHomeVisible(document.querySelectorAll(
+                        '.jellyquestProfileTrigger, .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)')), 'x');
+                }
+            } else if (keyCode === 40 && sectionIndex < sections.length - 1) {
+                var next = runtimeHomeVisible(sections[sectionIndex + 1].querySelectorAll('.jellyquestRuntimeHomeCard'));
+                target = next[Math.min(index, next.length - 1)];
+            }
+            if (target) {
+                focusRuntimeHomeTarget(target, keyCode === 38 ? 40 : (keyCode === 37 ? 39 : 0), card);
+            }
+        } else if (railItem && keyCode === 39) {
+            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
+            if (!target || !document.body.contains(target)) target = runtimeHomeLastCard;
+            if (!target || !document.body.contains(target)) target = root.querySelector('.jellyquestRuntimeHomeCard');
+            focusRuntimeHomeTarget(target, 37, railItem);
+        } else if (headerItem && keyCode === 40) {
+            target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
+            if (!target || !document.body.contains(target)) {
+                target = runtimeHomeNearest(headerItem,
+                    runtimeHomeVisible(root.querySelectorAll('.jqHomeSection:first-child .jellyquestRuntimeHomeCard')), 'x');
+            }
+            focusRuntimeHomeTarget(target, 38, headerItem);
+        }
+
+        if (target) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }
+
+    function runtimeLibraryTopTarget(card, index) {
+        var tabs = runtimeHomeVisible(document.querySelectorAll('.jellyquestGlobalTab'));
+        var controls = runtimeHomeVisible(document.querySelectorAll('.jellyquestRuntimeLibraryRoot .jqLibraryControls button'));
+        if (index <= 2) return tabs[0] || controls[0];
+        if (index <= 4) return tabs[1] || tabs[0] || controls[0];
+        if (index === 5) return controls[1] || controls[0];
+        return controls[2] || controls[controls.length - 1];
+    }
+
+    function handleRuntimeLibraryKeys(event) {
+        if (!document.body.classList.contains('jellyquestRuntimeLibraryActive')) return;
+        var keyCode = event.keyCode;
+        if (runtimeLibraryMenu) {
+            var options = runtimeHomeVisible(runtimeLibraryMenu.querySelectorAll('.jellyquestRuntimeLibraryOption'));
+            var optionIndex = options.indexOf(document.activeElement);
+            if ((keyCode === 38 || keyCode === 40) && optionIndex !== -1) {
+                optionIndex = keyCode === 38
+                    ? (optionIndex - 1 + options.length) % options.length
+                    : (optionIndex + 1) % options.length;
+                options[optionIndex].focus();
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            } else if (keyCode === 37 || keyCode === 10009 || keyCode === 8 || keyCode === 27) {
+                closeRuntimeLibraryMenu(true);
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+            return;
+        }
+        if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
+        var current = document.activeElement;
+        var card = current && current.closest ? current.closest('.jellyquestRuntimeLibraryCard') : null;
+        var control = current && current.closest ? current.closest('.jellyquestRuntimeLibraryRoot .jqLibraryControls button') : null;
+        var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
+        var headerItem = current && current.closest
+            ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab') : null;
+        var root = document.querySelector('.jellyquestRuntimeLibraryRoot');
+        if (!root || (!card && !control && !railItem && !headerItem)) return;
+        var cards = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeLibraryCard'));
+        var controls = runtimeHomeVisible(root.querySelectorAll('.jqLibraryControls button'));
+        var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab'));
+        var target = null;
+
+        if (card) {
+            var index = cards.indexOf(card);
+            var column = index % 7;
+            runtimeLibraryLastCard = card;
+            if (keyCode === 37) {
+                target = column > 0 ? cards[index - 1] : (libraryRail ? runtimeHomeNearest(card,
+                    runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null);
+            } else if (keyCode === 39 && column < 6 && index + 1 < cards.length) {
+                target = cards[index + 1];
+            } else if (keyCode === 38) {
+                target = index >= 7 ? cards[index - 7] : runtimeLibraryTopTarget(card, column);
+            } else if (keyCode === 40 && index + 7 < cards.length) {
+                target = cards[index + 7];
+            }
+            if (target) focusRuntimeHomeTarget(target, keyCode === 38 ? 40 : (keyCode === 37 ? 39 : 0), card);
+        } else if (control) {
+            var controlIndex = controls.indexOf(control);
+            if (keyCode === 37 && controlIndex > 0) target = controls[controlIndex - 1];
+            if (keyCode === 39 && controlIndex < controls.length - 1) target = controls[controlIndex + 1];
+            if (keyCode === 38) target = runtimeHomeNearest(control, headers.slice(), 'x');
+            if (keyCode === 40) {
+                target = control._jellyquestRuntimeReturn && control._jellyquestRuntimeReturn[40];
+                if (!target || !document.body.contains(target)) {
+                    target = cards[Math.min(cards.length - 1, controlIndex + 3)] || cards[0];
+                }
+            }
+            if (target) focusRuntimeHomeTarget(target, keyCode === 40 ? 38 : 0, control);
+        } else if (headerItem) {
+            var headerIndex = headers.indexOf(headerItem);
+            if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
+            if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
+            if (keyCode === 40) {
+                target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
+                if (!target || !document.body.contains(target)) {
+                    target = headerItem.classList.contains('jellyquestProfileTrigger')
+                        ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
+                        : cards[headerIndex === headers.length - 1 ? Math.min(4, cards.length - 1) : 0];
+                }
+            }
+            if (target) focusRuntimeHomeTarget(target, keyCode === 40 ? 38 : 0, headerItem);
+        } else if (railItem && keyCode === 39) {
+            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
+            if (!target || !document.body.contains(target)) target = runtimeLibraryLastCard;
+            if (!target || !document.body.contains(target)) target = cards[0];
+            if (target) focusRuntimeHomeTarget(target, 37, railItem);
+        }
+
+        if (target) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }
+
+    function runtimeDetailDirectional(current, candidates, keyCode) {
+        var origin = runtimeHomeCenter(current);
+        var vertical = keyCode === 38 || keyCode === 40;
+        var forward = keyCode === 39 || keyCode === 40;
+        return candidates.filter(function (candidate) {
+            if (candidate === current) return false;
+            var point = runtimeHomeCenter(candidate);
+            var primary = vertical ? point.y - origin.y : point.x - origin.x;
+            return forward ? primary > 4 : primary < -4;
+        }).sort(function (left, right) {
+            function score(element) {
+                var point = runtimeHomeCenter(element);
+                var primary = Math.abs(vertical ? point.y - origin.y : point.x - origin.x);
+                var cross = Math.abs(vertical ? point.x - origin.x : point.y - origin.y);
+                return primary + cross * 2.5;
+            }
+            return score(left) - score(right);
+        })[0] || null;
+    }
+
+    function handleRuntimeDetailKeys(event) {
+        if (!document.body.classList.contains('jellyquestRuntimeDetailActive')
+                || (playbackOptionsDialog && !playbackOptionsDialog.hidden)
+                || (profileSwitcher && !profileSwitcher.hidden)) return;
+        var keyCode = event.keyCode;
+        if (runtimeLibraryMenu) {
+            var menuOptions = runtimeHomeVisible(runtimeLibraryMenu.querySelectorAll('.jellyquestRuntimeLibraryOption'));
+            var menuIndex = menuOptions.indexOf(document.activeElement);
+            if ((keyCode === 38 || keyCode === 40) && menuIndex !== -1) {
+                menuIndex = keyCode === 38
+                    ? (menuIndex - 1 + menuOptions.length) % menuOptions.length
+                    : (menuIndex + 1) % menuOptions.length;
+                menuOptions[menuIndex].focus();
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            } else if (keyCode === 37 || keyCode === 10009 || keyCode === 8 || keyCode === 27) {
+                closeRuntimeLibraryMenu(true);
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+            return;
+        }
+        if (keyCode === 10009 || keyCode === 8 || keyCode === 27) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (runtimeDetailOrigin && runtimeDetailOrigin.hash) {
+                window.location.hash = runtimeDetailOrigin.hash;
+            } else {
+                window.history.back();
+            }
+            return;
+        }
+        if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
+        var root = document.querySelector('.jellyquestRuntimeDetailRoot');
+        var current = document.activeElement;
+        var action = current && current.closest ? current.closest('.jellyquestRuntimeDetailAction') : null;
+        var content = current && current.closest ? current.closest('.jellyquestRuntimeDetailContent') : null;
+        var season = current && current.closest ? current.closest('.jqSeasonSelect') : null;
+        var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
+        var headerItem = current && current.closest ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab') : null;
+        if (!root || (!action && !content && !season && !railItem && !headerItem)) return;
+        var actions = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeDetailAction'));
+        var lower = runtimeHomeVisible(root.querySelectorAll('.jqSeasonSelect, .jellyquestRuntimeDetailContent'));
+        var contents = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeDetailContent'));
+        var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab'));
+        var target = null;
+
+        if (action) {
+            var actionIndex = actions.indexOf(action);
+            runtimeDetailLastFocus = action;
+            if (keyCode === 37) target = actionIndex > 0 ? actions[actionIndex - 1]
+                : (libraryRail ? runtimeHomeNearest(action, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null);
+            if (keyCode === 39 && actionIndex < actions.length - 1) target = actions[actionIndex + 1];
+            if (keyCode === 38) target = headers[actionIndex < Math.ceil(actions.length / 2) ? 1 : 2] || headers[1] || headers[0];
+            if (keyCode === 40) target = lower.length
+                ? lower[Math.min(lower.length - 1, Math.round(actionIndex * (lower.length - 1) / Math.max(1, actions.length - 1)))] : null;
+        } else if (season) {
+            runtimeDetailLastFocus = season;
+            if (keyCode === 38) target = actions[actions.length - 1];
+            if (keyCode === 40) target = contents[0];
+        } else if (content) {
+            runtimeDetailLastFocus = content;
+            target = runtimeDetailDirectional(content, contents.slice(), keyCode);
+            if (!target && keyCode === 37) target = libraryRail
+                ? runtimeHomeNearest(content, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
+            if (!target && keyCode === 38) {
+                target = season || actions[Math.min(actions.length - 1,
+                    Math.round(contents.indexOf(content) * (actions.length - 1) / Math.max(1, contents.length - 1)))];
+            }
+        } else if (headerItem) {
+            var headerIndex = headers.indexOf(headerItem);
+            if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
+            if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
+            if (keyCode === 40) {
+                target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
+                if (!target || !document.body.contains(target)) target = headerItem.classList.contains('jellyquestProfileTrigger')
+                    ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
+                    : actions[headerIndex === headers.length - 1 ? actions.length - 1 : 0];
+            }
+        } else if (railItem && keyCode === 39) {
+            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
+            if (!target || !document.body.contains(target)) target = runtimeDetailLastFocus;
+            if (!target || !document.body.contains(target)) target = actions[0] || lower[0];
+        }
+
+        if (target) {
+            focusRuntimeHomeTarget(target, keyCode === 38 ? 40 : (keyCode === 37 ? 39 : 0), current);
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }
+
     function isRequestsUrl(url) {
         if (!requestsUrl || typeof url !== 'string') {
             return false;
@@ -1242,8 +2666,10 @@
             }
             var fragment = '#user=' + encodeURIComponent(user.Name)
                 + '&id=' + encodeURIComponent(user.Id)
-                + '&return=' + encodeURIComponent(window.location.href);
-            window.location.assign(requestsUrl + '/jellyquest-login.html' + fragment);
+                + '&return=' + encodeURIComponent(window.location.href)
+                + '&bridge=' + encodeURIComponent(requestsUrl + '/jellyquest-bridge/bridge.html');
+            var version = requestsPageVersion ? '?v=' + encodeURIComponent(requestsPageVersion) : '';
+            window.location.assign(localRequestsUrl + version + fragment);
         }).catch(function (error) {
             openingRequests = false;
             console.error('[JellyQuest] Unable to open Requests:', error);
@@ -1262,6 +2688,7 @@
             })
             .then(function (config) {
                 requestsUrl = new URL(config.requestsUrl).origin;
+                requestsPageVersion = config.requestsPageVersion || '';
                 console.info('[JellyQuest] Requests configured for ' + requestsUrl);
             })
             .catch(function (error) {
@@ -1275,17 +2702,21 @@
         ensureRequestsTab();
         ensureProfileSwitcher();
         ensureLibraryRail();
+        ensureRuntimeLibrary();
         ensureMyListRow();
         labelMyListButtons();
         ensureDetailActions();
+        ensureRuntimeDetail();
         new MutationObserver(function () {
             enforceHouseholdLogin();
             ensureRequestsTab();
             ensureProfileSwitcher();
             ensureLibraryRail();
+            ensureRuntimeLibrary();
             ensureMyListRow();
             labelMyListButtons();
             ensureDetailActions();
+            ensureRuntimeDetail();
         }).observe(document.documentElement, {
             childList: true,
             subtree: true
@@ -1299,10 +2730,20 @@
     }
 
     window.JellyQuest = { openRequests: openRequests, openProfileSwitcher: openProfileSwitcher };
+    window.addEventListener('keydown', handleRuntimeDetailKeys, true);
+    window.addEventListener('keydown', handleRuntimeLibraryKeys, true);
+    window.addEventListener('keydown', handleRuntimeHomeKeys, true);
     window.addEventListener('keydown', handleProfileKeys, true);
     window.addEventListener('keydown', handlePlaybackOptionsKeys, true);
     window.addEventListener('resize', positionProfileSwitcher);
     window.addEventListener('resize', positionLibraryRail);
+    window.addEventListener('resize', positionRuntimeLibraryMenu);
+    document.addEventListener('focusin', function (event) {
+        var card = event.target.closest && event.target.closest('.jellyquestRuntimeLibraryCard');
+        if (!card) return;
+        var cards = runtimeHomeVisible(document.querySelectorAll('.jellyquestRuntimeLibraryCard'));
+        if (cards.indexOf(card) >= cards.length - 14) loadRuntimeLibrary(false);
+    });
     document.addEventListener('click', function (event) {
         var playbackOptions = event.target.closest && event.target.closest('.jellyquestPlaybackOptionsAction');
         if (playbackOptions) {
@@ -1314,7 +2755,7 @@
         if (profileSwitcher && !profileSwitcher.hidden
                 && !profileSwitcher.contains(event.target)
                 && event.target !== profileSwitcherTrigger
-                && !profileSwitcherTrigger.contains(event.target)) {
+                && (!profileSwitcherTrigger || !profileSwitcherTrigger.contains(event.target))) {
             closeProfileSwitcher();
         }
     }, true);
@@ -1325,17 +2766,22 @@
     }, true);
     window.addEventListener('hashchange', function () {
         closePlaybackOptions();
+        closeRuntimeLibraryMenu(false);
         ensureRequestsTab();
+        ensureRuntimeLibrary();
         ensureMyListRow();
         ensureDetailActions();
+        ensureRuntimeDetail();
     });
     window.addEventListener('hashchange', updateLibraryRailSelection);
     window.addEventListener('viewshow', function () {
         enforceHouseholdLogin();
         ensureRequestsTab();
+        ensureRuntimeLibrary();
         ensureMyListRow();
         labelMyListButtons();
         ensureDetailActions();
+        ensureRuntimeDetail();
     });
     console.info('[JellyQuest] Farmhouse household policy loaded');
 })();

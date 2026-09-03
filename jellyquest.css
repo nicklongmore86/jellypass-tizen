@@ -188,19 +188,20 @@
 }
 
 .jellyquestHasLibraryRail .skinHeader {
-    height: 5.25em !important;
-    min-height: 5.25em !important;
+    font-size: 16px !important;
+    height: 84px !important;
+    min-height: 84px !important;
     z-index: 1001 !important;
 }
 
 .jellyquestHasLibraryRail .skinHeader .headerTop {
-    height: 5.25em !important;
+    height: 84px !important;
 }
 
 .jellyquestHasLibraryRail .skinHeader .headerTabs {
     align-items: center !important;
     display: flex !important;
-    height: 5.25em !important;
+    height: 84px !important;
     justify-content: center !important;
     left: 50% !important;
     margin: 0 !important;
@@ -437,8 +438,8 @@
 
 body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
     box-sizing: border-box;
-    margin-left: 3.75em;
-    width: calc(100% - 3.75em);
+    margin-left: 60px;
+    width: calc(100% - 60px);
 }
 
 .jellyquestLibraryRail {
@@ -451,11 +452,12 @@ body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
     left: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: .5em 0;
+    font-size: 16px;
+    padding: 8px 0;
     position: fixed;
-    top: 5.25em;
+    top: 84px;
     transition: width .16s ease, box-shadow .16s ease;
-    width: 3.75em;
+    width: 60px;
     z-index: 1000;
 }
 
@@ -475,7 +477,7 @@ body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
 .jellyquestLibraryRail:hover,
 .jellyquestLibraryRail.is-expanded {
     box-shadow: .65em 0 2em rgba(0, 0, 0, .7);
-    width: 16em;
+    width: 256px;
 }
 
 .jellyquestRailItem {
@@ -539,4 +541,780 @@ body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
     color: #fff;
     outline: .14em solid #fff;
     outline-offset: -.14em;
+}
+
+/* The runtime Home surface shares the simulator's 1920x1080 geometry while using live Jellyfin data. */
+body.jellyquestRuntimeHomeActive {
+    overflow: hidden !important;
+}
+
+body.jellyquestRuntimeHomeActive .headerRight {
+    display: none !important;
+}
+
+body.jellyquestRuntimeHomeActive #indexPage {
+    box-sizing: border-box;
+    height: calc(100vh - 84px) !important;
+    left: 60px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    top: 84px !important;
+    width: calc(100% - 60px) !important;
+}
+
+body.jellyquestRuntimeHomeActive #homeTab,
+body.jellyquestRuntimeHomeActive #homeTab > .sections,
+body.jellyquestRuntimeHomeActive #homeTab > .sections.homeSectionsContainer {
+    box-sizing: border-box;
+    height: calc(100vh - 84px) !important;
+    margin: 0 !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+}
+
+body.jellyquestRuntimeHomeActive #homeTab .homeSectionsContainer > :not(.jellyquestRuntimeHomeRoot),
+body.jellyquestRuntimeHomeActive #homeTab > .sections > :not(.jellyquestRuntimeHomeRoot) {
+    display: none !important;
+}
+
+.jellyquestRuntimeHomeRoot {
+    box-sizing: border-box;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    height: calc(100vh - 84px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 44px 48px 64px;
+    scrollbar-width: none;
+    width: 100%;
+}
+
+.jellyquestRuntimeHomeRoot::-webkit-scrollbar {
+    display: none;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeSection {
+    margin: 0 0 38px;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeHeading {
+    align-items: baseline;
+    display: flex;
+    justify-content: space-between;
+    margin: 0 4px 16px;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeHeading h2 {
+    font-size: 29px;
+    font-weight: 500;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeHeading span {
+    color: #9298a3;
+    font-size: 16px;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeGrid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    padding: 6px 4px 4px;
+}
+
+.jellyquestRuntimeHomeRoot .jqMovieCard {
+    color: #fff;
+    display: block;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.jellyquestRuntimeHomeRoot .jqPoster {
+    background: linear-gradient(145deg, #313844, #15181e);
+    background-position: center;
+    background-size: cover;
+    border: 3px solid transparent;
+    border-radius: 7px;
+    box-shadow: 0 7px 19px rgba(0, 0, 0, .45);
+    display: block;
+    height: 216px;
+    overflow: hidden;
+    position: relative;
+    transition: transform .12s ease, border-color .12s ease;
+}
+
+.jellyquestRuntimeHomeRoot .jqPoster::after {
+    background: linear-gradient(transparent 35%, rgba(0, 0, 0, .72));
+    bottom: 0;
+    content: '';
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+
+.jellyquestRuntimeHomeRoot .jqPosterArt {
+    bottom: 18px;
+    font-size: 23px;
+    font-weight: 800;
+    left: 14px;
+    line-height: 1.05;
+    max-width: 85%;
+    position: absolute;
+    text-transform: uppercase;
+    z-index: 1;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeBadge {
+    background: rgba(0, 0, 0, .68);
+    border: 1px solid #626a74;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    left: 9px;
+    padding: 4px 8px;
+    position: absolute;
+    text-transform: uppercase;
+    top: 9px;
+    z-index: 2;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeProgress {
+    background: rgba(255, 255, 255, .24);
+    bottom: 0;
+    height: 5px;
+    left: 0;
+    position: absolute;
+    right: 0;
+    z-index: 2;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeProgress span {
+    background: #00a4dc;
+    display: block;
+    height: 100%;
+}
+
+.jellyquestRuntimeHomeRoot .jqMovieName {
+    display: block;
+    font-size: 18px;
+    margin: 10px 0 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jellyquestRuntimeHomeRoot .jqMovieMeta {
+    color: #9ca2aa;
+    display: block;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jellyquestRuntimeHomeRoot .jqMovieCard:focus {
+    outline: none;
+}
+
+.jellyquestRuntimeHomeRoot .jqMovieCard:focus .jqPoster {
+    border-color: #fff;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, .8);
+    transform: scale(1.045);
+}
+
+.jellyquestRuntimeHomeRoot .jqMovieCard:focus .jqMovieName {
+    color: #00c7db;
+}
+
+body.jellyquestRuntimeLibraryActive {
+    overflow: hidden !important;
+}
+
+body.jellyquestRuntimeLibraryActive .mainAnimatedPages,
+body.jellyquestRuntimeLibraryActive .skinHeader .headerTabs,
+body.jellyquestRuntimeLibraryActive .headerRight {
+    visibility: hidden !important;
+}
+
+body.jellyquestRuntimeLibraryActive .mainAnimatedPages {
+    display: none !important;
+}
+
+body.jellyquestRuntimeLibraryActive .skinHeader,
+body.jellyquestRuntimeLibraryActive .skinHeader .headerTop,
+body.jellyquestRuntimeLibraryActive .skinHeader .jellyquestLibraryProfileTrigger,
+body.jellyquestRuntimeLibraryActive .skinHeader .jellyquestGlobalTabs {
+    visibility: visible !important;
+}
+
+body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft {
+    visibility: hidden !important;
+}
+
+.jellyquestLibraryProfileTrigger {
+    background: transparent;
+    border: 0;
+    left: 23px;
+    padding: 0;
+    position: absolute !important;
+    top: 24px;
+    z-index: 3;
+}
+
+.jellyquestGlobalTabs {
+    align-items: center;
+    display: flex;
+    height: 84px;
+    justify-content: center;
+    left: 50%;
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+.jellyquestGlobalTab {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    color: #aaa;
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: 600;
+    height: 54px;
+    margin: 0 24px;
+    padding: 0;
+}
+
+.jellyquestGlobalTab:focus {
+    color: #fff;
+    outline: 3px solid #00a4dc;
+    outline-offset: 5px;
+}
+
+.jellyquestRuntimeLibraryRoot {
+    background: #0e1013;
+    bottom: 0;
+    box-sizing: border-box;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    left: 60px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 32px 48px 42px;
+    position: fixed;
+    right: 0;
+    scrollbar-width: none;
+    top: 84px;
+    z-index: 10;
+}
+
+.jellyquestRuntimeLibraryRoot::-webkit-scrollbar {
+    display: none;
+}
+
+.jellyquestRuntimeLibraryRoot .jqLibraryToolbar {
+    align-items: center;
+    display: flex;
+    height: 80px;
+    justify-content: space-between;
+}
+
+.jellyquestRuntimeLibraryRoot .jqLibraryTitle {
+    font-size: 38px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.jellyquestRuntimeLibraryRoot .jqLibraryCount {
+    color: #9298a3;
+    font-size: 17px;
+    font-weight: 400;
+    margin-left: 12px;
+}
+
+.jellyquestRuntimeLibraryRoot .jqLibraryControls {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+}
+
+.jellyquestRuntimeLibraryRoot .jqFilter,
+.jellyquestRuntimeLibraryRoot .jqSort {
+    background: #20242a;
+    border: 2px solid #414750;
+    color: #e8e8e8;
+    font-family: inherit;
+    font-size: 18px;
+    min-height: 48px;
+    padding: 10px 18px;
+}
+
+.jellyquestRuntimeLibraryRoot .jqFilter {
+    border-radius: 32px;
+}
+
+.jellyquestRuntimeLibraryRoot .jqSort {
+    border-radius: 7px;
+    margin-left: 10px;
+}
+
+.jellyquestRuntimeLibraryRoot .jqFilter.active {
+    background: #e8e8e8;
+    border-color: #fff;
+    color: #111;
+}
+
+.jellyquestRuntimeLibraryRoot .jqFilter:focus,
+.jellyquestRuntimeLibraryRoot .jqSort:focus {
+    outline: 3px solid #00a4dc;
+    outline-offset: 3px;
+}
+
+.jellyquestRuntimeLibraryRoot .jqMovieGrid {
+    display: grid;
+    gap: 32px 18px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    padding: 12px 4px 32px;
+}
+
+.jellyquestRuntimeLibraryRoot .jqMovieCard {
+    color: #fff;
+    display: block;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.jellyquestRuntimeLibraryRoot .jqPoster {
+    background: linear-gradient(145deg, #313844, #15181e);
+    background-position: center;
+    background-size: cover;
+    border: 3px solid transparent;
+    border-radius: 7px;
+    box-shadow: 0 7px 19px rgba(0, 0, 0, .45);
+    display: block;
+    height: 256px;
+    overflow: hidden;
+    position: relative;
+    transition: transform .12s ease, border-color .12s ease;
+}
+
+.jellyquestRuntimeLibraryRoot .jqPoster::after {
+    background: linear-gradient(transparent 35%, rgba(0, 0, 0, .72));
+    bottom: 0;
+    content: '';
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+
+.jellyquestRuntimeLibraryRoot .jqPosterArt {
+    bottom: 18px;
+    font-size: 23px;
+    font-weight: 800;
+    left: 14px;
+    line-height: 1.05;
+    max-width: 85%;
+    position: absolute;
+    text-transform: uppercase;
+    z-index: 1;
+}
+
+.jellyquestRuntimeLibraryRoot .jqMovieName {
+    display: block;
+    font-size: 18px;
+    margin: 10px 0 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jellyquestRuntimeLibraryRoot .jqMovieMeta {
+    color: #9ca2aa;
+    display: block;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jellyquestRuntimeLibraryRoot .jqMovieCard:focus {
+    outline: none;
+}
+
+.jellyquestRuntimeLibraryRoot .jqMovieCard:focus .jqPoster {
+    border-color: #fff;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, .8);
+    transform: scale(1.045);
+}
+
+.jellyquestRuntimeLibraryRoot .jqMovieCard:focus .jqMovieName {
+    color: #00c7db;
+}
+
+.jellyquestRuntimeLibraryStatus {
+    color: #9298a3;
+    font-size: 17px;
+    padding: 4px 4px 24px;
+    text-align: center;
+}
+
+.jellyquestRuntimeLibraryStatus[hidden] {
+    display: none;
+}
+
+.jellyquestRuntimeLibraryMenu {
+    background: #20242a;
+    border: 2px solid #59616d;
+    border-radius: 7px;
+    box-shadow: 0 13px 35px rgba(0, 0, 0, .75);
+    box-sizing: border-box;
+    max-height: 70vh;
+    min-width: 250px;
+    overflow-y: auto;
+    padding: 8px;
+    position: fixed;
+    z-index: 100002;
+}
+
+.jellyquestRuntimeLibraryMenu h2 {
+    font-size: 22px;
+    font-weight: 500;
+    margin: 8px 10px 12px;
+}
+
+.jellyquestRuntimeLibraryOption {
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    color: #e8e8e8;
+    display: block;
+    font-family: inherit;
+    font-size: 18px;
+    padding: 11px 13px;
+    text-align: left;
+    width: 100%;
+}
+
+.jellyquestRuntimeLibraryOption.is-selected::after {
+    color: #00c7db;
+    content: '\2713';
+    float: right;
+}
+
+.jellyquestRuntimeLibraryOption:focus {
+    background: #343a43;
+    outline: 2px solid #00a4dc;
+}
+
+body.jellyquestRuntimeDetailActive {
+    overflow: hidden !important;
+}
+
+body.jellyquestRuntimeDetailActive .mainAnimatedPages {
+    display: none !important;
+}
+
+body.jellyquestRuntimeDetailActive .skinHeader .headerTabs,
+body.jellyquestRuntimeDetailActive .skinHeader .headerRight,
+body.jellyquestRuntimeDetailActive .skinHeader .headerLeft {
+    visibility: hidden !important;
+}
+
+body.jellyquestRuntimeDetailActive .skinHeader,
+body.jellyquestRuntimeDetailActive .skinHeader .headerTop,
+body.jellyquestRuntimeDetailActive .skinHeader .jellyquestLibraryProfileTrigger,
+body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
+    visibility: visible !important;
+}
+
+.jellyquestRuntimeDetailRoot {
+    background: #101318;
+    bottom: 0;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    left: 60px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: fixed;
+    right: 0;
+    scrollbar-width: none;
+    top: 84px;
+    z-index: 10;
+}
+
+.jellyquestRuntimeDetailRoot::-webkit-scrollbar {
+    display: none;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailHero {
+    background-color: #172633;
+    background-position: center;
+    background-size: cover;
+    box-sizing: border-box;
+    min-height: 500px;
+    padding: 66px 80px 44px;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailCopy {
+    max-width: 1120px;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailEyebrow {
+    color: #00c7db;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailTitle {
+    font-size: 64px;
+    line-height: .98;
+    margin: 10px 0 18px;
+    max-width: 1000px;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailMeta {
+    align-items: center;
+    color: #d5d7da;
+    display: flex;
+    font-size: 18px;
+    gap: 18px;
+}
+
+.jellyquestRuntimeDetailRoot .jqRating {
+    border: 1px solid #9ca2aa;
+    border-radius: 3px;
+    padding: 1px 6px;
+}
+
+.jellyquestRuntimeDetailRoot .jqDetailOverview {
+    color: #d0d3d7;
+    font-size: 19px;
+    line-height: 1.5;
+    margin: 20px 0 22px;
+    max-width: 700px;
+}
+
+.jellyquestRuntimeDetailRoot .jqActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 13px;
+}
+
+.jellyquestRuntimeDetailRoot .jqAction {
+    background: rgba(39, 43, 50, .94);
+    border: 2px solid #565d68;
+    border-radius: 7px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 19px;
+    min-height: 52px;
+    padding: 12px 22px;
+}
+
+.jellyquestRuntimeDetailRoot .jqAction.primary {
+    background: #fff;
+    border-color: #fff;
+    color: #111;
+    font-weight: 700;
+}
+
+.jellyquestRuntimeDetailRoot .jqAction:focus {
+    outline: 3px solid #00a4dc;
+    outline-offset: 3px;
+}
+
+.jellyquestRuntimeDetailRoot .jqSpoilerSafe {
+    align-items: center;
+    background: rgba(0, 0, 0, .42);
+    border: 1px solid #626a74;
+    border-radius: 32px;
+    color: #c8ccd2;
+    display: inline-flex;
+    font-size: 15px;
+    margin-top: 16px;
+    padding: 7px 11px;
+}
+
+.jellyquestRuntimeDetailLower {
+    background: #101318;
+    box-sizing: border-box;
+    padding: 24px 80px 64px;
+}
+
+.jellyquestRuntimeDetailLower[hidden] {
+    display: none;
+}
+
+.jellyquestRuntimeDetailRoot .jqSectionHeading {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.jellyquestRuntimeDetailRoot .jqSectionHeading h2 {
+    font-size: 29px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.jellyquestRuntimeDetailRoot .jqSectionHeading span {
+    color: #979da6;
+    font-size: 16px;
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionRow {
+    display: grid;
+    gap: 19px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionCard,
+.jellyquestRuntimeDetailRoot .jqEpisodeCard {
+    color: #fff;
+    display: block;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionImage {
+    background: linear-gradient(145deg, #294f61, #1a1d24);
+    background-position: center;
+    background-size: cover;
+    border: 3px solid transparent;
+    border-radius: 7px;
+    display: block;
+    height: 132px;
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionName,
+.jellyquestRuntimeDetailRoot .jqEpisodeTitle {
+    display: block;
+    font-size: 17px;
+    margin: 8px 0 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionYear,
+.jellyquestRuntimeDetailRoot .jqEpisodeMeta,
+.jellyquestRuntimeDetailRoot .jqChapterTime {
+    color: #969ca4;
+    display: block;
+    font-size: 14px;
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionCard:focus,
+.jellyquestRuntimeDetailRoot .jqEpisodeCard:focus,
+.jellyquestRuntimeDetailRoot .jqChapterCard:focus {
+    outline: none;
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionCard:focus .jqCollectionImage,
+.jellyquestRuntimeDetailRoot .jqEpisodeCard:focus .jqEpisodeImage,
+.jellyquestRuntimeDetailRoot .jqChapterCard:focus .jqChapterImage {
+    border-color: #fff;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .75);
+    transform: scale(1.035);
+}
+
+.jellyquestRuntimeDetailRoot .jqEpisodeRow {
+    display: grid;
+    gap: 19px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.jellyquestRuntimeDetailRoot .jqSeasonSelect {
+    background: #23272d;
+    border: 2px solid #555d68;
+    border-radius: 6px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 18px;
+    padding: 10px 18px;
+}
+
+.jellyquestRuntimeDetailRoot .jqSeasonSelect:focus {
+    outline: 3px solid #00a4dc;
+    outline-offset: 3px;
+}
+
+.jellyquestRuntimeDetailRoot .jqEpisodeImage {
+    background: linear-gradient(145deg, #6a4936, #20252c);
+    background-position: center;
+    background-size: cover;
+    border: 3px solid transparent;
+    border-radius: 7px;
+    display: block;
+    height: 150px;
+    overflow: hidden;
+    position: relative;
+}
+
+.jellyquestRuntimeDetailRoot .jqEpisodeNumber {
+    background: rgba(0, 0, 0, .72);
+    border-radius: 4px;
+    left: 10px;
+    padding: 4px 7px;
+    position: absolute;
+    top: 10px;
+}
+
+.jellyquestRuntimeDetailRoot .jqEpisodeProgress {
+    background: rgba(255, 255, 255, .25);
+    bottom: 0;
+    height: 5px;
+    left: 0;
+    position: absolute;
+    right: 0;
+}
+
+.jellyquestRuntimeDetailRoot .jqEpisodeProgress span {
+    background: #00a4dc;
+    display: block;
+    height: 100%;
+}
+
+.jellyquestRuntimeDetailRoot .jqChapterRow {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.jellyquestRuntimeDetailRoot .jqChapterCard {
+    background: transparent;
+    border: 0;
+    color: #fff;
+    font-family: inherit;
+    padding: 0;
+    text-align: left;
+}
+
+.jellyquestRuntimeDetailRoot .jqChapterImage {
+    align-items: flex-end;
+    background: linear-gradient(145deg, #28563c, #1b2027);
+    border: 3px solid transparent;
+    border-radius: 7px;
+    display: flex;
+    height: 134px;
+    padding: 12px;
+}
+
+.jellyquestRuntimeDetailRoot .jqChapterName {
+    font-size: 17px;
+    font-weight: 650;
 }
