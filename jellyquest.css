@@ -1743,6 +1743,18 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.jellyquestRuntimeDetailRoot .jqDetailEmpty {
+    align-items: center;
+    background: #171a20;
+    border: 1px solid #343a44;
+    border-radius: 7px;
+    color: #b7bdc6;
+    display: flex;
+    font-size: 20px;
+    min-height: 96px;
+    padding: 22px 26px;
+}
+
 .jellyquestRuntimeDetailRoot .jqSeasonSelect {
     background: #23272d;
     border: 2px solid #555d68;

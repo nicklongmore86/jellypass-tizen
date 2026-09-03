@@ -42,6 +42,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
 
     assert.match(gulpfile, /\.\.\/jellyquest\.css/);
     assert.match(gulpfile, /\.\.\/jellyquest\.js/);
+    assert.match(gulpfile, /data: blob: gap:/);
     assert.match(adapter, /JellyQuest for Tizen/);
     assert.doesNotMatch(adapter, /'multiserver'/);
     assert.match(styles, /\.btnQuick/);
@@ -67,6 +68,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /window\.scrollTo\(0, 0\)/);
     assert.match(policy, /Recently Added/);
     assert.match(policy, /function handleRuntimeHomeKeys/);
+    assert.match(policy, /railItems\[railIndex - 1\]/);
     assert.match(policy, /grid\.appendChild\(createRuntimeHomeCard/);
     assert.match(policy, /jellyquestRuntimeLibraryRoot/);
     assert.match(policy, /function handleRuntimeLibraryKeys/);
@@ -91,6 +93,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /function createRuntimeBackButton/);
     assert.match(policy, /jqLibraryBack/);
     assert.match(policy, /jqSearchBack/);
+    assert.match(policy, /kind: 'search'/);
+    assert.match(policy, /searchTerm: runtimeSearchState\.term/);
+    assert.match(policy, /var searchInput = root && root\.querySelector/);
     assert.match(policy, /jellyquestSettingsBack/);
     assert.match(policy, /item\.Type === 'Episode' && item\.SeriesId/);
     assert.match(policy, /jqDetailBack/);
@@ -98,6 +103,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /window\.location\.hash = runtimeDetailOrigin\.hash/);
     assert.match(policy, /detailMenuOpen/);
     assert.match(policy, /nativeDetailActionDefinitions/);
+    assert.match(policy, /function activeNativeDetailPage/);
+    assert.match(policy, /element\.getAttribute\('data-id'\) === currentId/);
+    assert.match(policy, /!page\.classList\.contains\('hide'\)/);
     assert.match(policy, /function runtimePlaybackActionDefinitions/);
     assert.match(policy, /function seriesResumeEpisode/);
     assert.match(policy, /episode\.UserData\.PlaybackPositionTicks > 0/);
@@ -117,6 +125,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /getNextUpEpisodes/);
     assert.match(policy, /getEpisodes/);
     assert.match(policy, /\(model\.episodes \|\| \[\]\)\.forEach/);
+    assert.match(policy, /No games are available in this season/);
     assert.doesNotMatch(policy, /\(model\.episodes \|\| \[\]\)\.slice/);
     assert.match(policy, /item\.Chapters\.forEach/);
     assert.doesNotMatch(policy, /item\.Chapters\.slice/);
@@ -219,6 +228,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.jqPageBack/);
     assert.match(styles, /\.jqLibraryHeadingGroup/);
     assert.match(styles, /\.jqEpisodeRow/);
+    assert.match(styles, /\.jqDetailEmpty/);
     assert.match(styles, /\.jqChapterRow/);
     assert.match(policy, /www\/jellyseerr-login\.html/);
     assert.match(policy, /'#user='/);

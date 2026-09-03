@@ -1303,6 +1303,15 @@
         card.classList.remove('jellyquestRuntimeLibraryCard');
         card.classList.add('jellyquestRuntimeSearchCard');
         card.setAttribute('data-search-category', categoryKey);
+        card.addEventListener('click', function () {
+            runtimeDetailOrigin = {
+                hash: window.location.hash,
+                itemType: item.Type,
+                kind: 'search',
+                searchTerm: runtimeSearchState.term,
+                title: 'Search'
+            };
+        });
         return card;
     }
 
@@ -1515,17 +1524,21 @@
 
     function removeRuntimeSearch() {
         if (isSearchRoute()) return;
+        var returningToSearchDetail = isDetailRoute() && runtimeDetailOrigin
+            && runtimeDetailOrigin.kind === 'search';
         document.body.classList.remove('jellyquestRuntimeSearchActive');
         var root = document.querySelector('.jellyquestRuntimeSearchRoot');
         if (root) root.parentNode.removeChild(root);
         window.clearTimeout(runtimeSearchTimer);
         runtimeSearchState.loading = false;
         runtimeSearchState.requestId += 1;
-        runtimeSearchState.term = '';
-        runtimeSearchState.total = 0;
-        runtimeSearchState.categories = [];
-        runtimeSearchState.userId = '';
-        runtimeSearchLastCard = null;
+        if (!returningToSearchDetail) {
+            runtimeSearchState.term = '';
+            runtimeSearchState.total = 0;
+            runtimeSearchState.categories = [];
+            runtimeSearchState.userId = '';
+            runtimeSearchLastCard = null;
+        }
     }
 
     function ensureRuntimeSearch() {
@@ -1538,6 +1551,10 @@
         if (!root) {
             root = createRuntimeSearchRoot();
             document.body.appendChild(root);
+            if (runtimeSearchState.term) {
+                root.querySelector('.jellyquestRuntimeSearchInput').value = runtimeSearchState.term;
+                loadRuntimeSearch(true);
+            }
             window.setTimeout(function () {
                 var input = root.querySelector('.jellyquestRuntimeSearchInput');
                 if (document.body.contains(input)) input.focus();
@@ -1636,8 +1653,21 @@
         ];
     }
 
+    function activeNativeDetailPage() {
+        var pages = Array.prototype.slice.call(document.querySelectorAll('.itemDetailPage'));
+        var currentId = detailItemId();
+        var matching = pages.filter(function (page) {
+            return Array.prototype.some.call(page.querySelectorAll('[data-id]'), function (element) {
+                return element.getAttribute('data-id') === currentId;
+            });
+        });
+        var active = pages.filter(function (page) { return !page.classList.contains('hide'); });
+        return matching[matching.length - 1] || active[active.length - 1] || pages[pages.length - 1] || null;
+    }
+
     function visibleNativeDetailAction(selector) {
-        var button = document.querySelector('.itemDetailPage .mainDetailButtons ' + selector);
+        var page = activeNativeDetailPage();
+        var button = page && page.querySelector('.mainDetailButtons ' + selector);
         if (!button || button.hidden || button.classList.contains('hide')) return null;
         return button;
     }
@@ -1809,7 +1839,8 @@
     }
 
     function playRuntimeDetailItem(item, ticks) {
-        var actions = document.querySelector('.itemDetailPage .mainDetailButtons');
+        var page = activeNativeDetailPage();
+        var actions = page && page.querySelector('.mainDetailButtons');
         if (!actions) return;
         var nativeButton = createPlaybackAction('jellyquestRuntimeBoundPlaybackAction', 'Play', item, ticks);
         applyCurrentPlaybackPreferences(nativeButton, item);
@@ -1880,7 +1911,16 @@
                 row.appendChild(createRuntimeDetailLink(apiClient, episode, 'jqEpisodeCard'));
             });
             lower.appendChild(heading);
-            lower.appendChild(row);
+            if (row.children.length) {
+                lower.appendChild(row);
+            } else {
+                var empty = document.createElement('div');
+                empty.className = 'jqDetailEmpty';
+                empty.textContent = model.sports
+                    ? 'No games are available in this season.'
+                    : 'No episodes are available in this season.';
+                lower.appendChild(empty);
+            }
             return;
         }
         lower.className = 'jellyquestRuntimeDetailLower jqCollectionSection';
@@ -2513,7 +2553,7 @@
     }
 
     function nativePlaybackSelect(name) {
-        var page = document.querySelector('.itemDetailPage');
+        var page = activeNativeDetailPage();
         return page ? page.querySelector(name) : null;
     }
 
@@ -2733,7 +2773,7 @@
     }
 
     function applyDetailActions() {
-        var page = document.querySelector('.itemDetailPage');
+        var page = activeNativeDetailPage();
         var state = detailActionState;
         if (!page || !state || state.id !== detailItemId()) return;
         var actions = page.querySelector('.mainDetailButtons');
@@ -2816,7 +2856,7 @@
     }
 
     function ensureDetailActions() {
-        var page = document.querySelector('.itemDetailPage');
+        var page = activeNativeDetailPage();
         var itemId = detailItemId();
         if (!page || !itemId || !window.ApiClient || typeof window.ApiClient.getItem !== 'function'
                 || typeof window.ApiClient.getCurrentUser !== 'function') {
@@ -3396,11 +3436,17 @@
             if (target) {
                 focusRuntimeHomeTarget(target, keyCode === 38 ? 40 : (keyCode === 37 ? 39 : 0), card);
             }
-        } else if (railItem && keyCode === 39) {
-            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
-            if (!target || !document.body.contains(target)) target = runtimeHomeLastCard;
-            if (!target || !document.body.contains(target)) target = root.querySelector('.jellyquestRuntimeHomeCard');
-            focusRuntimeHomeTarget(target, 37, railItem);
+        } else if (railItem) {
+            var railItems = runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem'));
+            var railIndex = railItems.indexOf(railItem);
+            if (keyCode === 38 && railIndex > 0) target = railItems[railIndex - 1];
+            if (keyCode === 40 && railIndex < railItems.length - 1) target = railItems[railIndex + 1];
+            if (keyCode === 39) {
+                target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
+                if (!target || !document.body.contains(target)) target = runtimeHomeLastCard;
+                if (!target || !document.body.contains(target)) target = root.querySelector('.jellyquestRuntimeHomeCard');
+            }
+            if (target) focusRuntimeHomeTarget(target, keyCode === 39 ? 37 : 0, railItem);
         } else if (headerItem) {
             var headers = runtimeHomeVisible(document.querySelectorAll(
                 '.jellyquestProfileTrigger, .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)'));
@@ -3529,7 +3575,7 @@
         } else if (railItem && keyCode === 39) {
             target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
             if (!target || !document.body.contains(target)) target = runtimeLibraryLastCard;
-            if (!target || !document.body.contains(target)) target = backButton || cards[0];
+            if (!target || !document.body.contains(target)) target = cards[0] || backButton;
             if (target) focusRuntimeHomeTarget(target, 37, railItem);
         }
 
@@ -3553,6 +3599,7 @@
         var current = document.activeElement;
         var back = current && current.closest ? current.closest('.jqSearchBack') : null;
         var input = current && current.closest ? current.closest('.jellyquestRuntimeSearchInput') : null;
+        var searchInput = root && root.querySelector('.jellyquestRuntimeSearchInput');
         var card = current && current.closest ? current.closest('.jellyquestRuntimeSearchCard') : null;
         var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
         var headerItem = current && current.closest ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab') : null;
@@ -3567,8 +3614,8 @@
             if (keyCode === 37) target = libraryRail
                 ? runtimeHomeNearest(back, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
             if (keyCode === 38) target = runtimeHomeNearest(back, headers.slice(), 'x');
-            if (keyCode === 39) target = input;
-            if (keyCode === 40) target = cards[0] || input;
+            if (keyCode === 39) target = searchInput;
+            if (keyCode === 40) target = cards[0] || searchInput;
         } else if (input) {
             if (keyCode === 38) target = runtimeHomeNearest(input, headers.slice(), 'x');
             if (keyCode === 40) target = input._jellyquestRuntimeReturn && input._jellyquestRuntimeReturn[40];
@@ -3590,7 +3637,7 @@
             if (keyCode === 38) {
                 target = sectionIndex > 0
                     ? runtimeHomeNearest(card, runtimeHomeVisible(sections[sectionIndex - 1]
-                        .querySelectorAll('.jellyquestRuntimeSearchCard')), 'x') : input;
+                        .querySelectorAll('.jellyquestRuntimeSearchCard')), 'x') : searchInput;
             }
             if (keyCode === 40 && sectionIndex + 1 < sections.length) {
                 target = runtimeHomeNearest(card, runtimeHomeVisible(sections[sectionIndex + 1]
@@ -3602,11 +3649,11 @@
             if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
             if (keyCode === 40) target = headerItem.classList.contains('jellyquestProfileTrigger')
                 ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
-                : (headerIndex === 1 ? backButton : input);
+                : (headerIndex === 1 ? backButton : searchInput);
         } else if (railItem && keyCode === 39) {
             target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
             if (!target || !document.body.contains(target)) target = runtimeSearchLastCard;
-            if (!target || !document.body.contains(target)) target = backButton || input;
+            if (!target || !document.body.contains(target)) target = searchInput || backButton;
         }
         if (target) {
             focusRuntimeHomeTarget(target, keyCode === 38 ? 40
