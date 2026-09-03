@@ -47,6 +47,14 @@
     var playbackOptionsDialog;
     var playbackOptionsTrigger;
     var playbackOptionsView = 'root';
+    var settingsRoot;
+    var settingsOriginFocus;
+    var settingsSection = 'playback';
+    var settingsModel;
+    var settingsUser;
+    var settingsCultures = [];
+    var settingsSaving = false;
+    var buildConfiguration = {};
 
     var selectors = [
         '#loginPage .manualLoginForm',
@@ -80,6 +88,10 @@
 
     function isRuntimeShellRoute() {
         return isLibraryRoute() || isDetailRoute();
+    }
+
+    function isSettingsOpen() {
+        return Boolean(settingsRoot && document.body.contains(settingsRoot));
     }
 
     function hashParameter(name) {
@@ -391,6 +403,491 @@
         header.appendChild(runtimeGlobalTabs);
     }
 
+    function settingsLocalKey(name, userScoped) {
+        return userScoped && settingsUser && settingsUser.Id ? settingsUser.Id + '-' + name : name;
+    }
+
+    function settingsLocalValue(name, fallback, userScoped) {
+        var value = window.localStorage.getItem(settingsLocalKey(name, userScoped));
+        return value == null ? fallback : value;
+    }
+
+    function settingsBoolean(name, fallback, userScoped) {
+        return settingsLocalValue(name, fallback ? 'true' : 'false', userScoped) === 'true';
+    }
+
+    function settingsLanguageOptions(selected) {
+        var preferred = ['', 'eng', 'spa', 'fra', 'deu', 'ita', 'jpn', 'kor', 'por'];
+        var seen = {};
+        var options = [{ key: '', label: 'Any language' }];
+        settingsCultures.forEach(function (culture) {
+            var key = culture.ThreeLetterISOLanguageName || '';
+            if (!key || seen[key] || (preferred.indexOf(key) === -1 && key !== selected)) return;
+            seen[key] = true;
+            options.push({ key: key, label: culture.DisplayName || key });
+        });
+        if (selected && !seen[selected]) options.push({ key: selected, label: selected.toUpperCase() });
+        return options;
+    }
+
+    function settingsChoiceLabel(options, value) {
+        var match = options.filter(function (option) { return String(option.key) === String(value); })[0];
+        return match ? match.label : String(value || 'Default');
+    }
+
+    function settingsDefinitions() {
+        var audioLanguages = settingsLanguageOptions(settingsModel.audioLanguage);
+        var subtitleLanguages = settingsLanguageOptions(settingsModel.subtitleLanguage);
+        return {
+            playback: {
+                title: 'Playback',
+                description: 'Tune playback for this TV and remember choices for this profile.',
+                fields: [
+                    { key: 'audioChannels', label: 'Maximum audio channels', help: 'Match the TV or sound system connected to this device.', options: [
+                        { key: '-1', label: 'Auto' }, { key: '1', label: 'Mono' }, { key: '2', label: 'Stereo' },
+                        { key: '6', label: '5.1 channels' }, { key: '8', label: '7.1 channels' }
+                    ] },
+                    { key: 'audioLanguage', label: 'Preferred audio language', help: 'Used when a title offers multiple audio tracks.', options: audioLanguages },
+                    { key: 'quality', label: 'Home streaming quality', help: 'Maximum bitrate for playback on the household network.', options: [
+                        { key: '0', label: 'Auto' }, { key: '10000000', label: '10 Mbps' }, { key: '20000000', label: '20 Mbps' },
+                        { key: '40000000', label: '40 Mbps' }, { key: '80000000', label: '80 Mbps' }, { key: '120000000', label: '120 Mbps' }
+                    ] },
+                    { key: 'maxWidth', label: 'Maximum resolution', help: 'Limit resolution when the TV or connection needs it.', options: [
+                        { key: '0', label: 'Auto / source' }, { key: '1280', label: '720p' }, { key: '1920', label: '1080p' }, { key: '3840', label: '4K' }
+                    ] },
+                    { key: 'autoPlay', label: 'Play next episode automatically', help: 'Continue a series without returning to its detail page.', toggle: true },
+                    { key: 'rememberAudio', label: 'Remember audio tracks', help: 'Carry the selected audio track into following episodes.', toggle: true },
+                    { key: 'rememberSubtitles', label: 'Remember subtitle tracks', help: 'Carry the selected subtitle track into following episodes.', toggle: true },
+                    { key: 'introAction', label: 'Intros', help: 'Choose what happens when an intro marker is available.', options: [
+                        { key: 'AskToSkip', label: 'Show Skip button' }, { key: 'Skip', label: 'Skip automatically' }, { key: 'None', label: 'Do nothing' }
+                    ] },
+                    { key: 'outroAction', label: 'Outros', help: 'Choose what happens when an outro marker is available.', options: [
+                        { key: 'AskToSkip', label: 'Show Skip button' }, { key: 'Skip', label: 'Skip automatically' }, { key: 'None', label: 'Do nothing' }
+                    ] },
+                    { key: 'enableDts', label: 'DTS audio', help: 'Enable only when the connected audio system supports DTS.', toggle: true },
+                    { key: 'enableTrueHd', label: 'TrueHD audio', help: 'Enable only when the connected audio system supports TrueHD.', toggle: true }
+                ]
+            },
+            subtitles: {
+                title: 'Subtitles',
+                description: 'Set default subtitle behavior and readable TV styling.',
+                fields: [
+                    { key: 'subtitleLanguage', label: 'Preferred subtitle language', help: 'Used when multiple subtitle tracks are available.', options: subtitleLanguages },
+                    { key: 'subtitleMode', label: 'Subtitle mode', help: 'Control when subtitles are selected automatically.', options: [
+                        { key: 'Default', label: 'Default' }, { key: 'Smart', label: 'Smart' }, { key: 'OnlyForced', label: 'Forced only' },
+                        { key: 'Always', label: 'Always' }, { key: 'None', label: 'None' }
+                    ] },
+                    { key: 'subtitleBurnIn', label: 'Burn subtitles', help: 'Burn unsupported formats into video during transcoding.', options: [
+                        { key: '', label: 'Auto' }, { key: 'onlyimageformats', label: 'Image formats only' },
+                        { key: 'allcomplexformats', label: 'All complex formats' }, { key: 'all', label: 'All subtitles' }
+                    ] },
+                    { key: 'subtitleSize', label: 'Text size', help: 'Adjust subtitle size for viewing distance.', options: [
+                        { key: 'small', label: 'Small' }, { key: '', label: 'Normal' }, { key: 'large', label: 'Large' },
+                        { key: 'larger', label: 'Larger' }, { key: 'extralarge', label: 'Extra large' }
+                    ] },
+                    { key: 'subtitleWeight', label: 'Text weight', help: 'Increase contrast on detailed backgrounds.', options: [
+                        { key: 'normal', label: 'Normal' }, { key: 'bold', label: 'Bold' }
+                    ] },
+                    { key: 'subtitleColor', label: 'Text color', help: 'Choose a high-contrast subtitle color.', options: [
+                        { key: '#ffffff', label: 'White' }, { key: '#ffff00', label: 'Yellow' },
+                        { key: '#00ffff', label: 'Cyan' }, { key: '#d3d3d3', label: 'Light gray' }
+                    ] },
+                    { key: 'renderPgs', label: 'Render PGS subtitles', help: 'Render image subtitles directly when supported.', toggle: true }
+                ]
+            },
+            display: {
+                title: 'Display & Device',
+                description: 'TV-specific presentation without changing the JellyQuest theme.',
+                fields: [
+                    { key: 'interfaceLanguage', label: 'Interface language', help: 'JellyQuest currently ships its TV interface in English.', readonly: 'English' },
+                    { key: 'screensaver', label: 'Screensaver', help: 'Choose what appears when JellyQuest is idle.', options: [
+                        { key: 'none', label: 'Off' }, { key: 'backdropscreensaver', label: 'Media backdrops' },
+                        { key: 'logoscreensaver', label: 'Jellyfin logo' }
+                    ] },
+                    { key: 'screensaverTime', label: 'Start screensaver after', help: 'Idle time before the screensaver starts.', options: [
+                        { key: '60', label: '1 minute' }, { key: '180', label: '3 minutes' }, { key: '300', label: '5 minutes' },
+                        { key: '600', label: '10 minutes' }, { key: '900', label: '15 minutes' }
+                    ] },
+                    { key: 'fastAnimations', label: 'Faster animations', help: 'Use shorter transitions for quicker remote navigation.', toggle: true }
+                ]
+            },
+            about: {
+                title: 'About',
+                description: 'Build, household, and server details for this installation.',
+                fields: [
+                    { key: 'product', label: 'Application', readonly: buildConfiguration.productName || 'JellyQuest' },
+                    { key: 'version', label: 'Version', readonly: buildConfiguration.requestsPageVersion || '0.8.0' },
+                    { key: 'household', label: 'Household', readonly: buildConfiguration.household || 'Not configured' },
+                    { key: 'server', label: 'Jellyfin server', readonly: buildConfiguration.serverUrl || 'Not configured' },
+                    { key: 'requests', label: 'Requests service', readonly: buildConfiguration.requestsUrl || 'Not configured' }
+                ]
+            }
+        };
+    }
+
+    function markSettingsDirty() {
+        if (!settingsRoot) return;
+        settingsRoot.classList.add('is-dirty');
+        settingsRoot.querySelector('.jellyquestSettingsStatus').textContent = 'Unsaved changes';
+    }
+
+    function createSettingsField(field) {
+        var control = document.createElement('button');
+        var copy = document.createElement('span');
+        var label = document.createElement('span');
+        var help = document.createElement('span');
+        var value = document.createElement('span');
+        control.type = 'button';
+        control.className = 'jellyquestSettingsControl';
+        control.setAttribute('data-setting', field.key);
+        copy.className = 'jqSettingsControlCopy';
+        label.className = 'jqSettingsControlLabel';
+        label.textContent = field.label;
+        help.className = 'jqSettingsControlHelp';
+        help.textContent = field.help || '';
+        value.className = 'jqSettingsControlValue';
+        if (field.readonly != null) {
+            control.classList.add('is-readonly');
+            control.disabled = true;
+            value.textContent = field.readonly;
+        } else if (field.toggle) {
+            control.classList.add('is-toggle');
+            control.setAttribute('aria-pressed', settingsModel[field.key] ? 'true' : 'false');
+            value.textContent = settingsModel[field.key] ? 'On' : 'Off';
+            control.addEventListener('click', function () {
+                settingsModel[field.key] = !settingsModel[field.key];
+                control.setAttribute('aria-pressed', settingsModel[field.key] ? 'true' : 'false');
+                value.textContent = settingsModel[field.key] ? 'On' : 'Off';
+                markSettingsDirty();
+            });
+        } else {
+            value.textContent = settingsChoiceLabel(field.options, settingsModel[field.key]);
+            control.addEventListener('click', function () {
+                openRuntimeLibraryMenu(control, field.label, field.options, String(settingsModel[field.key]), function (option) {
+                    settingsModel[field.key] = option.key;
+                    value.textContent = option.label;
+                    markSettingsDirty();
+                    control.focus();
+                });
+            });
+        }
+        copy.appendChild(label);
+        copy.appendChild(help);
+        control.appendChild(copy);
+        control.appendChild(value);
+        return control;
+    }
+
+    function renderSettingsSection(focusCategory) {
+        if (!settingsRoot || !settingsModel) return;
+        var definition = settingsDefinitions()[settingsSection];
+        settingsRoot.querySelector('.jqSettingsSectionTitle').textContent = definition.title;
+        settingsRoot.querySelector('.jqSettingsSectionDescription').textContent = definition.description;
+        var grid = settingsRoot.querySelector('.jellyquestSettingsGrid');
+        grid.innerHTML = '';
+        definition.fields.forEach(function (field) { grid.appendChild(createSettingsField(field)); });
+        settingsRoot.querySelectorAll('.jellyquestSettingsCategory').forEach(function (button) {
+            var selected = button.getAttribute('data-section') === settingsSection;
+            button.classList.toggle('is-selected', selected);
+            if (selected) button.setAttribute('aria-current', 'page');
+            else button.removeAttribute('aria-current');
+        });
+        settingsRoot.scrollTop = 0;
+        if (focusCategory) settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected').focus();
+    }
+
+    function loadSettingsModel() {
+        var apiClient = window.ApiClient;
+        if (!apiClient || typeof apiClient.getCurrentUser !== 'function') {
+            return Promise.reject(new Error('No Jellyfin profile is active.'));
+        }
+        return Promise.all([
+            apiClient.getCurrentUser(false),
+            typeof apiClient.getCultures === 'function' ? apiClient.getCultures() : Promise.resolve([])
+        ]).then(function (results) {
+            settingsUser = results[0];
+            settingsCultures = results[1] || [];
+            var config = settingsUser.Configuration || {};
+            var appearance;
+            try {
+                appearance = JSON.parse(settingsLocalValue('localplayersubtitleappearance3', '{}', true));
+            } catch (error) {
+                appearance = {};
+            }
+            settingsModel = {
+                audioChannels: settingsLocalValue('allowedAudioChannels', '-1', true),
+                audioLanguage: config.AudioLanguagePreference || '',
+                quality: settingsBoolean('enableautobitratebitrate-Video-true', true, false)
+                    ? '0' : settingsLocalValue('maxbitrate-Video-true', '40000000', false),
+                maxWidth: settingsBoolean('limitSupportedVideoResolution', false, false)
+                    ? settingsLocalValue('maxVideoWidth', '1920', false) : '0',
+                autoPlay: Boolean(config.EnableNextEpisodeAutoPlay),
+                rememberAudio: Boolean(config.RememberAudioSelections),
+                rememberSubtitles: Boolean(config.RememberSubtitleSelections),
+                introAction: settingsLocalValue('segmentTypeAction__Intro', 'AskToSkip', true),
+                outroAction: settingsLocalValue('segmentTypeAction__Outro', 'AskToSkip', true),
+                enableDts: settingsBoolean('enableDts', false, false),
+                enableTrueHd: settingsBoolean('enableTrueHd', false, false),
+                subtitleLanguage: config.SubtitleLanguagePreference || '',
+                subtitleMode: config.SubtitleMode || 'Default',
+                subtitleBurnIn: settingsLocalValue('subtitleburnin', '', false),
+                subtitleSize: appearance.textSize || '',
+                subtitleWeight: appearance.textWeight || 'normal',
+                subtitleColor: appearance.textColor || '#ffffff',
+                renderPgs: settingsBoolean('subtitlerenderpgs', false, false),
+                screensaver: settingsLocalValue('screensaver', 'none', true) || 'none',
+                screensaverTime: settingsLocalValue('screensaverTime', '180', true),
+                fastAnimations: settingsBoolean('fastFadein', true, true)
+            };
+        });
+    }
+
+    function saveSettings() {
+        if (!settingsRoot || !settingsModel || !settingsUser || settingsSaving) return;
+        settingsSaving = true;
+        var save = settingsRoot.querySelector('.jellyquestSettingsSave');
+        var status = settingsRoot.querySelector('.jellyquestSettingsStatus');
+        save.disabled = true;
+        status.textContent = 'Saving…';
+        var config = settingsUser.Configuration || {};
+        config.AudioLanguagePreference = settingsModel.audioLanguage;
+        config.EnableNextEpisodeAutoPlay = settingsModel.autoPlay;
+        config.RememberAudioSelections = settingsModel.rememberAudio;
+        config.RememberSubtitleSelections = settingsModel.rememberSubtitles;
+        config.SubtitleLanguagePreference = settingsModel.subtitleLanguage;
+        config.SubtitleMode = settingsModel.subtitleMode;
+        var appearance;
+        try {
+            appearance = JSON.parse(settingsLocalValue('localplayersubtitleappearance3', '{}', true));
+        } catch (error) {
+            appearance = {};
+        }
+        appearance.textSize = settingsModel.subtitleSize;
+        appearance.textWeight = settingsModel.subtitleWeight;
+        appearance.textColor = settingsModel.subtitleColor;
+        window.localStorage.setItem(settingsLocalKey('localplayersubtitleappearance3', true), JSON.stringify(appearance));
+        window.localStorage.setItem(settingsLocalKey('allowedAudioChannels', true), settingsModel.audioChannels);
+        window.localStorage.setItem('enableautobitratebitrate-Video-true', settingsModel.quality === '0' ? 'true' : 'false');
+        if (settingsModel.quality !== '0') window.localStorage.setItem('maxbitrate-Video-true', settingsModel.quality);
+        window.localStorage.setItem('limitSupportedVideoResolution', settingsModel.maxWidth === '0' ? 'false' : 'true');
+        if (settingsModel.maxWidth !== '0') window.localStorage.setItem('maxVideoWidth', settingsModel.maxWidth);
+        window.localStorage.setItem(settingsLocalKey('segmentTypeAction__Intro', true), settingsModel.introAction);
+        window.localStorage.setItem(settingsLocalKey('segmentTypeAction__Outro', true), settingsModel.outroAction);
+        window.localStorage.setItem('enableDts', String(settingsModel.enableDts));
+        window.localStorage.setItem('enableTrueHd', String(settingsModel.enableTrueHd));
+        window.localStorage.setItem('subtitleburnin', settingsModel.subtitleBurnIn);
+        window.localStorage.setItem('subtitlerenderpgs', String(settingsModel.renderPgs));
+        window.localStorage.setItem(settingsLocalKey('screensaver', true), settingsModel.screensaver);
+        window.localStorage.setItem(settingsLocalKey('screensaverTime', true), settingsModel.screensaverTime);
+        window.localStorage.setItem(settingsLocalKey('fastFadein', true), String(settingsModel.fastAnimations));
+        Promise.resolve(window.ApiClient.updateUserConfiguration(settingsUser.Id, config)).then(function () {
+            if (!settingsRoot) return;
+            settingsRoot.classList.remove('is-dirty');
+            status.textContent = 'Settings saved';
+        }).catch(function (error) {
+            console.error('[JellyQuest] Unable to save Settings:', error);
+            if (settingsRoot) status.textContent = 'Unable to save. Try again.';
+        }).then(function () {
+            settingsSaving = false;
+            if (settingsRoot) save.disabled = false;
+        });
+    }
+
+    function createSettingsRoot() {
+        var root = document.createElement('main');
+        var heading = document.createElement('header');
+        var title = document.createElement('h1');
+        var subtitle = document.createElement('p');
+        var layout = document.createElement('div');
+        var categories = document.createElement('nav');
+        var content = document.createElement('section');
+        var sectionTitle = document.createElement('h2');
+        var sectionDescription = document.createElement('p');
+        var grid = document.createElement('div');
+        var footer = document.createElement('footer');
+        var status = document.createElement('span');
+        var cancel = document.createElement('button');
+        var save = document.createElement('button');
+        root.className = 'jellyquestSettingsRoot';
+        root.setAttribute('aria-label', 'JellyQuest Settings');
+        heading.className = 'jellyquestSettingsHeading';
+        title.textContent = 'Settings';
+        subtitle.textContent = settingsUser && settingsUser.Name ? 'TV preferences for ' + settingsUser.Name : 'TV preferences';
+        heading.appendChild(title);
+        heading.appendChild(subtitle);
+        layout.className = 'jellyquestSettingsLayout';
+        categories.className = 'jellyquestSettingsCategories';
+        categories.setAttribute('aria-label', 'Settings sections');
+        [
+            { key: 'playback', label: 'Playback', icon: '▶' },
+            { key: 'subtitles', label: 'Subtitles', icon: 'CC' },
+            { key: 'display', label: 'Display & Device', icon: '▣' },
+            { key: 'about', label: 'About', icon: 'i' }
+        ].forEach(function (category) {
+            var button = document.createElement('button');
+            var icon = document.createElement('span');
+            var label = document.createElement('span');
+            button.type = 'button';
+            button.className = 'jellyquestSettingsCategory';
+            button.setAttribute('data-section', category.key);
+            icon.className = 'jqSettingsCategoryIcon';
+            icon.textContent = category.icon;
+            label.textContent = category.label;
+            button.appendChild(icon);
+            button.appendChild(label);
+            button.addEventListener('click', function () {
+                settingsSection = category.key;
+                renderSettingsSection(true);
+            });
+            categories.appendChild(button);
+        });
+        content.className = 'jellyquestSettingsContent';
+        sectionTitle.className = 'jqSettingsSectionTitle';
+        sectionDescription.className = 'jqSettingsSectionDescription';
+        grid.className = 'jellyquestSettingsGrid';
+        content.appendChild(sectionTitle);
+        content.appendChild(sectionDescription);
+        content.appendChild(grid);
+        layout.appendChild(categories);
+        layout.appendChild(content);
+        footer.className = 'jellyquestSettingsFooter';
+        status.className = 'jellyquestSettingsStatus';
+        status.setAttribute('aria-live', 'polite');
+        cancel.type = 'button';
+        cancel.className = 'jellyquestSettingsCancel';
+        cancel.textContent = 'Close';
+        cancel.addEventListener('click', closeSettings);
+        save.type = 'button';
+        save.className = 'jellyquestSettingsSave';
+        save.textContent = 'Save changes';
+        save.addEventListener('click', saveSettings);
+        footer.appendChild(status);
+        footer.appendChild(cancel);
+        footer.appendChild(save);
+        root.appendChild(heading);
+        root.appendChild(layout);
+        root.appendChild(footer);
+        return root;
+    }
+
+    function openSettings() {
+        if (isSettingsOpen()) return;
+        settingsOriginFocus = document.activeElement;
+        settingsSection = 'playback';
+        document.body.classList.add('jellyquestSettingsActive');
+        loadSettingsModel().then(function () {
+            if (!document.body.classList.contains('jellyquestSettingsActive')) return;
+            settingsRoot = createSettingsRoot();
+            document.body.appendChild(settingsRoot);
+            renderSettingsSection(false);
+            updateLibraryRailSelection();
+            var first = settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected');
+            if (first) first.focus();
+        }).catch(function (error) {
+            document.body.classList.remove('jellyquestSettingsActive');
+            console.error('[JellyQuest] Unable to open Settings:', error);
+            window.alert('Unable to load Settings for the current profile.');
+        });
+    }
+
+    function closeSettings() {
+        closeRuntimeLibraryMenu(false);
+        if (settingsRoot && settingsRoot.parentNode) settingsRoot.parentNode.removeChild(settingsRoot);
+        settingsRoot = null;
+        settingsModel = null;
+        settingsUser = null;
+        settingsCultures = [];
+        settingsSaving = false;
+        document.body.classList.remove('jellyquestSettingsActive');
+        updateLibraryRailSelection();
+        var target = settingsOriginFocus && document.body.contains(settingsOriginFocus)
+            ? settingsOriginFocus : (libraryRail && libraryRail.querySelector('.jellyquestRailSettings'));
+        settingsOriginFocus = null;
+        if (target) target.focus();
+    }
+
+    function handleSettingsKeys(event) {
+        if (!isSettingsOpen()) return;
+        var keyCode = event.keyCode;
+        if (runtimeLibraryMenu) {
+            var menuOptions = runtimeHomeVisible(runtimeLibraryMenu.querySelectorAll('.jellyquestRuntimeLibraryOption'));
+            var menuIndex = menuOptions.indexOf(document.activeElement);
+            if ((keyCode === 13 || keyCode === 32) && menuIndex !== -1) {
+                menuOptions[menuIndex].click();
+            } else if ((keyCode === 38 || keyCode === 40) && menuIndex !== -1) {
+                menuIndex = keyCode === 38
+                    ? (menuIndex - 1 + menuOptions.length) % menuOptions.length
+                    : (menuIndex + 1) % menuOptions.length;
+                menuOptions[menuIndex].focus();
+            } else if (keyCode === 37 || keyCode === 10009 || keyCode === 8 || keyCode === 27) {
+                closeRuntimeLibraryMenu(true);
+            } else {
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+        if ((keyCode === 13 || keyCode === 32) && settingsRoot.contains(document.activeElement)) {
+            if (typeof document.activeElement.click === 'function') document.activeElement.click();
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+        if (keyCode === 10009 || keyCode === 8 || keyCode === 27) {
+            closeSettings();
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+        if ([37, 38, 39, 40].indexOf(keyCode) === -1) return;
+        var current = document.activeElement;
+        var category = current && current.closest ? current.closest('.jellyquestSettingsCategory') : null;
+        var control = current && current.closest ? current.closest('.jellyquestSettingsControl:not(.is-readonly)') : null;
+        var footerButton = current && current.closest ? current.closest('.jellyquestSettingsFooter button') : null;
+        var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
+        var headerItem = current && current.closest
+            ? current.closest('.jellyquestProfileTrigger, .jellyquestGlobalTab, .headerTabs .emby-tab-button') : null;
+        var categories = runtimeHomeVisible(settingsRoot.querySelectorAll('.jellyquestSettingsCategory'));
+        var controls = runtimeHomeVisible(settingsRoot.querySelectorAll('.jellyquestSettingsControl:not(.is-readonly)'));
+        var footerButtons = runtimeHomeVisible(settingsRoot.querySelectorAll('.jellyquestSettingsFooter button:not([disabled])'));
+        var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab, .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)'));
+        var target = null;
+        var remembered = current && current._jellyquestRuntimeReturn && current._jellyquestRuntimeReturn[keyCode];
+        if (remembered && document.body.contains(remembered) && runtimeHomeVisible([remembered]).length) target = remembered;
+        if (!target && category) {
+            var categoryIndex = categories.indexOf(category);
+            if (keyCode === 38) target = categoryIndex > 0 ? categories[categoryIndex - 1] : runtimeHomeNearest(category, headers.slice(), 'x');
+            if (keyCode === 40) target = categoryIndex < categories.length - 1 ? categories[categoryIndex + 1] : footerButtons[0];
+            if (keyCode === 37) target = libraryRail ? runtimeHomeNearest(category, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
+            if (keyCode === 39) target = controls[0] || footerButtons[0];
+        } else if (!target && control) {
+            target = runtimeDetailDirectional(control, controls, keyCode);
+            if (!target && keyCode === 37) target = settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected');
+            if (!target && keyCode === 38) target = runtimeHomeNearest(control, headers.slice(), 'x');
+            if (!target && keyCode === 40) target = runtimeHomeNearest(control, footerButtons.slice(), 'x');
+        } else if (!target && footerButton) {
+            var footerIndex = footerButtons.indexOf(footerButton);
+            if (keyCode === 37 && footerIndex > 0) target = footerButtons[footerIndex - 1];
+            if (keyCode === 39 && footerIndex < footerButtons.length - 1) target = footerButtons[footerIndex + 1];
+            if (keyCode === 38) target = runtimeHomeNearest(footerButton, runtimeDetailEdgeRow(controls, 'bottom'), 'x');
+        } else if (!target && headerItem) {
+            var headerIndex = headers.indexOf(headerItem);
+            if (keyCode === 37 && headerIndex > 0) target = headers[headerIndex - 1];
+            if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
+            if (keyCode === 40) target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
+            if (!target && keyCode === 40) target = categories[0];
+        } else if (!target && railItem && keyCode === 39) {
+            target = settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected') || categories[0];
+        }
+        if (target) {
+            focusRuntimeHomeTarget(target, keyCode === 38 ? 40
+                : (keyCode === 40 ? 38 : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0))), current);
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }
+
     function runtimeLibrarySortDefinition(key) {
         return {
             recent: { label: 'Recently added', by: 'DateCreated', order: 'Descending' },
@@ -675,7 +1172,7 @@
     function removeRuntimeLibrary() {
         var detailMenuOpen = isDetailRoute() && runtimeLibraryMenuTrigger
             && runtimeLibraryMenuTrigger.classList.contains('jqSeasonSelect');
-        if (!detailMenuOpen) closeRuntimeLibraryMenu(false);
+        if (!detailMenuOpen && !isSettingsOpen()) closeRuntimeLibraryMenu(false);
         document.body.classList.remove('jellyquestRuntimeLibraryActive');
         var root = document.querySelector('.jellyquestRuntimeLibraryRoot');
         if (root && !isLibraryRoute()) root.parentNode.removeChild(root);
@@ -2242,7 +2739,7 @@
             var selected = item.classList.contains('jellyquestRailSearch')
                 ? /^#\/search(?:\?|$)/.test(window.location.hash)
                 : item.classList.contains('jellyquestRailSettings')
-                    ? /^#\/(?:mypreferencesmenu|settings)/.test(window.location.hash)
+                    ? isSettingsOpen()
                     : itemId && window.location.hash.indexOf(itemId) !== -1;
             item.classList.toggle('is-active', Boolean(selected));
             if (selected) {
@@ -2331,11 +2828,13 @@
             libraryRail.appendChild(search);
             var settings = createRailItem('button', 'Settings', 'settings');
             settings.addEventListener('click', function () {
-                var nativeSettings = document.querySelector('.headerUserButton');
-                if (nativeSettings) {
-                    nativeSettings.click();
-                } else {
-                    window.location.hash = '#/mypreferencesmenu';
+                openSettings();
+            });
+            settings.addEventListener('keydown', function (event) {
+                if (event.keyCode === 13 || event.keyCode === 32) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    openSettings();
                 }
             });
             libraryRail.appendChild(settings);
@@ -2390,7 +2889,7 @@
     }
 
     function handleRuntimeHomeKeys(event) {
-        if (!document.body.classList.contains('jellyquestRuntimeHomeActive')
+        if (isSettingsOpen() || !document.body.classList.contains('jellyquestRuntimeHomeActive')
                 || (playbackOptionsDialog && !playbackOptionsDialog.hidden)
                 || (profileSwitcher && !profileSwitcher.hidden)) return;
         var keyCode = event.keyCode;
@@ -2474,7 +2973,7 @@
     }
 
     function handleRuntimeLibraryKeys(event) {
-        if (!document.body.classList.contains('jellyquestRuntimeLibraryActive')) return;
+        if (isSettingsOpen() || !document.body.classList.contains('jellyquestRuntimeLibraryActive')) return;
         var keyCode = event.keyCode;
         if (runtimeLibraryMenu) {
             var options = runtimeHomeVisible(runtimeLibraryMenu.querySelectorAll('.jellyquestRuntimeLibraryOption'));
@@ -2593,7 +3092,7 @@
     }
 
     function handleRuntimeDetailKeys(event) {
-        if (!document.body.classList.contains('jellyquestRuntimeDetailActive')
+        if (isSettingsOpen() || !document.body.classList.contains('jellyquestRuntimeDetailActive')
                 || (playbackOptionsDialog && !playbackOptionsDialog.hidden)
                 || (profileSwitcher && !profileSwitcher.hidden)) return;
         var keyCode = event.keyCode;
@@ -2744,6 +3243,7 @@
                 return response.json();
             })
             .then(function (config) {
+                buildConfiguration = config;
                 requestsUrl = new URL(config.requestsUrl).origin;
                 requestsBridgeUrl = new URL(config.requestsBridgeUrl).href;
                 requestsPageVersion = config.requestsPageVersion || '';
@@ -2787,7 +3287,13 @@
         start();
     }
 
-    window.JellyQuest = { openRequests: openRequests, openProfileSwitcher: openProfileSwitcher };
+    window.JellyQuest = {
+        openRequests: openRequests,
+        openProfileSwitcher: openProfileSwitcher,
+        openSettings: openSettings,
+        closeSettings: closeSettings
+    };
+    window.addEventListener('keydown', handleSettingsKeys, true);
     window.addEventListener('keydown', handleRuntimeDetailKeys, true);
     window.addEventListener('keydown', handleRuntimeLibraryKeys, true);
     window.addEventListener('keydown', handleRuntimeHomeKeys, true);
@@ -2823,6 +3329,7 @@
         }
     }, true);
     window.addEventListener('hashchange', function () {
+        if (isSettingsOpen()) closeSettings();
         closePlaybackOptions();
         closeRuntimeLibraryMenu(false);
         ensureRequestsTab();

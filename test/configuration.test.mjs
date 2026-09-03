@@ -119,7 +119,15 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /\.libraryMenuOptions \.lnkMediaFolder/);
     assert.match(policy, /nativeSearch\.click\(\)/);
     assert.match(policy, /jellyquestRailSettings/);
-    assert.match(policy, /nativeSettings\.click\(\)/);
+    assert.match(policy, /function openSettings/);
+    assert.match(policy, /function handleSettingsKeys/);
+    assert.match(policy, /jellyquestSettingsRoot/);
+    assert.match(policy, /updateUserConfiguration/);
+    assert.match(policy, /Maximum audio channels/);
+    assert.match(policy, /Preferred subtitle language/);
+    assert.match(policy, /Display & Device/);
+    assert.match(policy, /segmentTypeAction__Intro/);
+    assert.doesNotMatch(policy, /nativeSettings\.click\(\)/);
     assert.match(policy, /function libraryIconName/);
     assert.match(policy, /livetv:/);
     assert.match(policy, /shows:/);
@@ -134,6 +142,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.jellyquestBrandIcon/);
     assert.match(styles, /flex-direction: column/);
     assert.match(styles, /\.jellyquestLibraryRail/);
+    assert.match(styles, /\.jellyquestSettingsRoot/);
+    assert.match(styles, /\.jellyquestSettingsCategory/);
+    assert.match(styles, /\.jellyquestSettingsControl/);
     assert.match(styles, /width: 60px/);
     assert.match(styles, /width: 256px/);
     assert.match(styles, /overflow-y: auto/);
