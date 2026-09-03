@@ -197,7 +197,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /margin-bottom: auto/);
     assert.match(styles, /\.skinHeader \{/);
     assert.match(styles, /\.skinHeader \.headerTabs/);
-    assert.match(styles, /height: 84px !important/);
+    assert.match(styles, /height: 72px !important/);
     assert.match(styles, /\.jellyquestMyListCards/);
     assert.match(styles, /\.jellyquestHiddenFavoritesTab/);
     assert.match(styles, /margin-left: 60px/);
@@ -384,7 +384,7 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
     assert.doesNotMatch(mediaNavigation, /Play Next|Add to Queue|Media Info/);
     assert.match(mediaNavigation, /showPlaybackNotice/);
     assert.match(mediaStyles, /overflow-y: auto/);
-    assert.match(mediaStyles, /height: 5\.25rem/);
+    assert.match(mediaStyles, /height: 4\.5rem/);
     assert.match(mediaStyles, /translate\(-50%, -50%\)/);
     assert.match(mediaStyles, /\.jqSortMenu/);
     assert.match(mediaStyles, /\.jqPageBack/);
