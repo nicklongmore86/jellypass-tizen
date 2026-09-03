@@ -29,7 +29,7 @@ test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     assert.equal(metadata.household, 'farmhouse');
     assert.equal(metadata.requestsUrl, 'https://jellyseerr.starrgroup.io');
     assert.equal(metadata.requestsBridgeUrl, 'https://jelly-farmhouse.starrgroup.io/jellyquest-bridge/bridge.html');
-    assert.equal(metadata.requestsPageVersion, '0.8.0');
+    assert.equal(metadata.requestsPageVersion, '1.0.0');
     assert.match(metadata.jellyfinWebRef, /^[a-f0-9]{40}$/);
 });
 
@@ -183,6 +183,14 @@ test('keeps development configuration and notes out of the TV package', () => {
     assert.match(packager, /-e "integration\/\*"/);
     assert.doesNotMatch(packager, /bridge\/\*/);
     assert.match(packager, /www\/jellyseerr-login\.html/);
+});
+
+test('patches Jellyfin Web to handle generated detail playback actions', () => {
+    const patcher = fs.readFileSync(path.join(root, 'scripts/patch-jellyfin-web.mjs'), 'utf8');
+
+    assert.match(patcher, /itemShortcuts\.on\(view\.querySelector\('\.mainDetailButtons'\)\)/);
+    assert.match(patcher, /itemShortcuts\.off\(view\.querySelector\('\.mainDetailButtons'\)\)/);
+    assert.match(patcher, /mediaSourceId: card\.getAttribute\('data-mediasourceid'\)/);
 });
 
 test('Jellyseerr bootstrap delegates identity verification without logging it in the URL', () => {
@@ -358,8 +366,11 @@ test('provides a fixed Samsung TV preview with remote controls', () => {
 test('patches Jellyfin playback shortcuts with per-item stream selections', () => {
     const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-patch-'));
     const componentDirectory = path.join(webDirectory, 'src/components');
+    const itemDetailsDirectory = path.join(webDirectory, 'src/controllers/itemDetails');
     fs.mkdirSync(componentDirectory, { recursive: true });
+    fs.mkdirSync(itemDetailsDirectory, { recursive: true });
     const shortcutsPath = path.join(componentDirectory, 'shortcuts.js');
+    const itemDetailsPath = path.join(itemDetailsDirectory, 'index.js');
     fs.writeFileSync(shortcutsPath, `function play() {
             playbackManager.play({
                 ids: [playableItemId],
@@ -370,6 +381,10 @@ test('patches Jellyfin playback shortcuts with per-item stream selections', () =
                 }
             });
 }`);
+    fs.writeFileSync(itemDetailsPath, `function bind(view) {
+            itemShortcuts.on(view.querySelector('.nameContainer'));
+            itemShortcuts.off(view.querySelector('.nameContainer'));
+}`);
 
     const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
     const first = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
@@ -378,10 +393,14 @@ test('patches Jellyfin playback shortcuts with per-item stream selections', () =
     assert.match(patched, /mediaSourceId: card\.getAttribute\('data-mediasourceid'\)/);
     assert.match(patched, /audioStreamIndex: optionalStreamIndex\('data-audiostreamindex'\)/);
     assert.match(patched, /subtitleStreamIndex: optionalStreamIndex\('data-subtitlestreamindex'\)/);
+    const patchedItemDetails = fs.readFileSync(itemDetailsPath, 'utf8');
+    assert.match(patchedItemDetails, /itemShortcuts\.on\(view\.querySelector\('\.mainDetailButtons'\)\)/);
+    assert.match(patchedItemDetails, /itemShortcuts\.off\(view\.querySelector\('\.mainDetailButtons'\)\)/);
 
     const second = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
     assert.equal(second.status, 0, second.stderr);
     assert.equal(fs.readFileSync(shortcutsPath, 'utf8'), patched);
+    assert.equal(fs.readFileSync(itemDetailsPath, 'utf8'), patchedItemDetails);
 });
 
 test('installs through the direct Samsung TV workflow', () => {

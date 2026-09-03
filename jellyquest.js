@@ -516,7 +516,7 @@
                 description: 'Build, household, and server details for this installation.',
                 fields: [
                     { key: 'product', label: 'Application', readonly: buildConfiguration.productName || 'JellyQuest' },
-                    { key: 'version', label: 'Version', readonly: buildConfiguration.requestsPageVersion || '0.8.0' },
+                    { key: 'version', label: 'Version', readonly: buildConfiguration.requestsPageVersion || '1.0.0' },
                     { key: 'household', label: 'Household', readonly: buildConfiguration.household || 'Not configured' },
                     { key: 'server', label: 'Jellyfin server', readonly: buildConfiguration.serverUrl || 'Not configured' },
                     { key: 'requests', label: 'Requests service', readonly: buildConfiguration.requestsUrl || 'Not configured' }
