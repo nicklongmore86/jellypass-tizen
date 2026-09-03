@@ -157,10 +157,13 @@
       var modal = document.getElementById('modal');
       var selectedItem = null;
       var selectedSeasons = [];
+      var selectedAccess = null;
+      var selectedAction = 'request';
       var lastFocusedCard = null;
       var activeView = 'discover';
       var activeCategory = null;
       var categoryCache = {};
+      var ownRequestKeys = {};
       var bridgeFrame = null;
       var bridgeOrigin = '';
       var bridgeNonce = '';
@@ -620,13 +623,90 @@
       }
 
       function mediaStatus(item) {
+        if (item.jellyquestClaimState === 'owned') return { text: 'In My Library', css: 'available', requestable: false };
+        if (item.jellyquestClaimState === 'claimed') return { text: 'Added when ready', css: 'pending', requestable: false };
         var status = item.mediaInfo && item.mediaInfo.status;
+        var ownRequest = ownRequestKeys[item.mediaType + ':' + itemTmdbId(item)];
         if (status === 5) return { text: 'Available', css: 'available', requestable: false };
-        if (status === 2) return { text: 'Pending', css: 'pending', requestable: false };
-        if (status === 3) return { text: 'Processing', css: 'pending', requestable: false };
+        if (status === 2) return { text: ownRequest ? 'Requested by you' : 'Requested by another profile', css: 'pending', requestable: false };
+        if (status === 3) return { text: ownRequest ? 'Processing for you' : 'Requested by another profile', css: 'pending', requestable: false };
         if (status === 4) return { text: 'Partially available', css: 'pending', requestable: true };
         if (status === 6) return { text: 'Unavailable', css: '', requestable: false };
         return { text: 'Request', css: '', requestable: true };
+      }
+
+      function itemTmdbId(item) {
+        return Number(item.tmdbId || item.id);
+      }
+
+      function isSelectedItem(item) {
+        return selectedItem && selectedItem.mediaType === item.mediaType
+          && itemTmdbId(selectedItem) === itemTmdbId(item);
+      }
+
+      function loadMediaAccess(item) {
+        return api('/jellyquest/access?mediaType=' + encodeURIComponent(item.mediaType)
+          + '&tmdbId=' + encodeURIComponent(itemTmdbId(item)));
+      }
+
+      function refreshCardAccess(item, badge) {
+        var globalStatus = item.mediaInfo && item.mediaInfo.status;
+        if (globalStatus !== 2 && globalStatus !== 3 && globalStatus !== 4 && globalStatus !== 5) return;
+        loadMediaAccess(item).then(function (access) {
+          item.jellyquestAccess = access;
+          if (access.owned) {
+            badge.className = 'badge available';
+            badge.textContent = 'In My Library';
+          } else if (access.claimed) {
+            badge.className = 'badge pending';
+            badge.textContent = access.jellyfinItemId ? 'Adding to My Library' : 'Added when ready';
+          } else if (access.jellyfinItemId && access.managed) {
+            badge.className = 'badge pending';
+            badge.textContent = 'Available · Add to Library';
+          }
+        }).catch(function () {
+          // Global Jellyseerr status remains useful if personalization is temporarily unavailable.
+        });
+      }
+
+      function setModalAction(action, label, disabled) {
+        var button = document.getElementById('modalRequest');
+        selectedAction = action;
+        button.textContent = label;
+        button.disabled = Boolean(disabled);
+      }
+
+      function applyPersonalizedAction(item, status, access) {
+        var availableToUser = access.owned || access.public;
+        selectedAccess = access;
+        if (availableToUser && access.jellyfinItemId) {
+          document.getElementById('seasonOptions').hidden = true;
+          setModalAction('watch', access.owned ? 'Watch · In My Library' : 'Watch', false);
+          return;
+        }
+        if (access.jellyfinItemId && access.managed) {
+          document.getElementById('seasonOptions').hidden = true;
+          setModalAction('claim', access.claimed ? 'Adding to My Library…' : 'Add to My Library', access.claimed);
+          return;
+        }
+        if (item.mediaInfo && (item.mediaInfo.status === 2 || item.mediaInfo.status === 3)) {
+          document.getElementById('seasonOptions').hidden = true;
+          setModalAction('claim', access.claimed ? 'Added when ready' : 'Add when ready', access.claimed);
+          return;
+        }
+        selectedAction = 'request';
+        renderSeasonOptions(item, status);
+      }
+
+      function openJellyfinItem(item, access) {
+        if (isPreview) {
+          window.location.href = item.mediaType === 'tv' ? 'jellyfin-show-detail-preview.html' : 'jellyfin-movie-detail-preview.html';
+          return;
+        }
+        if (!access || !access.jellyfinItemId || !isSafeReturnUrl(params.return)) return;
+        var target = new URL(params.return);
+        target.hash = '/details?id=' + encodeURIComponent(access.jellyfinItemId);
+        window.location.replace(target.href);
       }
 
       function createCard(item) {
@@ -669,6 +749,7 @@
         button.appendChild(poster);
         button.appendChild(typeBadge);
         button.appendChild(copy);
+        refreshCardAccess(item, badge);
         button.addEventListener('click', function () {
           lastFocusedCard = button;
           openModal(item);
@@ -902,11 +983,26 @@
 
       function loadMyRequests() {
         notice('Loading your requests…');
-        api('/api/v1/request?filter=all&take=20&sort=modified&skip=0').then(function (data) {
-          return Promise.all(data.results.map(function (request) {
-            var path = request.type === 'tv' ? '/api/v1/tv/' : '/api/v1/movie/';
-            return api(path + request.media.tmdbId).then(function (details) {
-              details.mediaType = request.type;
+        Promise.all([
+          api('/api/v1/request?filter=all&take=20&sort=modified&skip=0'),
+          api('/jellyquest/access/claims')
+        ]).then(function (results) {
+          var nativeRequests = results[0].results.map(function (request) {
+            ownRequestKeys[request.type + ':' + request.media.tmdbId] = true;
+            return { mediaType: request.type, tmdbId: request.media.tmdbId, claim: false };
+          });
+          var nativeKeys = {};
+          nativeRequests.forEach(function (request) { nativeKeys[request.mediaType + ':' + request.tmdbId] = true; });
+          var claims = (results[1].claims || []).filter(function (claim) {
+            return !nativeKeys[claim.mediaType + ':' + claim.tmdbId];
+          }).map(function (claim) {
+            return { mediaType: claim.mediaType, tmdbId: claim.tmdbId, claim: true, owned: Boolean(claim.jellyfinItemId) };
+          });
+          return Promise.all(nativeRequests.concat(claims).map(function (request) {
+            var path = request.mediaType === 'tv' ? '/api/v1/tv/' : '/api/v1/movie/';
+            return api(path + request.tmdbId).then(function (details) {
+              details.mediaType = request.mediaType;
+              if (request.claim) details.jellyquestClaimState = request.owned ? 'owned' : 'claimed';
               return details;
             }).catch(function () { return null; });
           }));
@@ -920,23 +1016,38 @@
         var status = mediaStatus(item);
         selectedItem = item;
         selectedSeasons = [];
+        selectedAccess = null;
+        selectedAction = 'loading';
         document.getElementById('modalTitle').textContent = itemTitle(item);
         document.getElementById('modalMeta').textContent = (item.mediaType === 'tv' ? 'TV Show' : 'Movie') + (itemYear(item) ? ' · ' + itemYear(item) : '');
         document.getElementById('modalOverview').textContent = item.overview || 'No description is available.';
-        document.getElementById('modalRequest').textContent = status.requestable ? (item.mediaType === 'tv' ? 'Loading seasons…' : 'Request movie') : status.text;
-        document.getElementById('modalRequest').disabled = !status.requestable;
-        renderSeasonOptions(item, status);
+        setModalAction('loading', 'Checking access…', true);
+        document.getElementById('seasonOptions').hidden = true;
         modal.style.display = 'flex';
-        (status.requestable ? document.getElementById('modalRequest') : document.getElementById('modalClose')).focus();
+        document.getElementById('modalClose').focus();
+        Promise.resolve(item.jellyquestAccess || loadMediaAccess(item)).then(function (access) {
+          if (!isSelectedItem(item) || modal.style.display !== 'flex') return;
+          applyPersonalizedAction(item, status, access);
+          if (!document.getElementById('modalRequest').disabled) document.getElementById('modalRequest').focus();
+        }).catch(function (error) {
+          if (!isSelectedItem(item) || modal.style.display !== 'flex') return;
+          document.getElementById('modalOverview').textContent = error.message;
+          if (status.requestable) {
+            selectedAction = 'request';
+            renderSeasonOptions(item, status);
+          } else {
+            setModalAction('unavailable', status.text, true);
+          }
+        });
         if (item.mediaType === 'tv' && status.requestable && !(item.seasons && item.seasons.length)) {
           api('/api/v1/tv/' + item.id).then(function (details) {
-            if (selectedItem !== item || modal.style.display !== 'flex') return;
+            if (!isSelectedItem(item) || modal.style.display !== 'flex') return;
             details.mediaType = 'tv';
             selectedItem = details;
             document.getElementById('modalOverview').textContent = details.overview || 'No description is available.';
-            renderSeasonOptions(details, mediaStatus(details));
+            if (selectedAction === 'request') renderSeasonOptions(details, mediaStatus(details));
           }).catch(function () {
-            if (selectedItem === item) renderSeasonOptions(item, status);
+            if (isSelectedItem(item)) renderSeasonOptions(item, status);
           });
         }
       }
@@ -986,6 +1097,8 @@
         modal.style.display = 'none';
         selectedItem = null;
         selectedSeasons = [];
+        selectedAccess = null;
+        selectedAction = 'request';
         if (lastFocusedCard && document.body.contains(lastFocusedCard)) lastFocusedCard.focus();
       }
 
@@ -993,7 +1106,31 @@
         if (!selectedItem) return;
         var item = selectedItem;
         var button = document.getElementById('modalRequest');
+        if (selectedAction === 'watch') {
+          openJellyfinItem(item, selectedAccess);
+          return;
+        }
+        if (selectedAction === 'claim') {
+          button.disabled = true;
+          button.textContent = selectedAccess && selectedAccess.jellyfinItemId ? 'Adding…' : 'Joining…';
+          api('/jellyquest/access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ mediaType: item.mediaType, tmdbId: itemTmdbId(item) })
+          }).then(function (access) {
+            var available = Boolean(access.jellyfinItemId);
+            closeModal();
+            notice(itemTitle(item) + (available ? ' was added to your library.' : ' will be added when it is ready.'));
+          }).catch(function (error) {
+            button.disabled = false;
+            button.textContent = selectedAccess && selectedAccess.jellyfinItemId ? 'Add to My Library' : 'Add when ready';
+            document.getElementById('modalOverview').textContent = error.message;
+          });
+          return;
+        }
+        if (selectedAction !== 'request') return;
         var body = { mediaId: item.id, mediaType: item.mediaType };
+        var requestCreated = false;
         if (item.mediaType === 'tv') body.seasons = selectedSeasons.length ? selectedSeasons.slice() : 'all';
         button.disabled = true;
         button.textContent = 'Requesting…';
@@ -1002,11 +1139,26 @@
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify(body)
         }).then(function () {
+          requestCreated = true;
+          ownRequestKeys[item.mediaType + ':' + itemTmdbId(item)] = true;
+          return api('/jellyquest/access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ mediaType: item.mediaType, tmdbId: itemTmdbId(item) })
+          });
+        }).then(function () {
           closeModal();
-          notice(itemTitle(item) + ' was requested successfully.');
+          notice(itemTitle(item) + ' was requested and will be added when ready.');
           item.mediaInfo = item.mediaInfo || {};
           item.mediaInfo.status = 2;
         }).catch(function (error) {
+          if (requestCreated) {
+            item.mediaInfo = item.mediaInfo || {};
+            item.mediaInfo.status = 2;
+            closeModal();
+            notice(itemTitle(item) + ' was requested, but JellyPass could not record automatic access: ' + error.message);
+            return;
+          }
           button.disabled = false;
           if (item.mediaType === 'tv') updateSeasonRequestButton(button, (item.seasons || []).length);
           else button.textContent = 'Request movie';
@@ -1037,7 +1189,8 @@
             firstAirDate: index % 3 === 1 ? String(2026 - index % 4) + '-01-01' : undefined,
             overview: 'Preview description for ' + name + '. Jellyseerr remains the source for live title details and request status.',
             previewColor: colors[index % colors.length],
-            mediaInfo: index === 2 ? { status: 5 } : index === 5 ? { status: 2 } : undefined,
+            mediaInfo: index === 2 || index === 11 ? { status: 5 }
+              : index === 5 ? { status: 2 } : index === 8 ? { status: 3 } : undefined,
             seasons: index % 3 === 1 ? [1, 2, 3].map(function (number) { return { seasonNumber: number }; }) : undefined
           };
         });
@@ -1046,7 +1199,29 @@
       function previewApi(path, options) {
         var catalog = previewCatalog();
         var idMatch = path.match(/\/api\/v1\/(?:movie|tv)\/(\d+)/);
+        var accessMatch = path.match(/^\/jellyquest\/access\?mediaType=(movie|tv)&tmdbId=(\d+)/);
         var queryMatch;
+        if (path === '/jellyquest/access/claims') {
+          return { claims: [{ mediaType: 'movie', tmdbId: 6, userIds: ['preview'], updatedAt: '2026-09-03T00:00:00.000Z' }] };
+        }
+        if (path === '/jellyquest/access' && options && options.method === 'POST') {
+          var claim = JSON.parse(options.body);
+          return {
+            mediaType: claim.mediaType, tmdbId: claim.tmdbId, claimed: true,
+            managed: claim.tmdbId === 12, owned: claim.tmdbId === 12, public: false,
+            jellyfinItemId: claim.tmdbId === 12 ? 'preview-item-12' : undefined
+          };
+        }
+        if (accessMatch) {
+          var accessId = Number(accessMatch[2]);
+          var access = {
+            mediaType: accessMatch[1], tmdbId: accessId, claimed: accessId === 6,
+            managed: accessId === 12, owned: false, public: accessId === 3
+          };
+          if (accessId === 3) access.jellyfinItemId = 'preview-item-3';
+          if (accessId === 12) access.jellyfinItemId = 'preview-item-12';
+          return access;
+        }
         if (path.indexOf('/api/v1/discover/genreslider/') === 0) {
           return [];
         }
@@ -1079,7 +1254,13 @@
         document.getElementById('status').style.display = 'none';
         document.getElementById('topbar').style.display = 'flex';
         app.style.display = 'block';
-        loadDiscover();
+        api('/api/v1/request?filter=all&take=100&sort=modified&skip=0').then(function (data) {
+          (data.results || []).forEach(function (request) {
+            ownRequestKeys[request.type + ':' + request.media.tmdbId] = true;
+          });
+        }).catch(function () {
+          // Request browsing remains available even if ownership preloading fails.
+        }).then(loadDiscover);
         document.getElementById('discoverNav').focus();
       }
 

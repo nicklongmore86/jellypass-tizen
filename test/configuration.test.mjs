@@ -269,6 +269,16 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /\/api\/v1\/discover\/tv/);
     assert.match(bootstrap, /\/api\/v1\/search\?query=/);
     assert.match(bootstrap, /\/api\/v1\/request/);
+    assert.match(bootstrap, /\/jellyquest\/access\?mediaType=/);
+    assert.match(bootstrap, /\/jellyquest\/access\/claims/);
+    assert.match(bootstrap, /Add when ready/);
+    assert.match(bootstrap, /Add to My Library/);
+    assert.match(bootstrap, /Requested by another profile/);
+    assert.match(bootstrap, /Requested by you/);
+    assert.match(bootstrap, /In My Library/);
+    assert.match(bootstrap, /Watch · In My Library/);
+    assert.match(bootstrap, /was requested and will be added when ready/);
+    assert.match(bootstrap, /was requested, but JellyPass could not record automatic access/);
     assert.doesNotMatch(bootstrap, /<iframe/i);
     assert.match(bootstrap, /window\.location\.hash/);
     assert.match(bootstrap, /handleDirectionalKey/);
