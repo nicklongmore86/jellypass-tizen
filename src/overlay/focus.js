@@ -51,28 +51,52 @@
         );
     }
 
+    // Tracks the currently-open modal's own close handler so the
+    // hardware Back button can close it first, before any screen-level
+    // "go back to where I came from" handler runs (see app.js's router
+    // and DETAIL_ACTIONS.md's "Left or Back returns one level before
+    // closing" rule) -- without every screen having to coordinate this
+    // itself.
+    var activeModalClose = null;
+
     // Opens a modal-style container: marks it contained (see .jq-modal
     // above) and focuses its first element. Screens call this instead of
-    // writing their own focus-trap logic.
-    function openModal(container) {
+    // writing their own focus-trap logic. onClose is called by
+    // closeOnBack() (wired to the hardware Back button); it must itself
+    // call closeModal().
+    function openModal(container, onClose) {
         if (!container) return;
         container.classList.add('jq-modal');
         container.hidden = false;
         focusFirst(container);
+        activeModalClose = onClose || null;
     }
 
     function closeModal(container, restoreTarget) {
         if (!container) return;
         container.hidden = true;
+        activeModalClose = null;
         if (restoreTarget && typeof restoreTarget.focus === 'function') {
             restoreTarget.focus();
         }
+    }
+
+    // Returns true if a modal was open and its own close handler ran (the
+    // caller should stop there); false if there was nothing to close, so
+    // the caller's own Back behavior should run instead.
+    function closeOnBack() {
+        if (!activeModalClose) return false;
+        var close = activeModalClose;
+        activeModalClose = null;
+        close();
+        return true;
     }
 
     window.JellyQuestFocus = {
         ready: ready,
         focusFirst: focusFirst,
         openModal: openModal,
-        closeModal: closeModal
+        closeModal: closeModal,
+        closeOnBack: closeOnBack
     };
 })();

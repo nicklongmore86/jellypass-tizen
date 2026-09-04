@@ -1,16 +1,19 @@
-// Top-level nav shell -- shown once a profile is active. Home/Requests
-// rail plus the current profile, with a way back to the picker. No
-// account-management, manual-login, or admin surfaces anywhere in it.
+// Top-level nav shell -- the persistent rail (Profile/Home/Search/Requests)
+// stays mounted across every screen; app.js swaps what's in the content
+// area beneath/beside it (Home, Search, Library, Detail). This matches
+// DETAIL_ACTIONS.md's focus graph, which has the rail reachable by Up
+// from the detail page's own action row, not hidden while viewing detail.
 //
-// Home's real content is Phase 3; Requests' real content (and its
-// eligibility gating) is Phase 4. This phase only owns the persistent
-// chrome around them.
+// shell.js only owns the rail chrome and the content container; it has
+// no idea what's inside the content area at any given moment -- that's
+// app.js's job (see showHome/showSearch/showLibrary/showDetail there).
 (function () {
     'use strict';
 
-    // onSwitchProfile() is called when the viewer activates the profile
-    // button in the rail, to return to the picker.
-    function renderShell(container, onSwitchProfile) {
+    var contentEl = null;
+
+    // callbacks: { onSwitchProfile(), onHome(), onSearch(), onRequests() }
+    function renderShell(container, callbacks) {
         container.innerHTML = '';
         container.className = 'jq-shell';
 
@@ -25,31 +28,43 @@
         profileButton.textContent = user ? user.Name : 'Profile';
         profileButton.addEventListener('click', function () {
             window.JellyQuestSession.clearProfile();
-            onSwitchProfile();
+            callbacks.onSwitchProfile();
         });
         rail.appendChild(profileButton);
 
         var homeButton = document.createElement('button');
         homeButton.className = 'jq-rail-item jq-focusable jq-nav-home';
         homeButton.textContent = 'Home';
+        homeButton.addEventListener('click', callbacks.onHome);
         rail.appendChild(homeButton);
+
+        var searchButton = document.createElement('button');
+        searchButton.className = 'jq-rail-item jq-focusable jq-nav-search';
+        searchButton.textContent = 'Search';
+        searchButton.addEventListener('click', callbacks.onSearch);
+        rail.appendChild(searchButton);
 
         var requestsButton = document.createElement('button');
         requestsButton.className = 'jq-rail-item jq-focusable jq-nav-requests';
         requestsButton.textContent = 'Requests';
+        requestsButton.addEventListener('click', callbacks.onRequests);
         rail.appendChild(requestsButton);
 
         container.appendChild(rail);
 
-        var content = document.createElement('main');
-        content.className = 'jq-content jq-shell-content';
-        content.textContent = 'Home -- Phase 3';
-        container.appendChild(content);
+        contentEl = document.createElement('main');
+        contentEl.className = 'jq-content jq-shell-content';
+        container.appendChild(contentEl);
 
         window.JellyQuestFocus.focusFirst(rail);
     }
 
+    function getContent() {
+        return contentEl;
+    }
+
     window.JellyQuestShell = {
-        render: renderShell
+        render: renderShell,
+        getContent: getContent
     };
 })();

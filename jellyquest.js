@@ -1806,29 +1806,53 @@
         );
     }
 
+    // Tracks the currently-open modal's own close handler so the
+    // hardware Back button can close it first, before any screen-level
+    // "go back to where I came from" handler runs (see app.js's router
+    // and DETAIL_ACTIONS.md's "Left or Back returns one level before
+    // closing" rule) -- without every screen having to coordinate this
+    // itself.
+    var activeModalClose = null;
+
     // Opens a modal-style container: marks it contained (see .jq-modal
     // above) and focuses its first element. Screens call this instead of
-    // writing their own focus-trap logic.
-    function openModal(container) {
+    // writing their own focus-trap logic. onClose is called by
+    // closeOnBack() (wired to the hardware Back button); it must itself
+    // call closeModal().
+    function openModal(container, onClose) {
         if (!container) return;
         container.classList.add('jq-modal');
         container.hidden = false;
         focusFirst(container);
+        activeModalClose = onClose || null;
     }
 
     function closeModal(container, restoreTarget) {
         if (!container) return;
         container.hidden = true;
+        activeModalClose = null;
         if (restoreTarget && typeof restoreTarget.focus === 'function') {
             restoreTarget.focus();
         }
+    }
+
+    // Returns true if a modal was open and its own close handler ran (the
+    // caller should stop there); false if there was nothing to close, so
+    // the caller's own Back behavior should run instead.
+    function closeOnBack() {
+        if (!activeModalClose) return false;
+        var close = activeModalClose;
+        activeModalClose = null;
+        close();
+        return true;
     }
 
     window.JellyQuestFocus = {
         ready: ready,
         focusFirst: focusFirst,
         openModal: openModal,
-        closeModal: closeModal
+        closeModal: closeModal,
+        closeOnBack: closeOnBack
     };
 })();
 
@@ -1905,6 +1929,54 @@
     };
 })();
 
+/* ---- src/overlay/cards.js ---- */
+// Shared media-card rendering, used by Home, Library, and Search --
+// factored out once a second screen needed the same card shape, rather
+// than speculatively up front.
+(function () {
+    'use strict';
+
+    function createCard(item, options) {
+        options = options || {};
+        var card = document.createElement('button');
+        card.className = 'jq-card jq-focusable jq-media-card';
+        card.setAttribute('data-item-id', item.Id);
+
+        var title = document.createElement('span');
+        title.className = 'jq-media-card-title';
+        title.textContent = item.Name;
+        card.appendChild(title);
+
+        if (item.ProductionYear) {
+            var meta = document.createElement('small');
+            meta.className = 'jq-media-card-meta';
+            meta.textContent = String(item.ProductionYear);
+            card.appendChild(meta);
+        }
+
+        var position = item.UserData && item.UserData.PlaybackPositionTicks;
+        if (position && item.RunTimeTicks) {
+            var progress = document.createElement('div');
+            progress.className = 'jq-media-card-progress';
+            var bar = document.createElement('div');
+            bar.className = 'jq-media-card-progress-bar';
+            var percent = Math.min(100, Math.round((position / item.RunTimeTicks) * 100));
+            bar.style.width = percent + '%';
+            progress.appendChild(bar);
+            card.appendChild(progress);
+        }
+
+        if (options.onSelect) {
+            card.addEventListener('click', function () { options.onSelect(item); });
+        }
+        return card;
+    }
+
+    window.JellyQuestCards = {
+        createCard: createCard
+    };
+})();
+
 /* ---- src/overlay/screens/profiles.js ---- */
 // Profile picker screen -- the true landing screen (see
 // docs/rebuild-plan.md, Phase 2). No login form, no manual-login/Quick
@@ -1967,20 +2039,379 @@
     };
 })();
 
-/* ---- src/overlay/shell.js ---- */
-// Top-level nav shell -- shown once a profile is active. Home/Requests
-// rail plus the current profile, with a way back to the picker. No
-// account-management, manual-login, or admin surfaces anywhere in it.
-//
-// Home's real content is Phase 3; Requests' real content (and its
-// eligibility gating) is Phase 4. This phase only owns the persistent
-// chrome around them.
+/* ---- src/overlay/screens/home.js ---- */
+// Home screen: Continue Watching + Recently Added rows. Real screen
+// content replacing the Phase 2 placeholder ("Home -- Phase 3").
 (function () {
     'use strict';
 
-    // onSwitchProfile() is called when the viewer activates the profile
-    // button in the rail, to return to the picker.
-    function renderShell(container, onSwitchProfile) {
+    // callbacks: { onSelectItem(item), onSeeAll(row) } where row is
+    // { title, fetch: () => Promise<{Items}> } for the Library screen.
+    function renderHome(container, callbacks) {
+        container.innerHTML = '';
+        container.className = 'jq-home-screen';
+
+        var userId = window.ApiClient.getCurrentUserId();
+        var rows = [
+            {
+                title: 'Continue Watching',
+                fetch: function () { return window.ApiClient.getItems(userId, { Filters: 'IsResumable' }); },
+                seeAll: false,
+            },
+            {
+                title: 'Recently Added',
+                fetch: function () { return window.ApiClient.getItems(userId, { SortBy: 'DateCreated', Limit: 8 }); },
+                seeAll: true,
+            },
+        ];
+
+        var firstCard = null;
+        var pending = rows.map(function (row) {
+            return row.fetch().then(function (result) {
+                if (!result.Items.length) return;
+                var section = renderRow(row, result.Items, callbacks);
+                container.appendChild(section);
+                if (!firstCard) firstCard = section.querySelector('.jq-focusable');
+            });
+        });
+
+        Promise.all(pending).then(function () {
+            if (!container.children.length) {
+                var empty = document.createElement('p');
+                empty.className = 'jq-home-empty';
+                empty.textContent = 'Nothing here yet.';
+                container.appendChild(empty);
+            }
+            if (firstCard) firstCard.setAttribute('data-jq-autofocus', '');
+            window.JellyQuestFocus.focusFirst(container);
+        });
+    }
+
+    function renderRow(row, items, callbacks) {
+        var section = document.createElement('section');
+        section.className = 'jq-home-row-section';
+
+        var heading = document.createElement('h2');
+        heading.className = 'jq-home-row-heading';
+        heading.textContent = row.title;
+        section.appendChild(heading);
+
+        var rowEl = document.createElement('div');
+        rowEl.className = 'jq-row jq-home-row';
+        items.forEach(function (item) {
+            rowEl.appendChild(window.JellyQuestCards.createCard(item, {
+                onSelect: function () { callbacks.onSelectItem(item); },
+            }));
+        });
+        if (row.seeAll) {
+            var seeAll = document.createElement('button');
+            seeAll.className = 'jq-card jq-focusable jq-see-all';
+            seeAll.textContent = 'See All';
+            seeAll.addEventListener('click', function () { callbacks.onSeeAll(row); });
+            rowEl.appendChild(seeAll);
+        }
+        section.appendChild(rowEl);
+        return section;
+    }
+
+    window.JellyQuestHomeScreen = {
+        render: renderHome
+    };
+})();
+
+/* ---- src/overlay/screens/library.js ---- */
+// Library screen: a full grid for one category (reached via a Home
+// row's "See All"). Uses .jq-grid -- safe here because the column count
+// matches how many cards actually fill a row throughout (only the last,
+// naturally partial row is short), unlike the profile picker's ragged
+// grid template (see docs/rebuild-plan.md's Phase 2 caveat).
+(function () {
+    'use strict';
+
+    var COLUMNS = 4;
+
+    // callbacks: { onSelectItem(item), onBack() }
+    function renderLibrary(container, row, callbacks) {
+        container.innerHTML = '';
+        container.className = 'jq-library-screen';
+
+        var backButton = document.createElement('button');
+        backButton.className = 'jq-back-button jq-focusable';
+        backButton.textContent = '< Back';
+        backButton.addEventListener('click', callbacks.onBack);
+        container.appendChild(backButton);
+
+        var heading = document.createElement('h1');
+        heading.className = 'jq-library-heading';
+        heading.textContent = row.title;
+        container.appendChild(heading);
+
+        var grid = document.createElement('div');
+        grid.className = 'jq-grid jq-library-grid';
+        grid.style.gridTemplateColumns = 'repeat(' + COLUMNS + ', 220px)';
+        container.appendChild(grid);
+
+        row.fetch().then(function (result) {
+            result.Items.forEach(function (item, index) {
+                var card = window.JellyQuestCards.createCard(item, {
+                    onSelect: function () { callbacks.onSelectItem(item); },
+                });
+                // Focus the first card, not Back (which is reached via Up
+                // from the top row instead) -- focusFirst()'s DOM-order
+                // fallback would otherwise land on Back since it comes
+                // first in the markup.
+                if (index === 0) card.setAttribute('data-jq-autofocus', '');
+                grid.appendChild(card);
+            });
+            window.JellyQuestFocus.focusFirst(container);
+        });
+    }
+
+    window.JellyQuestLibraryScreen = {
+        render: renderLibrary
+    };
+})();
+
+/* ---- src/overlay/screens/search.js ---- */
+// Search screen: a text input (the platform's on-screen keyboard handles
+// text entry on real Tizen hardware -- no custom input UI needed) plus a
+// live-filtered results row.
+(function () {
+    'use strict';
+
+    var DEBOUNCE_MS = 200;
+
+    // callbacks: { onSelectItem(item) }
+    function renderSearch(container, callbacks) {
+        container.innerHTML = '';
+        container.className = 'jq-search-screen';
+
+        var input = document.createElement('input');
+        input.type = 'search';
+        input.className = 'jq-search-input jq-focusable';
+        input.placeholder = 'Search your library';
+        input.setAttribute('data-jq-autofocus', '');
+        container.appendChild(input);
+
+        var resultsRow = document.createElement('div');
+        resultsRow.className = 'jq-row jq-search-results';
+        container.appendChild(resultsRow);
+
+        var empty = document.createElement('p');
+        empty.className = 'jq-search-empty';
+        empty.textContent = 'No matches.';
+        empty.hidden = true;
+        container.appendChild(empty);
+
+        var timer = null;
+        input.addEventListener('input', function () {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(function () { runSearch(input.value); }, DEBOUNCE_MS);
+        });
+
+        function runSearch(term) {
+            resultsRow.innerHTML = '';
+            empty.hidden = true;
+            if (!term.trim()) return;
+            var userId = window.ApiClient.getCurrentUserId();
+            window.ApiClient.getItems(userId, { SearchTerm: term }).then(function (result) {
+                if (input.value !== term) return; // a newer search superseded this one
+                if (!result.Items.length) {
+                    empty.hidden = false;
+                    return;
+                }
+                result.Items.forEach(function (item) {
+                    resultsRow.appendChild(window.JellyQuestCards.createCard(item, {
+                        onSelect: function () { callbacks.onSelectItem(item); },
+                    }));
+                });
+            });
+        }
+
+        window.JellyQuestFocus.focusFirst(container);
+    }
+
+    window.JellyQuestSearchScreen = {
+        render: renderSearch
+    };
+})();
+
+/* ---- src/overlay/screens/detail.js ---- */
+// Detail/playback screen for Movie items -- see DETAIL_ACTIONS.md for
+// the full intended behavior across movies/shows/sports. This first pass
+// covers movies only (Resume/Play, Trailer, My List, and a conditional
+// More menu for track selection); Series/Sports-specific behavior
+// (seasons, episodes, highlights, chapters) is explicit follow-up work,
+// not silently missing -- see docs/rebuild-plan.md's Phase 3 status.
+//
+// There's no dedicated "Back" control here: per DETAIL_ACTIONS.md, Left
+// from the first action returns to the persistent rail (shell.js), which
+// is reachable from every screen -- that's the way back, same as it is
+// from Home, Search, and Library.
+(function () {
+    'use strict';
+
+    // callbacks: { onPlay(item, startTicks), onPlayTrailer(item) }
+    function renderDetail(container, item, callbacks) {
+        container.innerHTML = '';
+        container.className = 'jq-detail-screen';
+
+        var heading = document.createElement('h1');
+        heading.className = 'jq-detail-title';
+        heading.textContent = item.Name + (item.ProductionYear ? ' (' + item.ProductionYear + ')' : '');
+        container.appendChild(heading);
+
+        if (item.Overview) {
+            var overview = document.createElement('p');
+            overview.className = 'jq-detail-overview';
+            overview.textContent = item.Overview;
+            container.appendChild(overview);
+        }
+
+        var actions = document.createElement('div');
+        actions.className = 'jq-row jq-detail-actions';
+        container.appendChild(actions);
+
+        var resumable = item.UserData && item.UserData.PlaybackPositionTicks > 0;
+        var playButton = document.createElement('button');
+        playButton.className = 'jq-detail-action jq-focusable';
+        playButton.setAttribute('data-jq-autofocus', '');
+        playButton.textContent = resumable ? 'Resume' : 'Play';
+        playButton.addEventListener('click', function () {
+            callbacks.onPlay(item, resumable ? item.UserData.PlaybackPositionTicks : 0);
+        });
+        actions.appendChild(playButton);
+
+        if (resumable) {
+            var startOverButton = document.createElement('button');
+            startOverButton.className = 'jq-detail-action jq-focusable';
+            startOverButton.textContent = 'Start Over';
+            startOverButton.addEventListener('click', function () { callbacks.onPlay(item, 0); });
+            actions.appendChild(startOverButton);
+        }
+
+        if (item.LocalTrailerCount) {
+            var trailerButton = document.createElement('button');
+            trailerButton.className = 'jq-detail-action jq-focusable';
+            trailerButton.textContent = 'Trailer';
+            trailerButton.addEventListener('click', function () { callbacks.onPlayTrailer(item); });
+            actions.appendChild(trailerButton);
+        }
+
+        var favoriteButton = document.createElement('button');
+        favoriteButton.className = 'jq-detail-action jq-focusable jq-my-list-action';
+        var isFavorite = Boolean(item.UserData && item.UserData.IsFavorite);
+        favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+        favoriteButton.addEventListener('click', function () {
+            var userId = window.ApiClient.getCurrentUserId();
+            var next = !isFavorite;
+            window.ApiClient.updateFavoriteStatus(userId, item.Id, next).then(function () {
+                isFavorite = next;
+                favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+            });
+        });
+        actions.appendChild(favoriteButton);
+
+        var configurable = hasConfigurableTracks(item);
+        if (configurable) {
+            var moreButton = document.createElement('button');
+            moreButton.className = 'jq-detail-action jq-focusable';
+            moreButton.textContent = 'More';
+            actions.appendChild(moreButton);
+            appendMoreMenu(container, item, moreButton);
+        }
+
+        window.JellyQuestFocus.focusFirst(container);
+    }
+
+    function hasConfigurableTracks(item) {
+        var streams = item.MediaStreams || [];
+        var audioCount = streams.filter(function (stream) { return stream.Type === 'Audio'; }).length;
+        var subtitleCount = streams.filter(function (stream) { return stream.Type === 'Subtitle'; }).length;
+        return audioCount > 1 || subtitleCount > 0;
+    }
+
+    function appendMoreMenu(container, item, moreButton) {
+        var streams = item.MediaStreams || [];
+        var audioTracks = streams.filter(function (stream) { return stream.Type === 'Audio'; });
+        var subtitleTracks = streams.filter(function (stream) { return stream.Type === 'Subtitle'; });
+
+        var backdrop = document.createElement('div');
+        backdrop.className = 'jq-modal-backdrop';
+        backdrop.hidden = true;
+
+        var modal = document.createElement('div');
+        modal.className = 'jq-modal jq-focusable jq-playback-options';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-label', 'Playback Options');
+        backdrop.appendChild(modal);
+        container.appendChild(backdrop);
+
+        var heading = document.createElement('h2');
+        heading.textContent = 'Playback Options';
+        modal.appendChild(heading);
+
+        if (audioTracks.length > 1) {
+            modal.appendChild(optionGroup('Audio', audioTracks.map(function (track) { return track.DisplayTitle; })));
+        }
+        if (subtitleTracks.length > 0) {
+            modal.appendChild(optionGroup('Subtitles', ['Off'].concat(subtitleTracks.map(function (track) { return track.DisplayTitle; }))));
+        }
+
+        var closeButton = document.createElement('button');
+        closeButton.className = 'jq-modal-option jq-focusable';
+        closeButton.textContent = 'Close';
+        closeButton.addEventListener('click', close);
+        modal.appendChild(closeButton);
+
+        moreButton.addEventListener('click', function () {
+            backdrop.hidden = false;
+            window.JellyQuestFocus.openModal(modal, close);
+        });
+
+        function close() {
+            backdrop.hidden = true;
+            window.JellyQuestFocus.closeModal(modal, moreButton);
+        }
+    }
+
+    function optionGroup(label, options) {
+        var group = document.createElement('div');
+        group.className = 'jq-playback-option-group';
+        var groupLabel = document.createElement('h3');
+        groupLabel.textContent = label;
+        group.appendChild(groupLabel);
+        options.forEach(function (text) {
+            var option = document.createElement('button');
+            option.className = 'jq-modal-option jq-focusable';
+            option.textContent = text;
+            group.appendChild(option);
+        });
+        return group;
+    }
+
+    window.JellyQuestDetailScreen = {
+        render: renderDetail
+    };
+})();
+
+/* ---- src/overlay/shell.js ---- */
+// Top-level nav shell -- the persistent rail (Profile/Home/Search/Requests)
+// stays mounted across every screen; app.js swaps what's in the content
+// area beneath/beside it (Home, Search, Library, Detail). This matches
+// DETAIL_ACTIONS.md's focus graph, which has the rail reachable by Up
+// from the detail page's own action row, not hidden while viewing detail.
+//
+// shell.js only owns the rail chrome and the content container; it has
+// no idea what's inside the content area at any given moment -- that's
+// app.js's job (see showHome/showSearch/showLibrary/showDetail there).
+(function () {
+    'use strict';
+
+    var contentEl = null;
+
+    // callbacks: { onSwitchProfile(), onHome(), onSearch(), onRequests() }
+    function renderShell(container, callbacks) {
         container.innerHTML = '';
         container.className = 'jq-shell';
 
@@ -1995,54 +2426,144 @@
         profileButton.textContent = user ? user.Name : 'Profile';
         profileButton.addEventListener('click', function () {
             window.JellyQuestSession.clearProfile();
-            onSwitchProfile();
+            callbacks.onSwitchProfile();
         });
         rail.appendChild(profileButton);
 
         var homeButton = document.createElement('button');
         homeButton.className = 'jq-rail-item jq-focusable jq-nav-home';
         homeButton.textContent = 'Home';
+        homeButton.addEventListener('click', callbacks.onHome);
         rail.appendChild(homeButton);
+
+        var searchButton = document.createElement('button');
+        searchButton.className = 'jq-rail-item jq-focusable jq-nav-search';
+        searchButton.textContent = 'Search';
+        searchButton.addEventListener('click', callbacks.onSearch);
+        rail.appendChild(searchButton);
 
         var requestsButton = document.createElement('button');
         requestsButton.className = 'jq-rail-item jq-focusable jq-nav-requests';
         requestsButton.textContent = 'Requests';
+        requestsButton.addEventListener('click', callbacks.onRequests);
         rail.appendChild(requestsButton);
 
         container.appendChild(rail);
 
-        var content = document.createElement('main');
-        content.className = 'jq-content jq-shell-content';
-        content.textContent = 'Home -- Phase 3';
-        container.appendChild(content);
+        contentEl = document.createElement('main');
+        contentEl.className = 'jq-content jq-shell-content';
+        container.appendChild(contentEl);
 
         window.JellyQuestFocus.focusFirst(rail);
     }
 
+    function getContent() {
+        return contentEl;
+    }
+
     window.JellyQuestShell = {
-        render: renderShell
+        render: renderShell,
+        getContent: getContent
     };
 })();
 
 /* ---- src/overlay/app.js ---- */
-// Bootstraps JellyQuest: creates its own root container (no host markup
-// required -- gulpfile.babel.js only injects <script>/<link> tags, never
-// a container div) and switches between the profile picker and the main
-// shell based on session state.
+// Bootstraps JellyQuest and owns the (small, hand-rolled) router between
+// screens: creates #jellyquest-root (no host markup required -- gulp's
+// injection provides no container div), then switches between the
+// profile picker and the shell, and -- within the shell -- between
+// Home/Search/Library/Detail/Requests. The shell's rail (shell.js) stays
+// mounted across all of those; only its content area swaps.
+//
+// Also owns the remote's hardware Back button: every screen but Home
+// registers a "go back to where I came from" handler here, so Back
+// behaves the way every other TV app's does, distinct from (and in
+// addition to) Left-into-the-rail spatial navigation.
 (function () {
     'use strict';
 
+    var BACK_KEY_CODES = [10009, 27]; // Tizen hardware Back; Escape for desktop/simulator testing.
+    var currentBackHandler = null;
+
     function showProfiles(root) {
+        currentBackHandler = null;
         window.JellyQuestProfilesScreen.render(root, function () {
             showShell(root);
         });
     }
 
     function showShell(root) {
-        window.JellyQuestShell.render(root, function () {
-            showProfiles(root);
+        window.JellyQuestShell.render(root, {
+            onSwitchProfile: function () { showProfiles(root); },
+            onHome: showHome,
+            onSearch: showSearch,
+            onRequests: showRequestsPlaceholder,
+        });
+        showHome();
+    }
+
+    function showHome() {
+        currentBackHandler = null; // top of the navigation stack
+        window.JellyQuestHomeScreen.render(window.JellyQuestShell.getContent(), {
+            onSelectItem: function (item) { showDetail(item, showHome); },
+            onSeeAll: function (row) { showLibrary(row, showHome); },
         });
     }
+
+    function showSearch() {
+        currentBackHandler = showHome;
+        window.JellyQuestSearchScreen.render(window.JellyQuestShell.getContent(), {
+            onSelectItem: function (item) { showDetail(item, showSearch); },
+        });
+    }
+
+    function showLibrary(row, returnTo) {
+        currentBackHandler = returnTo;
+        window.JellyQuestLibraryScreen.render(window.JellyQuestShell.getContent(), row, {
+            onSelectItem: function (item) { showDetail(item, function () { showLibrary(row, returnTo); }); },
+            onBack: returnTo,
+        });
+    }
+
+    function showDetail(item, returnTo) {
+        currentBackHandler = returnTo;
+        window.JellyQuestDetailScreen.render(window.JellyQuestShell.getContent(), item, {
+            onPlay: function (playItem, startPositionTicks) {
+                window.playbackManager.play({ ids: [playItem.Id], startPositionTicks: startPositionTicks });
+            },
+            onPlayTrailer: function (playItem) {
+                var userId = window.ApiClient.getCurrentUserId();
+                window.ApiClient.getLocalTrailers(userId, playItem.Id).then(function (trailers) {
+                    if (trailers.length) window.playbackManager.play({ ids: [trailers[0].Id] });
+                });
+            },
+        });
+    }
+
+    // Requests is Phase 4 -- this is a placeholder, not a stand-in for
+    // real functionality.
+    function showRequestsPlaceholder() {
+        currentBackHandler = showHome;
+        var content = window.JellyQuestShell.getContent();
+        content.innerHTML = '';
+        content.className = 'jq-requests-placeholder';
+        content.textContent = 'Requests -- Phase 4';
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (BACK_KEY_CODES.indexOf(event.keyCode) === -1) return;
+        // An open modal (e.g. Detail's Playback Options) owns Back first,
+        // closing itself rather than navigating the whole screen away --
+        // see DETAIL_ACTIONS.md's "Left or Back returns one level before
+        // closing" rule.
+        if (window.JellyQuestFocus.closeOnBack()) {
+            event.preventDefault();
+            return;
+        }
+        if (!currentBackHandler) return;
+        event.preventDefault();
+        currentBackHandler();
+    });
 
     window.JellyQuestFocus.ready(function () {
         var root = document.getElementById('jellyquest-root');

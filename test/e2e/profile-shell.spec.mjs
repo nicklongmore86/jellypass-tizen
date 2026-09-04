@@ -69,11 +69,16 @@ test('selecting a profile switches instantly: no page navigation, no login step'
             await page.evaluate(() => window.JellyQuestSession.getCurrentProfile()),
             { Id: 'user-alice', Name: 'Alice' }
         );
-        // The shell's rail autofocuses the profile button, showing who's active.
+        // Focus lands on Home's content (see home.spec.mjs), not the
+        // rail -- landing on browsable content rather than sitting on
+        // the nav is the point. The rail is still there, showing who's
+        // active, a Left and an Up away.
+        await page.keyboard.press('ArrowLeft');
+        await page.keyboard.press('ArrowUp');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Alice');
         assert.deepEqual(
             await page.evaluate(() => Array.from(document.querySelectorAll('.jq-rail-item')).map((el) => el.textContent)),
-            ['Alice', 'Home', 'Requests']
+            ['Alice', 'Home', 'Search', 'Requests']
         );
     } finally {
         await browser.close();
@@ -87,9 +92,12 @@ test('the profile button returns to the picker and a different profile can be se
         await page.goto(simulatorUrl);
         await page.waitForSelector('.jq-profile-card');
 
-        // Alice -> shell -> back to picker.
+        // Alice -> shell (lands on Home content) -> Left+Up into the rail's profile button -> back to picker.
         await page.keyboard.press('Enter');
         await page.waitForSelector('.jq-shell');
+        await page.keyboard.press('ArrowLeft');
+        await page.keyboard.press('ArrowUp');
+        assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Alice');
         await page.keyboard.press('Enter');
         await page.waitForSelector('.jq-profile-card');
         assert.equal(await page.evaluate(() => window.JellyQuestSession.getCurrentProfile()), null);
@@ -99,6 +107,8 @@ test('the profile button returns to the picker and a different profile can be se
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Bob');
         await page.keyboard.press('Enter');
         await page.waitForSelector('.jq-shell');
+        await page.keyboard.press('ArrowLeft');
+        await page.keyboard.press('ArrowUp');
 
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Bob');
         assert.equal(
@@ -110,7 +120,7 @@ test('the profile button returns to the picker and a different profile can be se
     }
 });
 
-test('down/up move from the rail into Home content and back', async () => {
+test('the rail itself: down/up move through its items, right leaves it for Home content', async () => {
     const browser = await chromium.launch();
     try {
         const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
@@ -118,14 +128,21 @@ test('down/up move from the rail into Home content and back', async () => {
         await page.waitForSelector('.jq-profile-card');
         await page.keyboard.press('Enter');
         await page.waitForSelector('.jq-shell');
+        await page.keyboard.press('ArrowLeft'); // from Home's autofocused card into the rail
 
-        await page.keyboard.press('ArrowDown');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Home');
+        await page.keyboard.press('ArrowDown');
+        assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Search');
         await page.keyboard.press('ArrowDown');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Requests');
         await page.keyboard.press('ArrowUp');
         await page.keyboard.press('ArrowUp');
+        await page.keyboard.press('ArrowUp');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Alice');
+
+        // Right from the rail re-enters Home's content.
+        await page.keyboard.press('ArrowRight');
+        assert.ok(await page.evaluate(() => document.activeElement.classList.contains('jq-media-card')));
     } finally {
         await browser.close();
     }

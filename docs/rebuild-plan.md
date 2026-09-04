@@ -1,7 +1,7 @@
 # JellyQuest Tizen: blank-canvas rebuild of the overlay layer
 
-Status as of this doc: **Phase 0, 1, and 2 complete** on
-`claude/code-audit-issues-rha2bz`. Phase 3 is next. This file is the
+Status as of this doc: **Phase 0 through 3 complete** on
+`claude/code-audit-issues-rha2bz`. Phase 4 is next. This file is the
 handoff/plan doc for continuing the rebuild from a fresh session (local
 CLI or otherwise) without needing the original conversation history.
 
@@ -260,13 +260,91 @@ Two more real bugs the harness caught (both fixed, both Phase-2-specific
   files on Node 22 — it needs an explicit glob). Fixed to
   `node --test "test/e2e/**/*.spec.mjs"`.
 
-**Phase 3 — Core screens (Home, Library, Search, Detail/playback). NOT STARTED.**
-- Port screen behavior using `DETAIL_ACTIONS.md`'s action matrix as
-  literal Playwright test cases (Resume/Continue/Start Over/Trailer/
-  Highlights/My List/More, per the table in that doc) rather than prose
-  to re-derive later.
-- Each screen ships with its Playwright focus/interaction tests alongside
-  it, not after.
+**Phase 3 — Core screens (Home, Library, Search, Detail/playback). DONE,
+scoped to movies.**
+
+**Explicit scope decision**: this pass covers `Type: 'Movie'` items only
+— Resume/Play, Start Over, Trailer, My List, and a conditional More
+(track selection) menu, matching DETAIL_ACTIONS.md's movie column.
+**Series/Sports-specific behavior is deliberately not built yet**: season/
+episode navigation, the show-specific Resume/Continue/Restart Episode
+semantics, sports highlights/condensed games, chapters, and the
+episode-track-identity mapping DETAIL_ACTIONS.md's "More menu" section
+describes for shows. This isn't an oversight — replicating all of that
+faithfully in one pass risked exactly the kind of rushed, undertested
+code this whole rebuild exists to move away from. Treat it as a clearly
+scoped follow-up phase (call it "Phase 3b" if picking this up next),
+not a gap to quietly patch in passing.
+
+- `src/overlay/cards.js` + `cards.css`: shared media-card rendering,
+  factored out once Library needed the same card shape Home already had
+  (not built speculatively up front).
+- `src/overlay/screens/home.js` + `home.css`: Continue Watching (items
+  with saved progress) + Recently Added rows. Selecting a card opens
+  Detail; "See All" on Recently Added opens the Library grid for it.
+- `src/overlay/screens/library.js` + `library.css`: a `.jq-grid` for one
+  category. Column count (4) is fixed and matches how many cards
+  actually render per row throughout — see the `.jq-grid` caveat update
+  below.
+- `src/overlay/screens/search.js` + `search.css`: a plain `<input
+  type="search">` (the platform's on-screen keyboard handles text entry
+  on real Tizen hardware, confirmed no custom input UI is needed) with
+  debounced, live-filtered results.
+- `src/overlay/screens/detail.js` + `detail.css`: movie detail/playback,
+  per the scope note above.
+- `src/overlay/shell.js` reworked from Phase 2's static placeholder into
+  a real container: owns only the persistent rail (now Profile/Home/
+  Search/Requests) and a content slot; `src/overlay/app.js` is the
+  actual (small, hand-rolled) router deciding what renders into that
+  slot (`showHome`/`showSearch`/`showLibrary`/`showDetail`/
+  `showRequestsPlaceholder`).
+- **Hardware Back button, added in this phase though not originally
+  scoped for it**: every screen but Home registers a "return to where I
+  came from" handler in `app.js` (`currentBackHandler`), and a single
+  `keydown` listener (Tizen's Back keyCode `10009`, plus `27`/Escape for
+  desktop/simulator testing) invokes it. This is genuinely necessary TV
+  UX, distinct from Left-into-the-rail spatial navigation, and gives real
+  purpose to the `returnTo` callback threaded through the router (an
+  earlier draft left it unused — dead code that either needed wiring up
+  or removing, and wiring it up was clearly the right call for a TV app).
+  `focus.js`'s `openModal`/`closeModal` gained a matching
+  `closeOnBack()`: an open modal (Detail's More menu) owns Back first,
+  closing itself rather than letting the screen-level handler navigate
+  the whole page away — see DETAIL_ACTIONS.md's "Left or Back returns
+  one level before closing" rule, and the bug note below on why this
+  needed its own coordination point rather than being implicit.
+- Requests renders a plain placeholder (`"Requests -- Phase 4"`) with a
+  working Back handler back to Home; no real functionality yet.
+- Tests: `test/e2e/home.spec.mjs`, `detail.spec.mjs`,
+  `library-search.spec.mjs` (new), plus `profile-shell.spec.mjs` updated
+  for the fact that focus now lands on Home's content after a profile
+  switch instead of staying on the rail (better UX, but it moved where
+  three of that file's assertions needed to look). 29/29 tests total
+  (7 config + 22 e2e) passing, stable across repeated runs.
+
+Three more real bugs/findings the harness caught:
+- **`.jq-grid`'s Phase-2 caveat needed a precision update.** Re-tested
+  directly: a *naturally partial last row* (e.g. 7 items in a 3-column
+  template — the normal "last page of a library" case) navigates fine.
+  The actual bug from Phase 2 was a column template that reserves
+  columns *no row ever fills* (4 columns, only ever 3 profiles) — that's
+  what confuses 'grid' mode's row/column math. Library's grid is safe
+  because its column count matches what every full row actually uses;
+  only the trailing page is short, same as the verified-safe case.
+- **Back needed to be arbitrated against an open modal**, not left to
+  each screen. The naive version (a single global handler calling
+  whatever `currentBackHandler` was current) would have let Back close
+  Detail entirely while its Playback Options dialog was open, skipping
+  past "close the dialog first" — wrong per DETAIL_ACTIONS.md and just
+  bad TV UX. Fixed by giving `focus.js` a small `closeOnBack()`
+  arbitration point instead of hand-coordinating it per screen, so any
+  future modal gets the right precedence for free.
+- Two of the Phase 2 test file's own focus assertions were simply wrong
+  about *which* rail item Left/Up would land on once Home had real
+  content (guessed "Alice" where the geometry actually lands on "Home"
+  first) — caught immediately by rerunning them, not a runtime bug, but
+  a reminder to verify empirically rather than assume geometry results
+  even when the pattern seems obvious from a previous phase.
 
 **Phase 4 — Requests/Jellyseerr module + README rewrite. NOT STARTED.**
 - Rebuild as a module sharing `focus.js` and `session.js`, talking to the
@@ -285,11 +363,11 @@ Two more real bugs the harness caught (both fixed, both Phase-2-specific
 ## Verification
 
 - `npm test` (= `node --test test/configuration.test.mjs`) —
-  config/plumbing tests, 7/7 passing as of Phase 2.
+  config/plumbing tests, 7/7 passing as of Phase 3.
 - `npm run test:e2e` (= `node --test "test/e2e/**/*.spec.mjs"`) — the
-  Playwright navigation harness, 5/5 passing as of Phase 2, stable across
-  repeated runs. This is the primary regression gate going forward; grow
-  it alongside each phase's screens rather than after.
+  Playwright navigation harness, 22/22 passing as of Phase 3, stable
+  across repeated runs. This is the primary regression gate going
+  forward; grow it alongside each phase's screens rather than after.
 - `npm run build:full` confirmed working (see the correction note at the
   top of this doc — use this entry point, not a bare `npm install`).
   `npm run package:wgt` still needs Tizen Studio to verify, saved for
@@ -306,7 +384,13 @@ Two more real bugs the harness caught (both fixed, both Phase-2-specific
   CSS custom properties it already reads (`--spatial-navigation-contain`,
   `--spatial-navigation-function`), which `src/overlay/focus.css`
   exposes as the `.jq-rail`/`.jq-row`/`.jq-grid`/`.jq-modal` conventions.
-  **Caveat found in Phase 2**: `.jq-grid` only behaves predictably when
-  the CSS column count matches how many items actually render per row —
-  a ragged row (fewer items than columns) makes 'grid' mode skip items.
-  Use `.jq-row` for anything that isn't a genuinely full, uniform grid.
+  **Caveat found in Phase 2, precision-corrected in Phase 3**: `.jq-grid`
+  misbehaves specifically when the CSS column template reserves columns
+  that *no row ever fills* (e.g. 4 columns, only ever 3 items — the
+  profile picker's mistake) — that confuses 'grid' mode's row/column
+  math and it skips items. A grid whose column count matches what full
+  rows actually use, with only a naturally short trailing/last-page row
+  (e.g. 7 items in a 3-column template), navigates correctly — verified
+  directly, and this is exactly Library's shape in Phase 3. Use
+  `.jq-row` for small/variable-length lists like the profile picker;
+  reserve `.jq-grid` for a real, fully-populated multi-row layout.

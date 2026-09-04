@@ -29,6 +29,24 @@
     --spatial-navigation-contain: contain;
 }
 
+.jq-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+/* The `hidden` attribute alone loses to the `display: flex` rule above,
+   since author styles always beat the UA stylesheet's default [hidden]
+   rule regardless of selector specificity (found the hard way in
+   Phase 1) -- reassert it explicitly. */
+.jq-modal-backdrop[hidden] {
+    display: none;
+}
+
 /* A single, consistent focus style every screen inherits instead of each
  * one defining (or forgetting to define) its own. */
 .jq-focusable {
