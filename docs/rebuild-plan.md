@@ -134,15 +134,29 @@ gutted state** (all still true, not follow-ups):
    as separate, named files — not one giant file. `scripts/build-overlay.mjs`
    concatenates them (explicit order, not glob order) into the committed
    `jellyquest.js`/`jellyquest.css`. **Decided in Phase 1: no native ES
-   modules, no bundler** — the oldest Tizen this project targets (4.6,
-   per README) ships Chromium ~M56-M63, predating native `<script
-   type=module>` support (landed in M61). Plain concatenated scripts
-   avoid that risk entirely with zero build complexity.
+   modules, no bundler** — the oldest Tizen this project targets (5.0,
+   per README) ships Chromium M63. **The original justification for this
+   decision was wrong**: it claimed the engine predated `<script
+   type=module>`, but modules landed in M61, so both TVs can parse them.
+   The decision still stands, on weaker and explicitly *untested*
+   grounds: the packaged runtime loads the app from a `file://` URL
+   (observed — see the correction at the `file://` note below), module
+   fetches are CORS-governed, and nobody has tried loading a real module
+   graph from `file://` inside Samsung's runtime. Plain concatenated
+   scripts sidestep the question entirely at zero build complexity, so
+   there is no reason to run the experiment — but the risk is an
+   untested compatibility concern, **not** an established device
+   limitation, and should not be quoted as one.
+
+   > Corrected after direct device measurement: the floor is **Tizen 5.0
+   > / Chromium M63** (`UN55RU7100FXZA`, 2019), not "Tizen 4.6 / ~M56-M63".
+   > Samsung ships no TV platform numbered 4.6; that number is the *Tizen
+   > Studio* SDK version. See the Target hardware table in the README.
 2. **Spatial navigation: `spatial-navigation-polyfill` (MIT), not
    hand-rolled geometry code.** Done in Phase 1 — see below. Its license
    is compatible with this project's GPLv2 (unlike BBC's `lrud`,
    Apache-2.0, which the FSF considers GPLv2-incompatible), and its
-   plain-IIFE ES2015 syntax runs unmodified on the Tizen 4.6 floor.
+   plain-IIFE ES2015 syntax runs unmodified on the Tizen 5.0 / M63 floor.
 3. **One passwordless session-switch primitive.** *(Done in Phase 2 —
    `src/overlay/session.js`.)* A single `switchProfile(user)` function
    performs the blank-password `AuthenticateByName` call and swaps the
@@ -459,14 +473,42 @@ in the Playwright harness — confirmed directly with an isolated
 `file://` test page before touching any real code. The old app's
 `fetch()`-based config loading had shipped and worked fine, so this was
 specifically a test-harness gap (the simulator was being opened via
-`file://`), not a production concern; Tizen's packaged-app runtime, and
-any other real embedding, is never `file://`. Fixed by adding
+`file://`), not a production concern.
+
+> **Correction (observed on hardware).** The claim originally made here
+> — that "Tizen's packaged-app runtime, and any other real embedding, is
+> never `file://`" — is **false**. Attaching to the running app's
+> DevTools inspector reports the page URL as
+> `file:///www/index.html#/home` on both the 2019 / Tizen 5.0 set and the
+> 2020 / Tizen 5.5 set. (The 2019 capture additionally shows
+> `faviconUrl: file:///www/favicon.…ico`; that field was not captured on
+> the 2020 set.) **The packaged app is loaded from a `file://` URL.**
+>
+> Note the deliberately narrow phrasing: the inspector records the page
+> *URL*, not how the runtime treats its security origin. File-origin
+> handling is implementation-dependent, so "loaded from a `file://` URL"
+> is what the evidence supports — not a claim about origin semantics.
+>
+> The surrounding conclusion survives, but the mechanism is **not
+> established**: the shipped app's config loading worked on-device
+> despite its `file://` page URL, whereas the desktop harness's
+> local-file test failed. Why the two differ has not been determined —
+> it is not known whether native `fetch` or a shim performed the
+> on-device load, nor what permissions the runtime grants. Serving the
+> simulator over HTTP enables its config fetch; it does not establish
+> equivalent runtime permissions or module-loading behaviour, and
+> passing under the HTTP harness therefore cannot demonstrate
+> compatibility with packaged-file loading. Do not reason from
+> "production is not `file://`" — it is — and do not reason from the
+> harness passing, either.
+
+Fixed by adding
 `test/e2e/support/server.mjs` (a small static file server using Node's
 built-in `http`, no new dependency) and pointing all five spec files'
 `simulatorUrl` at it instead of `file://dev/simulator.html` — landed as
-its own commit before any Phase 4 feature code, and incidentally makes
-the whole harness more faithful to production loading, not just
-fetch-capable.
+its own commit before any Phase 4 feature code. It makes the harness
+fetch-capable; see the correction above for why that does **not** amount
+to reproducing the packaged runtime's loading behaviour.
 
 **Verified, not yet run in this sandbox**: `npm run build:full` failed
 here with `403 Forbidden` fetching
@@ -527,7 +569,7 @@ Two real, independent bugs found this way, both fixed and regression-tested:
    (reproduced the exact same `TypeError` from the TV) before confirming
    it passes with the fix, so it's a real regression test, not a
    false-positive.
-2. **`inset: 0` isn't honored on this TV's WebKit.** The diagnostic panel
+2. **`inset: 0` isn't honored on this TV's Chromium.** The diagnostic panel
    showed `#jellyquest-root` at `top=96.875px width=393.859px` instead of
    `0`/`1920` (the TV's actual viewport), while `height=1080px`,
    `background-color`, and `z-index` — from the same CSS rule — were all
@@ -536,16 +578,19 @@ Two real, independent bugs found this way, both fixed and regression-tested:
    the fixed-position element falls back to its static in-flow position
    and content-driven size, while every other declared property on the
    rule still applies fine. `inset` as a shorthand only landed in
-   Chromium 87 (2020); this project's own documented floor is Tizen 4.6
-   (Chromium ~M56-63, 2017-2019) — squarely too old. Fixed by replacing
+   Chromium 87 (2020); this project's floor is Tizen 5.0 (Chromium M63,
+   2019) — squarely too old. Since confirmed by direct measurement on
+   both sets: `CSS.supports('inset','0')` returns `false` on the 2019
+   (M63) and 2020 (M69) TVs alike. Fixed by replacing
    `inset: 0` with explicit `top/right/bottom/left: 0` (supported
    essentially forever) in both `src/overlay/app.css`
    (`#jellyquest-root`) and `src/overlay/focus.css`
    (`.jq-modal-backdrop`, same shorthand, same risk, not yet observed
    broken but no reason to leave it). No practical way to regression-test
-   old-WebKit-specific CSS parsing in a Chromium-based Playwright harness
+   old-Chromium-specific CSS parsing in a modern-Chromium Playwright harness
    — this one relies on the code comment and real-hardware verification
-   instead.
+   instead. (Originally written as "old-WebKit-specific"; the engine is
+   Chromium M63/M69, not WebKit.)
 
 A third hypothesis (jellyfin-web applying a CSS `transform` to
 `<html>`/`<body>` for its own page-transition animations, which would
