@@ -6,10 +6,8 @@ This build is a **blank-canvas rebuild**: the Tizen packaging pipeline (checkout
 
 ## Current status
 
-The rebuild is complete and confirmed working on real hardware, but it
-still lives on `claude/code-audit-issues-rha2bz` — 17 commits ahead of
-`master` and not yet merged. Two things to know before you build this
-branch:
+The blank-canvas rebuild is merged into `master` and confirmed working on
+real hardware. Two things to know before you build it:
 
 - **One open bug.** On a real TV, D-pad Right along the profile row is
   reported to reach only every other card. It does not reproduce in the
@@ -127,6 +125,11 @@ Open `npm run preview:tv`'s printed URL at a 1920×1080 viewport to match the TV
 
 ## Build, package, and install
 
+See [`docs/build-package-deploy.md`](docs/build-package-deploy.md) for the
+complete, verified runbook used by this repository, including the Docker-based
+Tizen Studio environment, signing, artifact checks, Living Room TV settings,
+deployment verification, and troubleshooting.
+
 Requirements:
 
 - Node.js 20 or newer (the build pins npm 10 for Jellyfin Web compatibility)
@@ -147,6 +150,11 @@ Package with the certificate profile currently selected in Tizen Studio:
 ```sh
 npm run package:wgt
 ```
+
+On the current build host, Tizen Studio is supplied by
+`ghcr.io/georift/install-jellyfin-tizen:latest` rather than installed on the
+host `PATH`. Use the Docker packaging command in the runbook instead of the
+command above on that host.
 
 The WGT is written to `artifacts/`. Certificate profiles, private keys, device DUIDs, WGT artifacts, and local build caches must never be committed.
 
