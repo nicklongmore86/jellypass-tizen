@@ -51,6 +51,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.jellyquestRequestsTab:focus/);
     assert.match(styles, /\.jellyquestLibraryRail:focus-within[\s\S]*linear-gradient\(90deg/);
     assert.match(styles, /\.jellyquestRailItem:focus[\s\S]*rgba\(51, 51, 51, 0\) 100%/);
+    assert.match(styles, /\.jellyquestRuntimeDetailRoot \.jqActions \{[\s\S]*gap: 20px;/);
+    assert.match(styles, /\.jqRuntimeGridRoot \.jqLibraryControls \{[\s\S]*gap: 18px;/);
     assert.match(styles, /box-shadow: inset 0 -3px #00a4dc !important/);
     assert.match(policy, /openRequests/);
     assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{ openingRequests = false; \}\)/);
@@ -93,6 +95,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /function handleRuntimeDetailKeys/);
     assert.match(policy, /function returnFromRuntimeDetail/);
     assert.match(policy, /function detailBackdropUrl/);
+    assert.match(policy, /login\|selectserver\|wizard\|video/);
+    assert.match(policy, /closeRuntimeLibraryMenu\(false\);\s*ensureLibraryRail\(\);/);
     assert.match(policy, /function focusRuntimeDetailInitial\(root\)/);
     assert.match(policy, /function restoreRuntimeDetailContentFocus\(root\)/);
     assert.match(policy, /runtimeLibraryReturnItemId = item\.Id/);

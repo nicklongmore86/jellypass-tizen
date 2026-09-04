@@ -3375,7 +3375,7 @@
     }
 
     function ensureLibraryRail() {
-        if (/^#\/(?:login|selectserver|wizard)/.test(window.location.hash)) {
+        if (/^#\/(?:login|selectserver|wizard|video)(?:\?|$)/.test(window.location.hash)) {
             if (libraryRail) {
                 libraryRail.parentNode.removeChild(libraryRail);
                 libraryRail = null;
@@ -4028,6 +4028,7 @@
         if (isSettingsOpen()) closeSettings();
         closePlaybackOptions();
         closeRuntimeLibraryMenu(false);
+        ensureLibraryRail();
         ensureRequestsTab();
         ensureRuntimeLibrary();
         ensureRuntimeSearch();

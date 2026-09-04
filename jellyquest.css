@@ -404,7 +404,7 @@
     font-family: inherit;
     font-size: 1.25em;
     justify-content: space-between;
-    margin-top: .45em;
+    margin-top: .7em;
     min-height: 3.4em;
     padding: .7em 1em;
     text-align: left;
@@ -634,7 +634,7 @@ body.jellyquestSettingsActive {
     align-self: start;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 16px;
 }
 
 .jellyquestSettingsCategory {
@@ -704,7 +704,7 @@ body.jellyquestSettingsActive {
 
 .jellyquestSettingsGrid {
     display: grid;
-    gap: 14px;
+    gap: 18px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -789,7 +789,7 @@ body.jellyquestSettingsActive {
     background: #0e1013;
     bottom: 0;
     display: flex;
-    gap: 13px;
+    gap: 18px;
     height: 66px;
     left: 318px;
     position: absolute;
@@ -1161,7 +1161,7 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
 .jqRuntimeGridRoot .jqLibraryControls {
     align-items: center;
     display: flex;
-    gap: 12px;
+    gap: 18px;
 }
 
 .jqRuntimeGridRoot .jqFilter,
@@ -1630,7 +1630,7 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
 .jellyquestRuntimeDetailRoot .jqActions {
     display: flex;
     flex-wrap: wrap;
-    gap: 13px;
+    gap: 20px;
 }
 
 .jellyquestRuntimeDetailRoot .jqAction {
