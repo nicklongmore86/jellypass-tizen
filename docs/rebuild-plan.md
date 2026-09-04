@@ -139,8 +139,8 @@ gutted state** (all still true, not follow-ups):
    decision was wrong**: it claimed the engine predated `<script
    type=module>`, but modules landed in M61, so both TVs can parse them.
    The decision still stands, on weaker and explicitly *untested*
-   grounds: the packaged runtime loads the app from a `file://` origin
-   (measured — see the correction at the `file://` note below), module
+   grounds: the packaged runtime loads the app from a `file://` URL
+   (observed — see the correction at the `file://` note below), module
    fetches are CORS-governed, and nobody has tried loading a real module
    graph from `file://` inside Samsung's runtime. Plain concatenated
    scripts sidestep the question entirely at zero build complexity, so

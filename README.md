@@ -106,8 +106,9 @@ Three consequences worth internalising before changing any layout code:
 2. **Grid spacing must use the legacy `grid-gap` spelling.** Unprefixed `gap`
    in grid context needs M66; on the 2019 set it measures 0px.
 3. **The ES5 constraint on `src/overlay/` is not merely stylistic.** Optional
-   catch binding needs M66 and throws a `SyntaxError` on the 2019 set while
-   parsing fine on the 2020 one — a crash on exactly one of the two TVs. Note
+   catch binding needs M66 and throws a `SyntaxError` on the 2019 set
+   (measured), while it is expected to parse on the 2020 set (inferred from
+   M66 — not probed there) — i.e. a crash on the older TV only. Note
    that arrow functions, `const` and template literals *are* supported on both;
    if the ES5 rule is ever relaxed, optional catch binding must stay banned.
 
