@@ -330,6 +330,7 @@
         document.body.classList.add('jellyquestRuntimeHomeActive');
         hideRuntimeLoading();
         runtimeHomeUserId = user.Id;
+        ensureRequestsTab();
     }
 
     function removeRuntimeHome() {
@@ -2182,17 +2183,20 @@
     }
 
     function ensureRequestsTab() {
-        var existing = document.querySelector('.jellyquestRequestsTab');
         if (!isHomeRoute()) {
-            if (existing) {
+            document.querySelectorAll('.jellyquestRequestsTab').forEach(function (existing) {
                 existing.parentNode.removeChild(existing);
-            }
+            });
             return;
         }
         var slider = document.querySelector('.headerTabs .tabs-viewmenubar .emby-tabs-slider');
         if (!slider) {
             return;
         }
+
+        document.querySelectorAll('.jellyquestRequestsTab').forEach(function (existing) {
+            if (!slider.contains(existing)) existing.parentNode.removeChild(existing);
+        });
 
         Array.prototype.forEach.call(slider.querySelectorAll('.emby-tab-button:not(.jellyquestRequestsTab)'), function (tab) {
             var label = tab.querySelector('.emby-button-foreground');
@@ -2203,7 +2207,7 @@
                 tab.setAttribute('tabindex', '-1');
             }
         });
-        if (existing) {
+        if (slider.querySelector('.jellyquestRequestsTab')) {
             return;
         }
 
@@ -3833,6 +3837,7 @@
                 + '&return=' + encodeURIComponent(window.location.href)
                 + '&bridge=' + encodeURIComponent(requestsBridgeUrl);
             var version = requestsPageVersion ? '?v=' + encodeURIComponent(requestsPageVersion) : '';
+            openingRequests = false;
             window.location.assign(localRequestsUrl + version + fragment);
         }).catch(function (error) {
             openingRequests = false;
@@ -3917,6 +3922,7 @@
     window.addEventListener('resize', positionProfileSwitcher);
     window.addEventListener('resize', positionLibraryRail);
     window.addEventListener('resize', positionRuntimeLibraryMenu);
+    window.addEventListener('pageshow', function () { openingRequests = false; });
     document.addEventListener('focusin', function (event) {
         var card = event.target.closest && event.target.closest('.jellyquestRuntimeLibraryCard');
         if (card) {

@@ -19,27 +19,26 @@
     header > .nav:first-child { margin-top: auto; }
     header > .nav:last-child { margin-bottom: auto; }
     .brand-mark { display: block; height: 1.7rem; margin-right: .7rem; object-fit: contain; width: 1.7rem; }
-    .nav { align-items: center; background: transparent; border: 0; border-radius: 0; color: rgba(255,255,255,.78); display: flex; flex: 0 0 3.4rem; font-size: 1.25rem; font-weight: 600; height: 3.4rem; overflow: hidden; padding: 0 .82rem; text-align: left; width: 100%; }
-    .nav-icon { color: #9ca2aa; display: inline-block; flex: 0 0 2.1rem; font-size: 1.35rem; margin-right: .8rem; text-align: center; width: 2.1rem; }
+    .nav { align-items: center; background: transparent; border: 0; border-radius: 0; color: rgba(255,255,255,.78); display: flex; flex: 0 0 3.4rem; font-size: 1.25rem; font-weight: 400; height: 3.4rem; overflow: hidden; padding: 0 .82rem; text-align: left; width: 100%; }
+    .nav-icon { color: currentColor; display: block; flex: 0 0 1.35em; height: 1.35em; margin-right: 1em; width: 1.35em; }
+    .nav-icon svg { fill: none; height: 100%; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 100%; }
     .nav-label { opacity: 0; overflow: hidden; text-overflow: ellipsis; transition: opacity .1s ease; white-space: nowrap; }
     header:focus-within .nav-label, header:hover .nav-label, header.is-expanded .nav-label { opacity: 1; }
-    .nav.active { background: rgba(255,255,255,.1); color: #fff; }
-    .nav.active .nav-icon { color: #00c7db; }
-    .nav:focus { background: #fff; color: #111; outline: none; }
-    .nav:focus .nav-icon { color: #111; }
-    #topbar { align-items: center; background: rgba(14,14,16,.96); box-shadow: 0 .2rem .8rem #000; display: none; height: 4.5rem; left: 0; padding: 0 1.4375rem; position: fixed; right: 0; top: 0; z-index: 5; }
+    .nav.active { color: #00a4dc; }
+    .nav:focus { background: #333; color: #fff; outline: .14em solid #fff; outline-offset: -.14em; }
+    #topbar { align-items: center; background: rgba(20,20,20,.7); box-shadow: 0 .2rem .8rem #000; display: none; height: 4.5rem; left: 0; padding: 0 1.4375rem 0 4.8125rem; position: fixed; right: 0; top: 0; z-index: 5; }
     .requests-header-top { align-items: center; display: flex; height: auto; }
     #topPageTitle, #globalSearchForm { display: none; }
     #globalSearch { background: #20242a; border: .1rem solid #414750; border-radius: .4rem; color: #fff; font-size: 1.15rem; max-width: 38rem; padding: .72rem 1rem; width: 100%; }
-    .profile-dot { align-items: center; background: transparent; border: 0; border-radius: 0; display: flex; flex: 0 0 auto; font-size: 1.25rem; font-weight: 500; height: 2.4rem; justify-content: center; margin: 0; padding: 0; width: auto; }
+    .profile-dot { align-items: center; background: transparent; border: 0; border-radius: 0; display: flex; flex: 0 0 auto; font-size: 1.25rem; font-weight: 500; height: 2.25rem; justify-content: center; margin: 0; padding: 0; width: auto; }
     .profile-dot:focus { filter: drop-shadow(0 0 .22rem #00a4dc); outline: .12rem solid #fff; outline-offset: .22rem; }
-    .requests-tabs { color: #ddd; display: flex; font-size: 1.25rem; justify-content: center; left: 50%; margin: 0; position: absolute; top: 50%; transform: translate(-50%, -50%); }
-    .requests-tab { background: transparent; border: 0; color: #ddd; font-size: 1.25rem; margin: 0 1.5rem; padding: 0 0 .55rem; }
+    .requests-tabs { align-items: center; color: #ddd; display: flex; font-size: 1.25rem; height: 4.5rem; justify-content: center; left: 50%; margin: 0; position: absolute; top: 0; transform: translateX(-50%); }
+    .requests-tab { background: transparent; border: 0; color: #ddd; font-size: 1.25rem; font-weight: 600; height: 3.375rem; margin: 0 1.5rem; padding: 0; }
     .requests-tab.active { border-bottom: .18rem solid #00a4dc; color: #fff; }
     .requests-tab:focus { box-shadow: none; color: #fff; outline: .16rem solid #00a4dc; outline-offset: .25rem; }
     #status { align-items: center; display: flex; font-size: 1.4rem; height: 100%; justify-content: center; margin-left: 3.75rem; padding: 2rem; position: relative; text-align: center; }
     #retry { background: #fff; border: .12rem solid #fff; border-radius: .4rem; color: #111; display: none; margin: 1.25rem auto 0; padding: .7rem 1.1rem; }
-    #app { display: none; height: 100%; margin-left: 3.75rem; overflow-y: auto; padding: 8.8rem 3rem 5rem; position: relative; scroll-behavior: auto; }
+    #app { display: none; height: 100%; margin-left: 3.75rem; overflow-y: auto; padding: 6.5rem 3rem 2.625rem; position: relative; scroll-behavior: auto; }
     h2 { font-size: 1.85rem; font-weight: 500; margin: 0 0 1.2rem; }
     .search-row { display: flex; margin-bottom: 1.5rem; max-width: 58rem; }
     #searchInput { background: #20242a; border: .12rem solid #414750; border-radius: .4rem 0 0 .4rem; color: #fff; flex: 1; font-size: 1.35rem; min-width: 0; padding: .9rem 1.1rem; }
@@ -47,7 +46,7 @@
     #messageBar { background: #20242a; border: .1rem solid #414750; border-left: .3rem solid #00a4dc; border-radius: .35rem; display: none; margin-bottom: 1.2rem; padding: .8rem 1rem; }
     .media-row { margin-bottom: 1.7rem; }
     .row-header { align-items: flex-start; display: flex; height: 4rem; justify-content: space-between; }
-    .row-header h2 { color: #fff; font-size: 1.6rem; font-weight: 500; margin: 0; }
+    .row-header h2 { color: #fff; font-size: 1.8rem; font-weight: 500; margin: 0; }
     .see-more { background: transparent; border: .12rem solid transparent; border-radius: .35rem; color: #b9bec5; font-size: 1.1rem; font-weight: 500; padding: .45rem .7rem; }
     .row-scroller { display: flex; gap: 1.15rem; margin: 0; overflow: hidden; padding: .35rem .25rem .55rem; }
     .cards { display: flex; flex-wrap: wrap; margin: 0 -.55rem; }
@@ -59,9 +58,9 @@
     .card:focus .poster { border-color: #fff; box-shadow: 0 .65rem 2rem rgba(0,0,0,.8); transform: scale(1.045); }
     .poster-missing { align-items: flex-end; color: #fff; display: flex; font-size: 1.45rem; font-weight: 800; justify-content: flex-start; line-height: 1.05; padding: .9rem; text-align: left; text-transform: uppercase; }
     .card-copy { background: transparent; display: block; min-height: 4rem; padding: .65rem 0 0; }
-    .title { display: block; font-size: 1.1rem; font-weight: 500; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .title { display: block; font-size: 1.125rem; font-weight: 400; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .card:focus .title { color: #00c7db; }
-    .meta { color: #9ca2aa; display: block; font-size: .92rem; margin-top: .3rem; }
+    .meta { color: #9ca2aa; display: block; font-size: .9375rem; margin-top: .1875rem; }
     .badge { background: #252a31; border: .08rem solid #59616d; border-radius: .25rem; color: #e8e8e8; display: inline-block; font-size: .75rem; font-weight: 700; margin-top: .4rem; padding: .18rem .48rem; text-transform: uppercase; }
     .badge.available { background: #1e4936; border-color: #4b8a68; }
     .badge.pending { background: #59441d; border-color: #9c7a34; }
@@ -73,8 +72,12 @@
     .cards .option-card { margin: 0 .55rem 1.1rem; }
     .empty { color: #bbb; font-size: 1.15rem; padding: 2rem 0; }
     .loading-row { align-items: center; color: #aaa; display: flex; font-size: 1.1rem; height: 21.5rem; padding-left: .5rem; }
-    .section-heading { align-items: center; display: flex; margin-bottom: 1.1rem; }
-    .section-heading h2 { margin: 0; }
+    .section-heading { align-items: center; display: flex; height: 5rem; margin: 0; }
+    .section-heading h2, #requestsView > h2 { font-size: 2.375rem; font-weight: 600; line-height: 1.35; margin: 0; }
+    #categoryCards, #requestCards { padding-top: .75rem; }
+    #requestsView > h2 { align-items: center; display: flex; height: 5rem; }
+    #searchView > h2 { font-size: 2.375rem; font-weight: 600; line-height: 1.35; margin: 0 0 1rem; }
+    #searchButton { font-size: 1.35rem; }
     #modal { align-items: center; background: rgba(0, 0, 0, .82); bottom: 0; display: none; justify-content: center; left: 0; padding: 2rem; position: fixed; right: 0; top: 0; z-index: 5; }
     .dialog { background: #20242a; border: .1rem solid #59616d; border-radius: .45rem; box-shadow: 0 .8rem 2.4rem rgba(0,0,0,.82); max-height: 88%; max-width: 52rem; overflow-y: auto; padding: 1.75rem; width: 100%; }
     .dialog h2 { margin-bottom: .7rem; }
@@ -91,15 +94,15 @@
 </head>
 <body>
   <header aria-label="Requests navigation">
-    <button class="nav active" id="discoverNav" type="button"><span class="nav-icon">✦</span><span class="nav-label">Discover</span></button>
-    <button class="nav" id="moviesNav" type="button"><span class="nav-icon">▰</span><span class="nav-label">Movies</span></button>
-    <button class="nav" id="tvNav" type="button"><span class="nav-icon">▣</span><span class="nav-label">TV Shows</span></button>
-    <button class="nav" id="searchNav" type="button"><span class="nav-icon">⌕</span><span class="nav-label">Search</span></button>
-    <button class="nav" id="requestsNav" type="button"><span class="nav-icon">◷</span><span class="nav-label">My Requests</span></button>
+    <button class="nav active" id="discoverNav" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"></path></svg></span><span class="nav-label">Discover</span></button>
+    <button class="nav" id="moviesNav" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="1"></rect><path d="M3 9h18M7 5l3 4m3-4 3 4"></path></svg></span><span class="nav-label">Movies</span></button>
+    <button class="nav" id="tvNav" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="15" height="13" rx="1"></rect><path d="M6 8H3v12h15v-2m-6-9 4 2.5-4 2.5z"></path></svg></span><span class="nav-label">TV Shows</span></button>
+    <button class="nav" id="searchNav" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5L21 21"></path></svg></span><span class="nav-label">Search</span></button>
+    <button class="nav" id="requestsNav" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></span><span class="nav-label">My Requests</span></button>
   </header>
   <div id="topbar">
     <div class="requests-header-top">
-      <button class="profile-dot" id="requestsProfile" type="button" aria-label="Return to Jellyfin profile"><img class="brand-mark" src="../icon.png" alt=""><span id="requestsProfileName">Living Room</span>&nbsp;▾</button>
+      <button class="profile-dot" id="requestsProfile" type="button" aria-label="Return to Jellyfin profile"><img class="brand-mark" src="../icon.png" alt=""><span id="requestsProfileName">Living Room</span></button>
       <div id="topPageTitle">Discover</div>
       <form id="globalSearchForm"><input id="globalSearch" type="search" maxlength="100" placeholder="Search movies and TV shows…" autocomplete="off"></form>
     </div>
@@ -164,12 +167,16 @@
       var activeCategory = null;
       var categoryCache = {};
       var ownRequestKeys = {};
+      var profileClaims = {};
       var bridgeFrame = null;
       var bridgeOrigin = '';
       var bridgeNonce = '';
       var bridgeReadyPromise = null;
       var bridgeRequestId = 0;
       var bridgeRequests = {};
+      var bridgeQueue = [];
+      var bridgeActiveRequests = 0;
+      var bridgeConcurrency = 4;
       var isPreview = /(?:\?|&)preview=1(?:&|$)/.test(window.location.search);
       var params = {};
       var categories = [
@@ -281,7 +288,7 @@
         return holder.promise;
       }
 
-      function bridgeApi(path, options) {
+      function executeBridgeApi(path, options) {
         return startBridge().then(function () {
           return new Promise(function (resolve, reject) {
             bridgeRequestId += 1;
@@ -300,6 +307,27 @@
               options: options || {}
             }, bridgeOrigin);
           });
+        });
+      }
+
+      function drainBridgeQueue() {
+        while (bridgeActiveRequests < bridgeConcurrency && bridgeQueue.length) {
+          (function (task) {
+            bridgeActiveRequests += 1;
+            executeBridgeApi(task.path, task.options).then(task.resolve, task.reject).then(function () {
+              bridgeActiveRequests -= 1;
+              drainBridgeQueue();
+            });
+          })(bridgeQueue.shift());
+        }
+      }
+
+      function bridgeApi(path, options, priority) {
+        return new Promise(function (resolve, reject) {
+          var task = { path: path, options: options, resolve: resolve, reject: reject };
+          if (priority) bridgeQueue.unshift(task);
+          else bridgeQueue.push(task);
+          drainBridgeQueue();
         });
       }
 
@@ -604,7 +632,7 @@
 
       function api(path, options) {
         if (isPreview) return Promise.resolve(previewApi(path, options));
-        return bridgeApi(path, options);
+        return bridgeApi(path, options, path.indexOf('/jellyquest/access') === 0);
       }
 
       function notice(text) {
@@ -649,24 +677,15 @@
           + '&tmdbId=' + encodeURIComponent(itemTmdbId(item)));
       }
 
-      function refreshCardAccess(item, badge) {
-        var globalStatus = item.mediaInfo && item.mediaInfo.status;
-        if (globalStatus !== 2 && globalStatus !== 3 && globalStatus !== 4 && globalStatus !== 5) return;
-        loadMediaAccess(item).then(function (access) {
-          item.jellyquestAccess = access;
-          if (access.owned) {
-            badge.className = 'badge available';
-            badge.textContent = 'In My Library';
-          } else if (access.claimed) {
-            badge.className = 'badge pending';
-            badge.textContent = access.jellyfinItemId ? 'Adding to My Library' : 'Added when ready';
-          } else if (access.jellyfinItemId && access.managed) {
-            badge.className = 'badge pending';
-            badge.textContent = 'Available · Add to Library';
-          }
-        }).catch(function () {
-          // Global Jellyseerr status remains useful if personalization is temporarily unavailable.
+      function rememberProfileClaims(claims) {
+        (claims || []).forEach(function (claim) {
+          profileClaims[claim.mediaType + ':' + claim.tmdbId] = claim;
         });
+      }
+
+      function applyKnownClaim(item) {
+        var claim = profileClaims[item.mediaType + ':' + itemTmdbId(item)];
+        if (claim) item.jellyquestClaimState = claim.jellyfinItemId ? 'owned' : 'claimed';
       }
 
       function setModalAction(action, label, disabled) {
@@ -689,12 +708,23 @@
           setModalAction('claim', access.claimed ? 'Adding to My Library…' : 'Add to My Library', access.claimed);
           return;
         }
+        if (access.claimed) {
+          document.getElementById('seasonOptions').hidden = true;
+          setModalAction('claimed', 'Added when ready', true);
+          return;
+        }
         if (item.mediaInfo && (item.mediaInfo.status === 2 || item.mediaInfo.status === 3)) {
           document.getElementById('seasonOptions').hidden = true;
-          setModalAction('claim', access.claimed ? 'Added when ready' : 'Add when ready', access.claimed);
+          setModalAction('claim', 'Add when ready', false);
+          return;
+        }
+        if (!status.requestable) {
+          document.getElementById('seasonOptions').hidden = true;
+          setModalAction('unavailable', status.text === 'Available' ? 'Waiting for Jellyfin' : status.text, true);
           return;
         }
         selectedAction = 'request';
+        if (item.mediaType === 'movie') setModalAction('request', 'Request movie', false);
         renderSeasonOptions(item, status);
       }
 
@@ -717,6 +747,7 @@
         var title = document.createElement('span');
         var meta = document.createElement('span');
         var badge = document.createElement('span');
+        applyKnownClaim(item);
         var status = mediaStatus(item);
         button.type = 'button';
         button.className = 'card';
@@ -749,7 +780,6 @@
         button.appendChild(poster);
         button.appendChild(typeBadge);
         button.appendChild(copy);
-        refreshCardAccess(item, badge);
         button.addEventListener('click', function () {
           lastFocusedCard = button;
           openModal(item);
@@ -806,6 +836,23 @@
         });
       }
 
+      function genreItems(value) {
+        if (Array.isArray(value)) return value;
+        var serialized = value && typeof value.error === 'string'
+          ? value.error
+          : value && typeof value.message === 'string' ? value.message : '';
+        var recovered;
+        try {
+          recovered = JSON.parse(serialized);
+        } catch (parseError) {
+          throw value instanceof Error ? value : new Error('Jellyseerr did not return genre data.');
+        }
+        if (!Array.isArray(recovered)) {
+          throw value instanceof Error ? value : new Error('Jellyseerr did not return genre data.');
+        }
+        return recovered;
+      }
+
       function loadCategory(category) {
         if (categoryCache[category.key]) return Promise.resolve(categoryCache[category.key]);
         var request;
@@ -816,7 +863,7 @@
           request = api('/api/v1/request?filter=all&take=20&sort=modified&skip=0')
             .then(function (data) { return detailItems(data.results); });
         } else if (category.type === 'genres') {
-          request = api(category.url).then(function (items) { return items; });
+          request = api(category.url).then(genreItems, genreItems);
         } else if (category.type === 'options') {
           request = Promise.resolve(category.items);
         } else {
@@ -987,6 +1034,7 @@
           api('/api/v1/request?filter=all&take=20&sort=modified&skip=0'),
           api('/jellyquest/access/claims')
         ]).then(function (results) {
+          rememberProfileClaims(results[1].claims);
           var nativeRequests = results[0].results.map(function (request) {
             ownRequestKeys[request.type + ':' + request.media.tmdbId] = true;
             return { mediaType: request.type, tmdbId: request.media.tmdbId, claim: false };
@@ -1027,6 +1075,7 @@
         document.getElementById('modalClose').focus();
         Promise.resolve(item.jellyquestAccess || loadMediaAccess(item)).then(function (access) {
           if (!isSelectedItem(item) || modal.style.display !== 'flex') return;
+          item.jellyquestAccess = access;
           applyPersonalizedAction(item, status, access);
           if (!document.getElementById('modalRequest').disabled) document.getElementById('modalRequest').focus();
         }).catch(function (error) {
@@ -1223,7 +1272,9 @@
           return access;
         }
         if (path.indexOf('/api/v1/discover/genreslider/') === 0) {
-          return [];
+          return path.indexOf('/movie') !== -1
+            ? [{ id: 28, name: 'Action' }, { id: 35, name: 'Comedy' }, { id: 18, name: 'Drama' }, { id: 27, name: 'Horror' }, { id: 878, name: 'Science Fiction' }]
+            : [{ id: 10759, name: 'Action & Adventure' }, { id: 35, name: 'Comedy' }, { id: 18, name: 'Drama' }, { id: 9648, name: 'Mystery' }, { id: 10765, name: 'Sci-Fi & Fantasy' }];
         }
         if (idMatch) return catalog[(Number(idMatch[1]) - 1) % catalog.length];
         if (path.indexOf('/api/v1/media?') === 0) {
@@ -1254,12 +1305,14 @@
         document.getElementById('status').style.display = 'none';
         document.getElementById('topbar').style.display = 'flex';
         app.style.display = 'block';
-        api('/api/v1/request?filter=all&take=100&sort=modified&skip=0').then(function (data) {
-          (data.results || []).forEach(function (request) {
+        Promise.all([
+          api('/api/v1/request?filter=all&take=100&sort=modified&skip=0').catch(function () { return { results: [] }; }),
+          api('/jellyquest/access/claims').catch(function () { return { claims: [] }; })
+        ]).then(function (results) {
+          (results[0].results || []).forEach(function (request) {
             ownRequestKeys[request.type + ':' + request.media.tmdbId] = true;
           });
-        }).catch(function () {
-          // Request browsing remains available even if ownership preloading fails.
+          rememberProfileClaims(results[1].claims);
         }).then(loadDiscover);
         document.getElementById('discoverNav').focus();
       }

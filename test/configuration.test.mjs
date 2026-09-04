@@ -49,6 +49,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
     assert.match(policy, /openRequests/);
+    assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{ openingRequests = false; \}\)/);
+    assert.match(policy, /runtimeHomeUserId = user\.Id;\s*ensureRequestsTab\(\);/);
+    assert.match(policy, /document\.querySelectorAll\('\.jellyquestRequestsTab'\)/);
     assert.match(policy, /requestsPageVersion/);
     assert.match(policy, /getCurrentUser/);
     assert.match(policy, /jellyquestRequestsTab/);
@@ -262,6 +265,9 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
 
     assert.match(bootstrap, /function startBridge/);
     assert.match(bootstrap, /function bridgeApi/);
+    assert.match(bootstrap, /function drainBridgeQueue/);
+    assert.match(bootstrap, /bridgeConcurrency = 4/);
+    assert.match(bootstrap, /path\.indexOf\('\/jellyquest\/access'\) === 0/);
     assert.match(bootstrap, /jellyquest-bridge\/bridge\.html/);
     assert.doesNotMatch(bootstrap, /\/api\/v1\/auth\/jellyfin/);
     assert.match(bootstrap, /https:\/\/jelly-farmhouse\.starrgroup\.io/);
@@ -271,8 +277,13 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /\/api\/v1\/request/);
     assert.match(bootstrap, /\/jellyquest\/access\?mediaType=/);
     assert.match(bootstrap, /\/jellyquest\/access\/claims/);
+    assert.match(bootstrap, /function rememberProfileClaims/);
+    assert.match(bootstrap, /function applyKnownClaim/);
+    assert.doesNotMatch(bootstrap, /function refreshCardAccess/);
     assert.match(bootstrap, /Add when ready/);
     assert.match(bootstrap, /Add to My Library/);
+    assert.match(bootstrap, /Waiting for Jellyfin/);
+    assert.match(bootstrap, /setModalAction\('request', 'Request movie', false\)/);
     assert.match(bootstrap, /Requested by another profile/);
     assert.match(bootstrap, /Requested by you/);
     assert.match(bootstrap, /In My Library/);
@@ -286,8 +297,10 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /focusFrom/);
     assert.match(bootstrap, /width: 3\.75rem/);
     assert.match(bootstrap, /width: 16rem/);
+    assert.match(bootstrap, /padding: 0 1\.4375rem 0 4\.8125rem/);
     assert.match(bootstrap, /header:focus-within/);
     assert.match(bootstrap, /class="nav-label"/);
+    assert.match(bootstrap, /class="nav-icon"><svg/);
     assert.match(bootstrap, /id="requestsProfile"/);
     assert.doesNotMatch(bootstrap, /id="back"|Back to Jellyfin|\.nav\.back|id="categoryBack"|Back to Discover|&larr; Discover/);
     assert.match(bootstrap, /railElements/);
@@ -309,6 +322,7 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /body\.seasons = selectedSeasons\.length \? selectedSeasons\.slice\(\) : 'all'/);
     assert.match(bootstrap, /previewApi/);
     assert.match(bootstrap, /class="brand-mark"/);
+    assert.doesNotMatch(bootstrap, /requestsProfileName">Living Room<\/span>[^<]*▾/);
     assert.match(bootstrap, /id="requestsHomeTab"/);
     assert.match(bootstrap, /id="requestsTopTab"/);
     assert.doesNotMatch(bootstrap, /id="requestsFavoritesTab"/);
@@ -325,7 +339,10 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /visibleCards\(row\)\.length > 0/);
     assert.match(bootstrap, /scroll-behavior: auto/);
     assert.match(bootstrap, /\/api\/v1\/discover\/genreslider\//);
-    assert.match(bootstrap, /if \(path\.indexOf\('\/api\/v1\/discover\/genreslider\/'\) === 0\) \{\s*return \[\];/);
+    assert.match(bootstrap, /if \(path\.indexOf\('\/api\/v1\/discover\/genreslider\/'\) === 0\) \{/);
+    assert.match(bootstrap, /function genreItems\(value\)/);
+    assert.match(bootstrap, /typeof value\.error === 'string'/);
+    assert.match(bootstrap, /request = api\(category\.url\)\.then\(genreItems, genreItems\)/);
     assert.match(bootstrap, /function completeMove/);
     assert.match(bootstrap, /window\.location\.replace\(params\.return\)/);
     assert.doesNotMatch(bootstrap, /api[_-]?key/i);
