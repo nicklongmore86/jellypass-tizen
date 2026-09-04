@@ -19,8 +19,11 @@
 }
 
 .jq-search-results {
-    gap: 20px;
     margin-top: 32px;
+}
+
+.jq-search-results > * + * {
+    margin-left: 20px;
 }
 
 .jq-search-empty {

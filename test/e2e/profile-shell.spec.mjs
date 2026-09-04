@@ -39,11 +39,7 @@ test('arrow keys move across the profile row', async () => {
         await page.goto(simulatorUrl);
         await page.waitForSelector('.jq-profile-card');
 
-        // 4 profiles, not 3 -- a real household reported only being able
-        // to reach every other item (see docs/rebuild-plan.md's Phase 5
-        // notes); not yet reproduced or root-caused, but this pins down
-        // that ordinary sequential navigation through a realistic
-        // profile count works correctly here.
+        // Exercise all four household profiles with ordinary browser spacing.
         await page.keyboard.press('ArrowRight');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Bob');
         await page.keyboard.press('ArrowRight');
@@ -58,6 +54,36 @@ test('arrow keys move across the profile row', async () => {
         await browser.close();
     }
 });
+
+// Old TV Chromium silently drops flex gap. Keep the real polyfill active
+// and remove gap at runtime so modern Chromium reproduces that layout.
+for (const [key, expected] of [
+    ['ArrowRight', [0, 1, 2, 3]],
+    ['ArrowLeft', [3, 2, 1, 0]]
+]) {
+    test(`profile cards remain consecutive without flex gap: ${key}`, async () => {
+        const browser = await chromium.launch();
+        try {
+            const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+            await page.goto(simulatorUrl);
+            await page.waitForSelector('.jq-profile-card');
+            await page.addStyleTag({ content: '.jq-profiles-row { gap: 0 !important; }' });
+            assert.equal(await page.$eval('.jq-profiles-row', (row) => getComputedStyle(row).gap), '0px');
+            await page.locator('.jq-profile-card').nth(expected[0]).focus();
+            const focusedIndex = () => page.evaluate(() =>
+                Array.from(document.querySelectorAll('.jq-profile-card')).indexOf(document.activeElement)
+            );
+            const visited = [await focusedIndex()];
+            for (let step = 0; step < 3; step++) {
+                await page.keyboard.press(key);
+                visited.push(await focusedIndex());
+            }
+            assert.deepEqual(visited, expected);
+        } finally {
+            await browser.close();
+        }
+    });
+}
 
 test('selecting a profile switches instantly: no page navigation, no login step', async () => {
     const browser = await chromium.launch();

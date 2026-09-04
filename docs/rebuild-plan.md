@@ -657,7 +657,7 @@ press, and the device data killed it. This is one event, two *handlers*
 
 Neither the simulator nor desktop Chromium can show this: `dev/simulator.html`
 loads the overlay alone, so system (2) isn't there at all, and
-jellyfin-web's arrow branch is gated on its own `browser.tv` detection,
+jellyfin-web's arrow branch is gated on its own `layoutManager.tv` detection,
 false off-device. Playwright's keyboard events are also cancelable, so
 the guard works and the bug cannot appear in e2e.
 

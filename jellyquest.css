@@ -128,11 +128,14 @@ html, body {
 }
 
 .jq-rail {
-    gap: 24px;
     width: 220px;
     flex: 0 0 auto;
     padding: 48px 24px;
     background: #1c1f24;
+}
+
+.jq-rail > * + * {
+    margin-top: 24px;
 }
 
 .jq-rail-item {
@@ -220,8 +223,10 @@ html, body {
     margin: 0 0 32px;
 }
 
-.jq-profiles-row {
-    gap: 20px;
+/* Flex gap is unsupported on older Tizen Chromium. Keep positive space
+   between cards: the spatial-navigation polyfill excludes touching edges. */
+.jq-profiles-row > * + * {
+    margin-left: 20px;
 }
 
 .jq-profile-card {
@@ -265,8 +270,8 @@ html, body {
     margin: 0 0 16px;
 }
 
-.jq-home-row {
-    gap: 20px;
+.jq-home-row > * + * {
+    margin-left: 20px;
 }
 
 .jq-see-all {
@@ -303,7 +308,8 @@ html, body {
 }
 
 .jq-library-grid {
-    gap: 20px;
+    /* Legacy spelling supported by early Chromium Grid implementations. */
+    grid-gap: 20px;
 }
 
 /* ---- src/overlay/screens/search.css ---- */
@@ -328,8 +334,11 @@ html, body {
 }
 
 .jq-search-results {
-    gap: 20px;
     margin-top: 32px;
+}
+
+.jq-search-results > * + * {
+    margin-left: 20px;
 }
 
 .jq-search-empty {
@@ -358,8 +367,8 @@ html, body {
     max-width: 800px;
 }
 
-.jq-detail-actions {
-    gap: 16px;
+.jq-detail-actions > * + * {
+    margin-left: 16px;
 }
 
 .jq-detail-action {
@@ -379,7 +388,10 @@ html, body {
     width: 420px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+}
+
+.jq-playback-options > * + * {
+    margin-top: 16px;
 }
 
 .jq-playback-options h2 {
@@ -396,7 +408,10 @@ html, body {
 .jq-playback-option-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+}
+
+.jq-playback-option-group > * + * {
+    margin-top: 8px;
 }
 
 .jq-modal-option {
@@ -422,9 +437,16 @@ html, body {
 }
 
 .jq-requests-results {
-    gap: 20px;
-    margin-top: 32px;
+    /* Compensate child margins so wrapped rows keep 20px spacing and
+       the first card stays aligned, 32px below the input. */
+    margin-top: 12px;
+    margin-left: -20px;
     flex-wrap: wrap;
+}
+
+.jq-requests-results > * {
+    margin-top: 20px;
+    margin-left: 20px;
 }
 
 .jq-requests-empty {
@@ -440,7 +462,10 @@ html, body {
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+}
+
+.jq-request-card > * + * {
+    margin-top: 4px;
 }
 
 .jq-request-card-title {
@@ -453,7 +478,8 @@ html, body {
 }
 
 .jq-request-card-action {
-    margin-top: 12px;
+    /* Existing 12px action margin plus the former 4px flex gap. */
+    margin-top: 16px;
     align-self: flex-start;
 }
 

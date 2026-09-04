@@ -29,7 +29,7 @@
 //   b) jellyfin-web's keyboardnavigation -> inputManager.handleCommand
 //      -> focusManager.moveRight, a separate geometry implementation
 //      present in the shipped main.jellyfin.bundle.js, whose arrow-key
-//      branch is gated on jellyfin-web's browser.tv detection: true on
+//      branch is gated on jellyfin-web's layoutManager.tv detection: true on
 //      the TV, false in desktop Chromium.
 // Both guard on !event.defaultPrevented and both call preventDefault(),
 // so normally whichever runs first wins and one press moves focus once.

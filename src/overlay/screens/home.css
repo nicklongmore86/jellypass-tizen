@@ -13,8 +13,8 @@
     margin: 0 0 16px;
 }
 
-.jq-home-row {
-    gap: 20px;
+.jq-home-row > * + * {
+    margin-left: 20px;
 }
 
 .jq-see-all {

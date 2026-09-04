@@ -64,7 +64,7 @@ Nothing *in this repo* implements its own D-pad geometry — but
 `gulpfile.babel.js` injects the overlay into jellyfin-web's own
 `index.html`, and jellyfin-web ships its own `keyboardnavigation` →
 `inputManager` → `focusManager` navigation whose arrow-key branch is
-gated on its `browser.tv` detection: live on a television, dormant in
+gated on its `layoutManager.tv` detection: live on a television, dormant in
 desktop Chromium and therefore absent from the simulator and the
 Playwright suite. Both systems guard on `!event.defaultPrevented` and
 both call `preventDefault()`, so ordinarily whichever runs first wins.
