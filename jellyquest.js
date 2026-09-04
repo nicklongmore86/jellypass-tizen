@@ -4113,7 +4113,10 @@
     }
 
     function probeRequestsEligibility(userId, userName) {
-        var nonce = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+        var nonceValues = new Uint32Array(4);
+        window.crypto.getRandomValues(nonceValues);
+        var nonce = Array.prototype.map.call(nonceValues, function (value) { return value.toString(16); }).join('');
+        var bridgeOrigin = '';
         var frame = document.createElement('iframe');
         var timeout;
         var finished = false;
@@ -4145,7 +4148,8 @@
         }
         function receive(event) {
             var data = event.data || {};
-            if (event.source !== frame.contentWindow || data.source !== 'jellyquest-bridge' || data.nonce !== nonce) return;
+            if (event.source !== frame.contentWindow || event.origin !== bridgeOrigin
+                    || data.source !== 'jellyquest-bridge' || data.nonce !== nonce) return;
             if (data.type === 'eligibility') finish(data.eligible === true);
             else if (data.type === 'ready') finish(true);
             else if (data.type === 'error' && /rejected this Jellyfin profile|user (?:was )?not found/i.test(data.error || '')) finish(false);
@@ -4153,6 +4157,7 @@
         }
         try {
             var bridge = new URL(requestsBridgeUrl);
+            bridgeOrigin = bridge.origin;
             bridge.hash = 'mode=eligibility&id=' + encodeURIComponent(userId)
                 + '&user=' + encodeURIComponent(userName) + '&nonce=' + encodeURIComponent(nonce);
             frame.hidden = true;
