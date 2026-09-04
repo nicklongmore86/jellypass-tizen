@@ -4,6 +4,27 @@ JellyQuest is a profile-centric, Netflix-style overlay for Samsung Tizen TVs, bu
 
 This build is a **blank-canvas rebuild**: the Tizen packaging pipeline (checkout, patch, build, sign, sideload) is the original `jellyfin-tizen` fork's plumbing, kept as-is because it was already solid, but the TV-facing UI overlay was deleted and rebuilt from scratch as a small set of modular, tested files under `src/overlay/`, replacing one large hand-rolled 4,300-line file. See `docs/rebuild-plan.md` for the full history and reasoning if you're picking this project back up after a break.
 
+## Current status
+
+The rebuild is complete and confirmed working on real hardware, but it
+still lives on `claude/code-audit-issues-rha2bz` — 17 commits ahead of
+`master` and not yet merged. Two things to know before you build this
+branch:
+
+- **One open bug.** On a real TV, D-pad Right along the profile row is
+  reported to reach only every other card. It does not reproduce in the
+  simulator or under Playwright, for structural reasons explained in
+  `docs/rebuild-plan.md`.
+- **A temporary diagnostic is compiled into every build.**
+  `src/overlay/keydown-diagnostics.js` draws a yellow panel in the
+  top-right corner of the TV showing what each keypress does. It is
+  read-only and cannot affect navigation, but it is not shippable —
+  delete it and its entry in `scripts/build-overlay.mjs` once the bug is
+  understood.
+
+`docs/rebuild-plan.md`'s "Where this stands, and the path from here"
+section has the ordered next steps.
+
 The responsibilities stay deliberately separated:
 
 - **JellyQuest** (this repo) owns the Samsung TV experience — profile picker, browsing, playback, and requesting.
@@ -17,7 +38,7 @@ The responsibilities stay deliberately separated:
 
 The overlay lives entirely under `src/overlay/`, one file per concern:
 
-- `focus.js` / `focus.css` — the one shared spatial-navigation layer every screen builds on (see below). Nothing else implements its own D-pad focus logic.
+- `focus.js` / `focus.css` — the one shared spatial-navigation layer every screen builds on (see below). No other file in this repo implements its own D-pad focus logic — though jellyfin-web's own does exist underneath on real hardware, which matters; see "Focus and D-pad navigation" below.
 - `session.js` — the passwordless profile-switch primitive.
 - `cards.js` — the shared media-card renderer (Home, Library, Search).
 - `requests-bridge.js` — the low-level client for JellyPass's request bridge.
@@ -39,6 +60,19 @@ Spatial navigation is handled by the vendored, MIT-licensed [`spatial-navigation
 | `.jq-grid` | Uniform card grids — use 'grid' mode so Up/Down move by row. Only use this when a column count matches what full rows actually render; a column count no row ever fills confuses row/column math (see `docs/rebuild-plan.md`'s Phase 2/3 notes) |
 | `.jq-modal` | Overlays (e.g. Detail's Playback Options) — focus is trapped inside while open |
 | `[data-jq-autofocus]` | Marks the element a screen should focus first |
+
+**On device, JellyQuest is not the only thing listening to arrow keys.**
+Nothing *in this repo* implements its own D-pad geometry — but
+`gulpfile.babel.js` injects the overlay into jellyfin-web's own
+`index.html`, and jellyfin-web ships its own `keyboardnavigation` →
+`inputManager` → `focusManager` navigation whose arrow-key branch is
+gated on its `browser.tv` detection: live on a television, dormant in
+desktop Chromium and therefore absent from the simulator and the
+Playwright suite. Both systems guard on `!event.defaultPrevented` and
+both call `preventDefault()`, so ordinarily whichever runs first wins.
+This is the leading explanation for the open navigation bug above, and
+anything touching focus should assume both systems are present on real
+hardware.
 
 The hardware remote's Back button (Tizen keyCode `10009`; `27`/Escape doubles as Back in the desktop simulator) is handled separately in `app.js`: every screen but Home registers a "return to where I came from" handler, and an open modal's own close handler takes precedence over it (`focus.js`'s `closeOnBack()`).
 

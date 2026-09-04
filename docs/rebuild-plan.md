@@ -11,7 +11,10 @@ normally paced, so the remote is not sending two events per press. The
 live hypothesis is now one event moving focus twice, because on device
 (and never in the simulator) two independent arrow-key navigation
 systems are live at once; a read-only diagnostic measuring exactly that
-is in place waiting on a photo from the TV. This file is the handoff/plan doc for continuing from
+is in place waiting on a photo from the TV. **For the current state and
+the ordered path from here, jump to "Where this stands, and the path
+from here" below** — the phase-by-phase history in between is reference,
+not the plan. This file is the handoff/plan doc for continuing from
 a fresh session (local CLI or otherwise)
 without needing the original conversation history.
 
@@ -681,6 +684,96 @@ Series/Sports detail support (deferred in Phase 3) and TV/season-aware
 Requests (deferred in Phase 4) remain genuinely separate follow-up work,
 not part of either the original rebuild or this navigation
 investigation.
+
+## Where this stands, and the path from here
+
+**State.** Phases 0 through 5 are done on
+`claude/code-audit-issues-rha2bz`: **17 commits ahead of `master`, 0
+behind, never merged, no open PR.** `npm test` 7/7 and
+`npm run test:e2e` 29/29 green. The rebuild itself is confirmed working
+on real hardware. Two things are outstanding: the D-pad follow-up bug
+described at the end of Phase 5, and the **temporary on-screen
+diagnostic that is currently compiled into every build** (first entry of
+`JS_FILES` in `scripts/build-overlay.mjs`) — anyone packaging this
+branch right now gets a yellow panel in the top-right corner of the TV.
+That is deliberate and must be removed before this branch ships.
+
+**The path, in order.**
+
+1. **Get the photo.** This is the only step that needs real hardware,
+   and everything after it depends on what it says.
+
+   ```sh
+   npm run build:full && npm run package:wgt   # needs Tizen Studio
+   npm run install:tv -- YOUR_TV_IP
+   ```
+
+   Open the profile picker and press Right along the row. Each press
+   adds two lines to the panel:
+
+   ```
+   #3 ArrowRight kc=39 rpt=N cancelable=NO 812ms
+      dP cap=N late=N | Alex[0] > Kids[2] > Kids[2] (+2) <-- DOUBLE MOVE
+   ```
+
+   `cancelable` is the whole question. `dP cap`/`late` are
+   `defaultPrevented` as seen in the capture phase and in a bubble-phase
+   `window` listener registered after the polyfill's. The three focus
+   readings are label and sibling index before dispatch, at that late
+   listener, and after dispatch unwinds.
+
+2. **Branch on what the photo shows.** The fixes are different and
+   mutually exclusive, which is why none of them is written yet:
+
+   - **`cancelable=NO` with `DOUBLE MOVE`** — the two-navigation-systems
+     cause is confirmed. The fix is to make JellyQuest the only
+     arrow-key consumer on device: either disable jellyfin-web's
+     `keyboardnavigation` through a third narrow patch in
+     `scripts/patch-jellyfin-web.mjs` (same fail-fast, pinned-revision
+     style as the two patches already there), or stop relying on
+     `preventDefault()` as the handoff between the two systems.
+     Note that ordering alone cannot fix it: under `cancelable:false`
+     the polyfill's own `preventDefault()` is equally a no-op, so
+     "whichever registers first wins" is exactly the mechanism that has
+     failed. One of the two consumers has to actually stop handling
+     arrows.
+   - **`cancelable=YES`, one focus move per press** — this theory is
+     dead too, and the before/after indexes then say whether the
+     polyfill moved focus more than one position on its own. That points
+     at its geometry/candidate selection against this specific layout
+     (compare `.jq-row` here against the `.jq-grid` column-count caveat
+     under "Resolved decisions").
+   - **No jump at all, one card per press** — then keydown handling is
+     not the bug, and the thing to look at is what re-renders or
+     re-focuses the row: `JellyQuestFocus.focusFirst()` and the
+     re-render when `listProfiles()` resolves.
+
+   In every branch: **do not reach for a timing or debounce
+   heuristic.** That was tried once without device data, broke 7 e2e
+   tests, and was reverted; no JS-visible timestamp separates a hardware
+   artifact from a legitimate fast press.
+
+3. **Remove the diagnostic.** Delete `src/overlay/keydown-diagnostics.js`
+   and its entry in `scripts/build-overlay.mjs`'s `JS_FILES`, run
+   `npm run build:overlay`, and commit the regenerated `jellyquest.js`.
+   The drift check in `test/configuration.test.mjs` catches a forgotten
+   rebuild.
+
+4. **Merge to `master`.** The whole rebuild has lived on this branch
+   through all six phases and has never landed.
+
+5. **Then the deferred feature work**, which is genuinely separate from
+   all of the above: Series/Sports detail support (deferred in Phase 3)
+   and TV/season-aware Requests (deferred in Phase 4).
+
+**Notes for a fresh machine.** `npm run test:e2e` can fail on every test
+with a Playwright browser-revision mismatch (the pinned Playwright wants
+one `chromium_headless_shell` build, the cache holds another); `npx
+playwright install chromium` fixes it and it is environmental, not a
+code failure. `build:full` and `package:wgt` need Tizen Studio and a
+Samsung certificate profile, so they only run on a real workstation —
+`build:overlay`, `npm test`, `npm run test:e2e`, and the simulator never
+need either.
 
 ## Verification
 
