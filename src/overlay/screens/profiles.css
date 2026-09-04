@@ -13,8 +13,10 @@
     margin: 0 0 32px;
 }
 
-.jq-profiles-row {
-    gap: 20px;
+/* Flex gap is unsupported on older Tizen Chromium. Keep positive space
+   between cards: the spatial-navigation polyfill excludes touching edges. */
+.jq-profiles-row > * + * {
+    margin-left: 20px;
 }
 
 .jq-profile-card {

@@ -19,5 +19,6 @@
 }
 
 .jq-library-grid {
-    gap: 20px;
+    /* Legacy spelling supported by early Chromium Grid implementations. */
+    grid-gap: 20px;
 }

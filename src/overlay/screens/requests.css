@@ -9,9 +9,16 @@
 }
 
 .jq-requests-results {
-    gap: 20px;
-    margin-top: 32px;
+    /* Compensate child margins so wrapped rows keep 20px spacing and
+       the first card stays aligned, 32px below the input. */
+    margin-top: 12px;
+    margin-left: -20px;
     flex-wrap: wrap;
+}
+
+.jq-requests-results > * {
+    margin-top: 20px;
+    margin-left: 20px;
 }
 
 .jq-requests-empty {
@@ -27,7 +34,10 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+}
+
+.jq-request-card > * + * {
+    margin-top: 4px;
 }
 
 .jq-request-card-title {
@@ -40,7 +50,8 @@
 }
 
 .jq-request-card-action {
-    margin-top: 12px;
+    /* Existing 12px action margin plus the former 4px flex gap. */
+    margin-top: 16px;
     align-self: flex-start;
 }
 

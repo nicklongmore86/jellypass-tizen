@@ -17,8 +17,8 @@
     max-width: 800px;
 }
 
-.jq-detail-actions {
-    gap: 16px;
+.jq-detail-actions > * + * {
+    margin-left: 16px;
 }
 
 .jq-detail-action {
@@ -38,7 +38,10 @@
     width: 420px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+}
+
+.jq-playback-options > * + * {
+    margin-top: 16px;
 }
 
 .jq-playback-options h2 {
@@ -55,7 +58,10 @@
 .jq-playback-option-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+}
+
+.jq-playback-option-group > * + * {
+    margin-top: 8px;
 }
 
 .jq-modal-option {

@@ -4,11 +4,14 @@
 }
 
 .jq-rail {
-    gap: 24px;
     width: 220px;
     flex: 0 0 auto;
     padding: 48px 24px;
     background: #1c1f24;
+}
+
+.jq-rail > * + * {
+    margin-top: 24px;
 }
 
 .jq-rail-item {
