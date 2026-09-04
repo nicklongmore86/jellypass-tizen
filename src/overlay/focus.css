@@ -1,0 +1,71 @@
+/* JellyQuest focus/navigation conventions.
+ *
+ * Pairs with src/overlay/focus.js. These custom properties are read by
+ * the vendored spatial-navigation-polyfill, not by the browser's own
+ * layout engine -- they configure how arrow-key navigation behaves for
+ * each container, per the CSS Spatial Navigation draft spec.
+ */
+
+/* Structural layout only -- colors, sizing, and spacing belong to each
+   screen's own stylesheet, not here. */
+.jq-rail {
+    display: flex;
+    flex-direction: column;
+    --spatial-navigation-contain: auto;
+}
+
+.jq-row {
+    display: flex;
+    --spatial-navigation-contain: auto;
+}
+
+.jq-grid {
+    display: grid;
+    --spatial-navigation-contain: auto;
+    --spatial-navigation-function: grid;
+}
+
+.jq-modal {
+    --spatial-navigation-contain: contain;
+}
+
+.jq-modal-backdrop {
+    position: fixed;
+    /* `inset` shorthand only landed in Chromium 87 (2020); this project's
+       documented floor is Tizen 4.6 (Chromium ~M56-63) -- an old WebKit
+       silently drops the unsupported declaration, which falls this back
+       to its static in-flow position/size instead of covering the
+       screen (found via docs/rebuild-plan.md's Phase 5 on-screen
+       diagnostics on real hardware -- z-index/background still apply
+       fine since those aren't part of the dropped declaration, only
+       top/right/bottom/left are wrong, which is exactly what that looks
+       like). Longhand has been supported forever. */
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+/* The `hidden` attribute alone loses to the `display: flex` rule above,
+   since author styles always beat the UA stylesheet's default [hidden]
+   rule regardless of selector specificity (found the hard way in
+   Phase 1) -- reassert it explicitly. */
+.jq-modal-backdrop[hidden] {
+    display: none;
+}
+
+/* A single, consistent focus style every screen inherits instead of each
+ * one defining (or forgetting to define) its own. */
+.jq-focusable {
+    outline: none;
+}
+
+.jq-focusable:focus {
+    outline: 0.15rem solid #00a4dc;
+    outline-offset: 0.1rem;
+}

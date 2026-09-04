@@ -1,0 +1,30 @@
+.jq-home-screen {
+    padding: 48px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.jq-home-row-section {
+    margin-bottom: 32px;
+}
+
+.jq-home-row-heading {
+    font-size: 24px;
+    margin: 0 0 16px;
+}
+
+.jq-home-row {
+    gap: 20px;
+}
+
+.jq-see-all {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9aa0a8;
+}
+
+.jq-home-empty {
+    color: #9aa0a8;
+    font-size: 20px;
+}

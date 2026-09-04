@@ -1,0 +1,44 @@
+.jq-media-card {
+    width: 220px;
+    height: 130px;
+    flex: 0 0 auto;
+    background: #262b32;
+    border-radius: 8px;
+    border: none;
+    color: #f2f2f2;
+    text-align: left;
+    padding: 16px;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.jq-media-card-title {
+    font-size: 18px;
+    display: block;
+}
+
+.jq-media-card-meta {
+    display: block;
+    margin-top: 4px;
+    color: #9aa0a8;
+    font-size: 14px;
+}
+
+.jq-media-card-progress {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 10px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.jq-media-card-progress-bar {
+    height: 100%;
+    background: #00a4dc;
+}

@@ -15,7 +15,11 @@ command -v tizen >/dev/null 2>&1 || {
     exit 1
 }
 
-cp "${project_dir}/integration/jellyseerr-login.html" "${project_dir}/www/jellyseerr-login.html"
+# The Requests page is rebuilt as part of the JellyQuest overlay (see the
+# blank-canvas rebuild plan); until it lands, there is nothing to copy here.
+if [[ -f "${project_dir}/integration/jellyseerr-login.html" ]]; then
+    cp "${project_dir}/integration/jellyseerr-login.html" "${project_dir}/www/jellyseerr-login.html"
+fi
 
 mkdir -p "${artifact_dir}"
 rm -f "${artifact_path}"

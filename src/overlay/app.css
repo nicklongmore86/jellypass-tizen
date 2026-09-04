@@ -1,0 +1,45 @@
+/* #jellyquest-root is appended directly to <body> (see app.js), so
+   <html> and <body> are its only ancestors -- and `position: fixed` is
+   positioned relative to the nearest ancestor that has a `transform`,
+   `filter`, `perspective`, or `contain: layout/paint/content/strict`
+   set, not guaranteed the real viewport. This was the leading theory
+   for #jellyquest-root not covering the screen on real hardware before
+   on-screen diagnostics (Phase 5) found the actual cause below (`inset`
+   unsupported) -- ruled out as the culprit (the diagnostics reported
+   `transform: none` on both even with this reset already in place, and
+   the layout was still broken), but kept as harmless insurance: once
+   JellyQuest takes over, jellyfin-web's own transition effects
+   underneath it don't matter either way. */
+html, body {
+    transform: none !important;
+    filter: none !important;
+    perspective: none !important;
+    contain: none !important;
+}
+
+/* JellyQuest creates its own root container (see app.js) and, per the
+   Phase 1 architecture decision, owns the whole visible TV surface
+   rather than trying to coexist visually with jellyfin-web's own
+   rendered UI underneath it. */
+#jellyquest-root {
+    position: fixed;
+    /* `inset` shorthand only landed in Chromium 87 (2020); this
+       project's documented floor is Tizen 4.6 (Chromium ~M56-63). The
+       actual, confirmed root cause of #jellyquest-root not covering the
+       screen on real hardware (Phase 5 on-screen diagnostics): an old
+       WebKit silently drops the unsupported `inset: 0` declaration,
+       leaving top/right/bottom/left unset -- so the element falls back
+       to its static in-flow position and content-based width instead of
+       the viewport, while z-index/background (unaffected properties on
+       the same rule) still apply fine, exactly matching what was
+       observed (correct background-color and z-index, wrong
+       top/width). Longhand has been supported forever. */
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: #14161a;
+    color: #f2f2f2;
+    font-family: Arial, Helvetica, sans-serif;
+    z-index: 2147483000;
+}

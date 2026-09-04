@@ -1,20 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# dev/simulator.html + dev/fixtures/* are the actual dev loop now (see
+# docs/rebuild-plan.md, Phase 1) -- serving the whole project root lets
+# its relative references (../tizen.js, ../jellyquest.js/.css,
+# fixtures/*) resolve exactly the way the Playwright harness's own local
+# server (test/e2e/support/server.mjs) already relies on.
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 preview_port="${JELLYQUEST_PREVIEW_PORT:-8090}"
-preview_dir="$(mktemp -d)"
 
-cleanup() {
-    rm -rf "${preview_dir}"
-}
-trap cleanup EXIT
-
-cp "${project_dir}/integration/"*.html "${preview_dir}/"
-cp "${project_dir}/integration/"*.css "${preview_dir}/"
-cp "${project_dir}/integration/"*.js "${preview_dir}/"
-cp "${project_dir}/jellyquest.css" "${project_dir}/jellyquest.js" "${project_dir}/icon.png" "${preview_dir}/"
-
-echo "JellyQuest TV simulator: http://127.0.0.1:${preview_port}/tv-simulator.html"
+echo "JellyQuest TV simulator: http://127.0.0.1:${preview_port}/dev/simulator.html"
 echo "Press Ctrl+C to stop the preview server."
-python3 -m http.server "${preview_port}" --bind 127.0.0.1 --directory "${preview_dir}"
+python3 -m http.server "${preview_port}" --bind 127.0.0.1 --directory "${project_dir}"

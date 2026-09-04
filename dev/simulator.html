@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JellyQuest TV simulator</title>
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        background: #14161a;
+        overflow: hidden;
+    }
+    /* JellyQuest renders into #jellyquest-root (see src/overlay/app.js)
+       as position:fixed, which fills the browser viewport the same way
+       it will fill a real jellyfin-web page -- open this at a
+       1920x1080 viewport to match the platform's target resolution. */
+    #tv-scale-note {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        font-size: 12px;
+        color: #888;
+        z-index: 2147483001;
+    }
+</style>
+</head>
+<body>
+<div id="tv-scale-note">Open at a 1920x1080 viewport to match the TV's target resolution</div>
+
+<script src="fixtures/tizen-stub.js"></script>
+<script src="fixtures/api-client-stub.js"></script>
+<script src="fixtures/playback-manager-stub.js"></script>
+<script src="fixtures/requests-bridge-fixture.js"></script>
+<script src="../tizen.js"></script>
+<link rel="stylesheet" href="../jellyquest.css">
+<script src="../jellyquest.js"></script>
+</body>
+</html>

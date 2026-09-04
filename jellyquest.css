@@ -1,1937 +1,478 @@
-/* JellyQuest login policy. This loads before Jellyfin Web and does not depend on server branding. */
-#loginPage .manualLoginForm,
-#loginPage .readOnlyContent,
-#loginPage .btnManual,
-#loginPage .btnQuick,
-#loginPage .btnForgotPassword {
-    display: none !important;
-    visibility: hidden !important;
-}
+/* GENERATED FILE -- do not edit directly.
+   Edit src/overlay/*.css and re-run `node scripts/build-overlay.mjs` (or `npm run build`). */
 
-#loginPage .visualLoginForm {
-    margin-inline: auto;
-    max-width: 72rem;
-}
+/* ---- src/overlay/focus.css ---- */
+/* JellyQuest focus/navigation conventions.
+ *
+ * Pairs with src/overlay/focus.js. These custom properties are read by
+ * the vendored spatial-navigation-polyfill, not by the browser's own
+ * layout engine -- they configure how arrow-key navigation behaves for
+ * each container, per the CSS Spatial Navigation draft spec.
+ */
 
-.jellyquestProfileTrigger {
-    align-items: center;
-    background-image: none !important;
-    cursor: pointer;
-    display: inline-flex !important;
-    font-size: 1.25em !important;
-    height: 1.8em !important;
-    min-width: 0;
-    overflow: visible !important;
-    position: relative;
-    width: auto !important;
-}
-
-.jellyquestBrandIcon {
-    display: block;
-    flex: 0 0 auto;
-    height: 1.35em;
-    object-fit: contain;
-    width: 1.35em;
-}
-
-.jellyquestCurrentProfileName {
-    color: #fff;
-    display: inline-block;
-    font-size: 1em;
-    font-weight: 500;
-    margin-left: .55em;
-    max-width: 12em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-shadow: 0 .08em .2em rgba(0, 0, 0, .8);
-    white-space: nowrap;
-}
-
-.jellyquestProfileTrigger::after {
-    content: none;
-    display: none;
-}
-
-.jellyquestProfileTrigger:focus {
-    filter: drop-shadow(0 0 .22em #00a4dc);
-    outline: .12em solid #fff;
-    outline-offset: .22em;
-}
-
-.jellyquestRequestsTab:focus {
-    box-shadow: inset 0 -3px #00a4dc !important;
-    color: #fff !important;
-    outline: none !important;
-}
-
-.jellyquestProfileSwitcher {
-    background: #181818;
-    border: .08em solid rgba(255, 255, 255, .22);
-    border-radius: .45em;
-    box-shadow: 0 .8em 2.4em rgba(0, 0, 0, .72);
-    padding: .55em;
-    position: fixed;
-    width: 20em;
-    z-index: 100000;
-}
-
-.jellyquestProfileSwitcher::before {
-    background: #181818;
-    border-left: .08em solid rgba(255, 255, 255, .22);
-    border-top: .08em solid rgba(255, 255, 255, .22);
-    content: '';
-    height: .75em;
-    left: 1.35em;
-    position: absolute;
-    top: -.43em;
-    transform: rotate(45deg);
-    width: .75em;
-}
-
-.jellyquestProfileSwitcher[hidden] {
-    display: none !important;
-}
-
-.jellyquestProfilePanel {
-    width: 100%;
-}
-
-.jellyquestProfileGrid {
+/* Structural layout only -- colors, sizing, and spacing belong to each
+   screen's own stylesheet, not here. */
+.jq-rail {
     display: flex;
     flex-direction: column;
-    gap: .25em;
+    --spatial-navigation-contain: auto;
 }
 
-.jellyquestProfileCard {
-    align-items: center;
-    background: #202020;
-    border: 0;
-    border-radius: .3em;
-    color: #ddd;
+.jq-row {
     display: flex;
-    padding: .55em .7em;
-    text-align: left;
-    width: 100%;
+    --spatial-navigation-contain: auto;
 }
 
-.jellyquestProfileAvatar {
-    align-items: center;
-    background: linear-gradient(145deg, #323e49, #12171c);
-    background-position: center;
-    background-size: cover;
-    border: .16em solid transparent;
-    border-radius: .3em;
-    box-sizing: border-box;
-    color: #fff;
-    display: flex;
-    flex: 0 0 auto;
-    font-size: 1.25em;
-    font-weight: 600;
-    height: 3.2em;
-    justify-content: center;
-    transition: border-color .12s ease, transform .12s ease;
-    width: 3.2em;
-}
-
-.jellyquestProfileName {
-    display: inline-block;
-    flex: 1 1 auto;
-    font-size: 1.25em;
-    margin-left: .8em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jellyquestProfileCard:focus {
-    background: #333;
-    color: #fff;
-    outline: .14em solid #fff;
-    outline-offset: -.14em;
-}
-
-.jellyquestProfileCard:focus .jellyquestProfileAvatar {
-    border-color: #00a4dc;
-}
-
-.jellyquestProfileCard.is-current .jellyquestProfileAvatar {
-    border-color: #00a4dc;
-}
-
-.jellyquestProfileCurrent {
-    background: #00a4dc;
-    border-radius: 50%;
-    color: #fff;
-    display: inline-block;
-    flex: 0 0 auto;
-    font-size: .9em;
-    height: 1.65em;
-    line-height: 1.65em;
-    text-align: center;
-    width: 1.65em;
-}
-
-.jellyquestProfileStatus {
-    color: #bbb;
-    font-size: 1em;
-    min-height: 0;
-    padding: .45em .55em;
-}
-
-.jellyquestProfileStatus:empty {
-    display: none;
-}
-
-.jellyquestHasLibraryRail .headerSearchButton,
-.jellyquestHasLibraryRail .headerUserButton,
-.jellyquestRailSource {
-    display: none !important;
-}
-
-.jellyquestHasLibraryRail .skinHeader {
-    font-size: 16px !important;
-    height: 72px !important;
-    min-height: 72px !important;
-    z-index: 1001 !important;
-}
-
-.jellyquestHasLibraryRail .skinHeader .headerTop {
-    height: 72px !important;
-}
-
-.jellyquestHasLibraryRail .skinHeader .headerTabs {
-    align-items: center !important;
-    display: flex !important;
-    height: 72px !important;
-    justify-content: center !important;
-    left: 50% !important;
-    margin: 0 !important;
-    position: absolute !important;
-    top: 0 !important;
-    transform: translateX(-50%) !important;
-    width: auto !important;
-}
-
-.jellyquestHasLibraryRail .skinHeader .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab) {
-    color: #fff !important;
-}
-
-.jellyquestHiddenFavoritesTab {
-    display: none !important;
-}
-
-.jellyquestMyListSection {
-    box-sizing: border-box;
-    margin: 1.4em 0 2em;
-    width: 100%;
-}
-
-.jellyquestMyListSection[hidden] {
-    display: none !important;
-}
-
-.jellyquestMyListHeading {
-    align-items: baseline;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 3.3%;
-}
-
-.jellyquestMyListHeading h2 {
-    font-size: 1.8em;
-    font-weight: 500;
-    margin: 0 0 .65em;
-}
-
-.jellyquestMyListHeading span {
-    color: #9298a3;
-    font-size: 1em;
-}
-
-.jellyquestMyListCards {
+.jq-grid {
     display: grid;
-    gap: 1.15em;
-    grid-auto-columns: minmax(10.5em, 13.2vw);
-    grid-auto-flow: column;
-    overflow-x: auto;
-    padding: .3em 3.3% .8em;
-    scrollbar-width: none;
+    --spatial-navigation-contain: auto;
+    --spatial-navigation-function: grid;
 }
 
-.jellyquestMyListCards::-webkit-scrollbar {
-    display: none;
+.jq-modal {
+    --spatial-navigation-contain: contain;
 }
 
-.jellyquestMyListCard {
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    text-decoration: none;
-}
-
-.jellyquestMyListImage {
-    align-items: flex-end;
-    background-color: #20242a;
-    background-position: center;
-    background-size: cover;
-    border: .18em solid transparent;
-    border-radius: .45em;
-    box-shadow: 0 .45em 1.2em rgba(0, 0, 0, .45);
-    box-sizing: border-box;
-    display: flex;
-    font-size: 1.25em;
-    font-weight: 700;
-    height: 15.5em;
-    overflow: hidden;
-    padding: .9em;
-    transition: border-color .12s ease, transform .12s ease;
-}
-
-.jellyquestMyListImage.is-placeholder {
-    background: linear-gradient(145deg, #294f61, #191c22 72%);
-}
-
-.jellyquestMyListTitle {
-    font-size: 1.08em;
-    margin: .58em 0 .16em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jellyquestMyListMeta {
-    color: #9ca2aa;
-    font-size: .92em;
-}
-
-.jellyquestMyListCard:focus {
-    outline: none;
-}
-
-.jellyquestMyListCard:focus .jellyquestMyListImage {
-    border-color: #fff;
-    box-shadow: 0 .65em 2em rgba(0, 0, 0, .8);
-    transform: scale(1.045);
-}
-
-.jellyquestMyListCard:focus .jellyquestMyListTitle {
-    color: #00c7db;
-}
-
-.itemDetailPage .jellyquestDetailActionLabel {
-    font-size: .84em;
-    margin-top: .58em;
-    max-width: 10em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.itemDetailPage .jellyquestDetailPlaybackAction[hidden] {
-    display: none !important;
-}
-
-.itemDetailPage .jellyquestNativeSeriesPlayback {
-    display: none !important;
-}
-
-.itemDetailPage .trackSelections {
-    display: none !important;
-}
-
-.jellyquestPlaybackOptionsBackdrop {
-    align-items: center;
-    background: rgba(0, 0, 0, .76);
-    bottom: 0;
-    display: flex;
-    justify-content: center;
-    left: 0;
+.jq-modal-backdrop {
     position: fixed;
-    right: 0;
+    /* `inset` shorthand only landed in Chromium 87 (2020); this project's
+       documented floor is Tizen 4.6 (Chromium ~M56-63) -- an old WebKit
+       silently drops the unsupported declaration, which falls this back
+       to its static in-flow position/size instead of covering the
+       screen (found via docs/rebuild-plan.md's Phase 5 on-screen
+       diagnostics on real hardware -- z-index/background still apply
+       fine since those aren't part of the dropped declaration, only
+       top/right/bottom/left are wrong, which is exactly what that looks
+       like). Longhand has been supported forever. */
     top: 0;
-    z-index: 100001;
-}
-
-.jellyquestPlaybackOptionsBackdrop[hidden] {
-    display: none !important;
-}
-
-.jellyquestPlaybackOptions {
-    background: #20242a;
-    border: .08em solid #59616d;
-    border-radius: .55em;
-    box-shadow: 0 1em 3em rgba(0, 0, 0, .82);
-    box-sizing: border-box;
-    max-height: 82vh;
-    min-width: 32em;
-    overflow-y: auto;
-    padding: 1.1em;
-    width: 38em;
-}
-
-.jellyquestPlaybackOptions header {
-    align-items: center;
-    display: flex;
-    margin: 0 .25em 1em;
-}
-
-.jellyquestPlaybackOptions h2 {
-    font-size: 1.8em;
-    font-weight: 500;
-    margin: 0;
-}
-
-.jellyquestPlaybackOptionsContext {
-    color: #aeb4bc;
-    font-size: 1em;
-    margin: .3em 0 0;
-}
-
-.jellyquestPlaybackOptionsBack {
-    background: transparent;
-    border: 0;
-    border-radius: .25em;
-    color: #fff;
-    font-size: 2.5em;
-    margin-right: .35em;
-    min-width: 1.25em;
-}
-
-.jellyquestPlaybackOptionButton {
-    align-items: center;
-    background: #292e35;
-    border: .08em solid transparent;
-    border-radius: .35em;
-    color: #fff;
-    display: flex;
-    font-family: inherit;
-    font-size: 1.25em;
-    justify-content: space-between;
-    margin-top: .7em;
-    min-height: 3.4em;
-    padding: .7em 1em;
-    text-align: left;
-    width: 100%;
-}
-
-.jellyquestPlaybackOptionValue {
-    color: #aeb4bc;
-    margin-left: 2em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jellyquestPlaybackOptionButton.is-selected::after {
-    color: #00c7db;
-    content: '\2713';
-    margin-left: 1em;
-}
-
-.jellyquestPlaybackOptionButton:focus,
-.jellyquestPlaybackOptionsBack:focus {
-    background: #3a414b;
-    outline: .16em solid #00a4dc;
-    outline-offset: .1em;
-}
-
-.jellyquestPlaybackOptionsDone {
-    justify-content: center;
-    margin-top: 1em;
-}
-
-body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
-    box-sizing: border-box;
-    margin-left: 60px;
-    width: calc(100% - 60px);
-}
-
-.jellyquestLibraryRail {
-    background: rgba(14, 14, 16, .96);
-    bottom: 0;
-    box-shadow: .25em 0 1em rgba(0, 0, 0, .35);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    left: 0;
-    overflow-x: hidden;
-    overflow-y: hidden;
-    font-size: 16px;
-    padding: 8px 0;
-    position: fixed;
-    top: 72px;
-    transition: width .16s ease, box-shadow .16s ease;
-    width: 60px;
-    z-index: 1000;
-}
-
-.jellyquestLibraryRail::-webkit-scrollbar {
-    display: none;
-}
-
-.jellyquestLibraryRail > .jellyquestRailItem:first-child {
-    margin-top: auto;
-}
-
-.jellyquestLibraryRail > .jellyquestRailItem:last-child {
-    margin-bottom: auto;
-}
-
-.jellyquestLibraryRail:focus-within,
-.jellyquestLibraryRail:hover,
-.jellyquestLibraryRail.is-expanded {
-    background: linear-gradient(90deg,
-        rgba(14, 14, 16, .99) 0,
-        rgba(14, 14, 16, .99) 60px,
-        rgba(22, 24, 28, .98) 60px,
-        rgba(22, 24, 28, .98) 100%);
-    box-shadow: .45em 0 1.6em rgba(0, 0, 0, .3);
-    width: 256px;
-}
-
-.jellyquestRailItem {
-    align-items: center;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    box-sizing: border-box;
-    color: rgba(255, 255, 255, .78);
-    display: flex;
-    flex: 0 0 3.4em;
-    font-family: inherit;
-    font-size: 1.25em;
-    height: 3.4em;
-    overflow: hidden;
-    padding: 0 .82em;
-    text-align: left;
-    text-decoration: none;
-    white-space: nowrap;
-    width: 256px;
-}
-
-.jellyquestRailIcon {
-    display: block;
-    flex: 0 0 1.35em;
-    height: 1.35em;
-    width: 1.35em;
-}
-
-.jellyquestRailIcon svg {
-    fill: none;
-    height: 100%;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.8;
-    width: 100%;
-}
-
-.jellyquestRailLabel {
-    font-size: 1em;
-    margin-left: 1em;
-    opacity: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: opacity .1s ease;
-    white-space: nowrap;
-}
-
-.jellyquestLibraryRail:focus-within .jellyquestRailLabel,
-.jellyquestLibraryRail:hover .jellyquestRailLabel,
-.jellyquestLibraryRail.is-expanded .jellyquestRailLabel {
-    opacity: 1;
-}
-
-.jellyquestRailItem.is-active {
-    color: #00a4dc;
-}
-
-.jellyquestRailItem:focus {
-    background: linear-gradient(90deg,
-        #333 0,
-        #333 60px,
-        #292d33 60px,
-        #292d33 100%);
-    color: #fff;
-    outline: .14em solid #fff;
-    outline-offset: -.14em;
-}
-
-body.jellyquestSettingsActive {
-    overflow: hidden !important;
-}
-
-.jellyquestSettingsRoot {
-    background: #0e1013;
-    bottom: 0;
-    box-sizing: border-box;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    font-size: 16px;
-    left: 60px;
-    overflow: hidden;
-    padding: 30px 48px 26px;
-    position: fixed;
     right: 0;
-    top: 72px;
-    z-index: 999;
-}
-
-.jellyquestSettingsHeading {
-    align-items: baseline;
-    display: flex;
-    gap: 20px;
-    height: 64px;
-}
-
-.jqPageBack {
-    align-items: center;
-    background: #20242a;
-    border: 2px solid #59616d;
-    border-radius: 7px;
-    color: #fff;
-    display: inline-flex;
-    flex: 0 0 auto;
-    font-family: inherit;
-    font-size: 18px;
-    font-weight: 600;
-    gap: 6px;
-    min-height: 46px;
-    padding: 7px 16px 7px 11px;
-}
-
-.jqPageBack span {
-    font-size: 31px;
-    font-weight: 400;
-    line-height: 19px;
-}
-
-.jqPageBack:focus {
-    background: #fff;
-    border-color: #fff;
-    color: #111;
-    outline: 3px solid #00a4dc;
-    outline-offset: 3px;
-}
-
-.jellyquestSettingsHeading h1 {
-    font-size: 38px;
-    font-weight: 600;
-    margin: 0;
-}
-
-.jellyquestSettingsHeading p {
-    color: #9298a3;
-    font-size: 18px;
-    margin: 0;
-}
-
-.jellyquestSettingsLayout {
-    display: grid;
-    gap: 38px;
-    grid-template-columns: 270px minmax(0, 1fr);
-    height: calc(100% - 130px);
-    min-height: 0;
-}
-
-.jellyquestSettingsCategories {
-    align-self: start;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.jellyquestSettingsCategory {
-    align-items: center;
-    background: #191c22;
-    border: 2px solid transparent;
-    border-radius: 7px;
-    color: #aeb3bb;
-    display: flex;
-    font-family: inherit;
-    font-size: 20px;
-    font-weight: 600;
-    gap: 15px;
-    min-height: 65px;
-    padding: 10px 16px;
-    text-align: left;
-    width: 100%;
-}
-
-.jqSettingsCategoryIcon {
-    align-items: center;
-    border: 2px solid currentColor;
-    border-radius: 50%;
-    display: inline-flex;
-    flex: 0 0 30px;
-    font-size: 13px;
-    font-weight: 700;
-    height: 30px;
-    justify-content: center;
-}
-
-.jellyquestSettingsCategory.is-selected {
-    background: #25303a;
-    border-color: #00a4dc;
-    color: #fff;
-}
-
-.jellyquestSettingsCategory:focus {
-    background: #343a43;
-    border-color: #fff;
-    outline: 3px solid #00a4dc;
-    outline-offset: 3px;
-}
-
-.jellyquestSettingsContent {
-    min-height: 0;
-    overflow-y: auto;
-    padding: 0 8px 28px 0;
-    scrollbar-width: none;
-}
-
-.jellyquestSettingsContent::-webkit-scrollbar {
-    display: none;
-}
-
-.jqSettingsSectionTitle {
-    font-size: 31px;
-    font-weight: 600;
-    margin: 0 0 4px;
-}
-
-.jqSettingsSectionDescription {
-    color: #a5abb4;
-    font-size: 18px;
-    margin: 0 0 22px;
-}
-
-.jellyquestSettingsGrid {
-    display: grid;
-    gap: 18px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.jellyquestSettingsControl {
-    align-items: center;
-    background: #191c22;
-    border: 2px solid #303640;
-    border-radius: 7px;
-    color: #fff;
-    display: flex;
-    font-family: inherit;
-    justify-content: space-between;
-    min-height: 86px;
-    padding: 13px 17px;
-    text-align: left;
-}
-
-.jellyquestSettingsControl:focus {
-    background: #292f38;
-    border-color: #fff;
-    outline: 3px solid #00a4dc;
-    outline-offset: 3px;
-}
-
-.jellyquestSettingsControl.is-readonly {
-    cursor: default;
-    opacity: 1;
-}
-
-.jqSettingsControlCopy {
-    display: block;
-    min-width: 0;
-    padding-right: 18px;
-}
-
-.jqSettingsControlLabel {
-    display: block;
-    font-size: 19px;
-    font-weight: 600;
-    margin-bottom: 5px;
-}
-
-.jqSettingsControlHelp {
-    color: #9298a3;
-    display: block;
-    font-size: 14px;
-    line-height: 1.3;
-}
-
-.jqSettingsControlValue {
-    color: #00c7db;
-    flex: 0 0 auto;
-    font-size: 17px;
-    font-weight: 700;
-    max-width: 210px;
-    overflow: hidden;
-    text-align: right;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jellyquestSettingsControl:not(.is-readonly):not(.is-toggle) .jqSettingsControlValue::after {
-    color: #9ba2ac;
-    content: '  ▾';
-}
-
-.jellyquestSettingsControl.is-toggle .jqSettingsControlValue {
-    background: #343a43;
-    border-radius: 18px;
-    min-width: 45px;
-    padding: 7px 11px;
-    text-align: center;
-}
-
-.jellyquestSettingsControl.is-toggle[aria-pressed="true"] .jqSettingsControlValue {
-    background: #007ea8;
-    color: #fff;
-}
-
-.jellyquestSettingsFooter {
-    align-items: center;
-    background: #0e1013;
     bottom: 0;
-    display: flex;
-    gap: 18px;
-    height: 66px;
-    left: 318px;
-    position: absolute;
-    right: 48px;
-}
-
-.jellyquestSettingsStatus {
-    color: #aeb3bb;
-    flex: 1 1 auto;
-    font-size: 16px;
-}
-
-.jellyquestSettingsFooter button {
-    background: #262b33;
-    border: 2px solid #4f5661;
-    border-radius: 7px;
-    color: #fff;
-    font-family: inherit;
-    font-size: 18px;
-    font-weight: 600;
-    min-height: 48px;
-    padding: 9px 22px;
-}
-
-.jellyquestSettingsFooter .jellyquestSettingsSave {
-    background: #007ea8;
-    border-color: #00a4dc;
-}
-
-.jellyquestSettingsFooter button:focus {
-    outline: 3px solid #fff;
-    outline-offset: 3px;
-}
-
-.jellyquestSettingsFooter button:disabled {
-    opacity: .55;
-}
-
-/* The runtime Home surface shares the simulator's 1920x1080 geometry while using live Jellyfin data. */
-body.jellyquestRuntimeHomeActive {
-    overflow: hidden !important;
-}
-
-body.jellyquestRuntimeHomeActive .headerRight {
-    display: none !important;
-}
-
-body.jellyquestRuntimeHomeActive #indexPage {
-    box-sizing: border-box;
-    height: calc(100vh - 72px) !important;
-    left: 60px !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-    top: 72px !important;
-    width: calc(100% - 60px) !important;
-}
-
-body.jellyquestRuntimeHomeActive #homeTab,
-body.jellyquestRuntimeHomeActive #homeTab > .sections,
-body.jellyquestRuntimeHomeActive #homeTab > .sections.homeSectionsContainer {
-    box-sizing: border-box;
-    height: calc(100vh - 72px) !important;
-    margin: 0 !important;
-    max-width: none !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-}
-
-body.jellyquestRuntimeHomeActive #homeTab .homeSectionsContainer > :not(.jellyquestRuntimeHomeRoot),
-body.jellyquestRuntimeHomeActive #homeTab > .sections > :not(.jellyquestRuntimeHomeRoot) {
-    display: none !important;
-}
-
-.jellyquestRuntimeHomeRoot {
-    box-sizing: border-box;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    font-size: 16px;
-    height: calc(100vh - 72px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding: 44px 48px 64px;
-    scrollbar-width: none;
-    width: 100%;
-}
-
-.jellyquestRuntimeHomeRoot::-webkit-scrollbar {
-    display: none;
-}
-
-.jellyquestRuntimeHomeRoot .jqHomeSection {
-    margin: 0 0 38px;
-}
-
-.jellyquestRuntimeHomeRoot .jqHomeHeading {
-    align-items: baseline;
-    display: flex;
-    justify-content: space-between;
-    margin: 0 4px 16px;
-}
-
-.jellyquestRuntimeHomeRoot .jqHomeHeading h2 {
-    font-size: 29px;
-    font-weight: 500;
-    line-height: 1.2;
-    margin: 0;
-}
-
-.jellyquestRuntimeHomeRoot .jqHomeHeading span {
-    color: #9298a3;
-    font-size: 16px;
-}
-
-.jellyquestRuntimeHomeRoot .jqHomeGrid {
-    display: grid;
-    grid-column-gap: 18px;
-    grid-row-gap: 18px;
-    gap: 18px;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    padding: 6px 4px 4px;
-}
-
-.jellyquestRuntimeHomeRoot .jqHomeEmpty {
-    align-items: center;
-    background: #171a20;
-    border: 1px solid #343a44;
-    border-radius: 7px;
-    color: #b7bdc6;
-    display: flex;
-    font-size: 18px;
-    grid-column: 1 / -1;
-    min-height: 86px;
-    padding: 20px 24px;
-}
-
-.jellyquestRuntimeHomeRoot .jqMovieCard {
-    color: #fff;
-    display: block;
-    min-width: 0;
-    text-decoration: none;
-}
-
-.jellyquestRuntimeHomeRoot .jqPoster {
-    background: linear-gradient(145deg, #313844, #15181e);
-    background-position: center;
-    background-size: cover;
-    border: 3px solid transparent;
-    border-radius: 7px;
-    box-shadow: 0 7px 19px rgba(0, 0, 0, .45);
-    display: block;
-    height: 216px;
-    overflow: hidden;
-    position: relative;
-    transition: transform .12s ease, border-color .12s ease;
-}
-
-.jellyquestRuntimeHomeRoot .jqPoster::after {
-    background: linear-gradient(transparent 35%, rgba(0, 0, 0, .72));
-    bottom: 0;
-    content: '';
     left: 0;
-    pointer-events: none;
-    position: absolute;
-    right: 0;
-    top: 0;
-}
-
-.jellyquestRuntimeHomeRoot .jqPosterArt {
-    bottom: 18px;
-    font-size: 23px;
-    font-weight: 800;
-    left: 14px;
-    line-height: 1.05;
-    max-width: 85%;
-    position: absolute;
-    text-transform: uppercase;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     z-index: 1;
 }
 
-.jellyquestRuntimeHomeRoot .jqHomeBadge {
-    background: rgba(0, 0, 0, .68);
-    border: 1px solid #626a74;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 700;
-    left: 9px;
-    padding: 4px 8px;
-    position: absolute;
-    text-transform: uppercase;
-    top: 9px;
-    z-index: 2;
+/* The `hidden` attribute alone loses to the `display: flex` rule above,
+   since author styles always beat the UA stylesheet's default [hidden]
+   rule regardless of selector specificity (found the hard way in
+   Phase 1) -- reassert it explicitly. */
+.jq-modal-backdrop[hidden] {
+    display: none;
 }
 
-.jellyquestRuntimeHomeRoot .jqHomeProgress {
-    background: rgba(255, 255, 255, .24);
-    bottom: 0;
-    height: 5px;
-    left: 0;
-    position: absolute;
+/* A single, consistent focus style every screen inherits instead of each
+ * one defining (or forgetting to define) its own. */
+.jq-focusable {
+    outline: none;
+}
+
+.jq-focusable:focus {
+    outline: 0.15rem solid #00a4dc;
+    outline-offset: 0.1rem;
+}
+
+/* ---- src/overlay/app.css ---- */
+/* #jellyquest-root is appended directly to <body> (see app.js), so
+   <html> and <body> are its only ancestors -- and `position: fixed` is
+   positioned relative to the nearest ancestor that has a `transform`,
+   `filter`, `perspective`, or `contain: layout/paint/content/strict`
+   set, not guaranteed the real viewport. This was the leading theory
+   for #jellyquest-root not covering the screen on real hardware before
+   on-screen diagnostics (Phase 5) found the actual cause below (`inset`
+   unsupported) -- ruled out as the culprit (the diagnostics reported
+   `transform: none` on both even with this reset already in place, and
+   the layout was still broken), but kept as harmless insurance: once
+   JellyQuest takes over, jellyfin-web's own transition effects
+   underneath it don't matter either way. */
+html, body {
+    transform: none !important;
+    filter: none !important;
+    perspective: none !important;
+    contain: none !important;
+}
+
+/* JellyQuest creates its own root container (see app.js) and, per the
+   Phase 1 architecture decision, owns the whole visible TV surface
+   rather than trying to coexist visually with jellyfin-web's own
+   rendered UI underneath it. */
+#jellyquest-root {
+    position: fixed;
+    /* `inset` shorthand only landed in Chromium 87 (2020); this
+       project's documented floor is Tizen 4.6 (Chromium ~M56-63). The
+       actual, confirmed root cause of #jellyquest-root not covering the
+       screen on real hardware (Phase 5 on-screen diagnostics): an old
+       WebKit silently drops the unsupported `inset: 0` declaration,
+       leaving top/right/bottom/left unset -- so the element falls back
+       to its static in-flow position and content-based width instead of
+       the viewport, while z-index/background (unaffected properties on
+       the same rule) still apply fine, exactly matching what was
+       observed (correct background-color and z-index, wrong
+       top/width). Longhand has been supported forever. */
+    top: 0;
     right: 0;
-    z-index: 2;
+    bottom: 0;
+    left: 0;
+    background: #14161a;
+    color: #f2f2f2;
+    font-family: Arial, Helvetica, sans-serif;
+    z-index: 2147483000;
 }
 
-.jellyquestRuntimeHomeRoot .jqHomeProgress span {
-    background: #00a4dc;
-    display: block;
+/* ---- src/overlay/shell.css ---- */
+.jq-shell {
+    display: flex;
     height: 100%;
 }
 
-.jellyquestRuntimeHomeRoot .jqMovieName {
-    display: block;
-    font-size: 18px;
-    margin: 10px 0 3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.jq-rail {
+    gap: 24px;
+    width: 220px;
+    flex: 0 0 auto;
+    padding: 48px 24px;
+    background: #1c1f24;
 }
 
-.jellyquestRuntimeHomeRoot .jqMovieMeta {
-    color: #9ca2aa;
-    display: block;
-    font-size: 15px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jellyquestRuntimeHomeRoot .jqMovieCard:focus {
-    outline: none;
-}
-
-.jellyquestRuntimeHomeRoot .jqMovieCard:focus .jqPoster {
-    border-color: #fff;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, .8);
-    transform: scale(1.045);
-}
-
-.jellyquestRuntimeHomeRoot .jqMovieCard:focus .jqMovieName {
-    color: #00c7db;
-}
-
-body.jellyquestRuntimeLibraryActive {
-    overflow: hidden !important;
-}
-
-body.jellyquestRuntimeSearchActive {
-    overflow: hidden !important;
-}
-
-body.jellyquestRuntimeLibraryActive .mainAnimatedPages,
-body.jellyquestRuntimeLibraryActive .skinHeader .headerTabs,
-body.jellyquestRuntimeLibraryActive .headerRight,
-body.jellyquestRuntimeSearchActive .mainAnimatedPages,
-body.jellyquestRuntimeSearchActive .skinHeader .headerTabs,
-body.jellyquestRuntimeSearchActive .headerRight {
-    visibility: hidden !important;
-}
-
-body.jellyquestRuntimeLibraryActive .mainAnimatedPages,
-body.jellyquestRuntimeSearchActive .mainAnimatedPages {
-    display: none !important;
-}
-
-body.jellyquestRuntimeLibraryActive .skinHeader,
-body.jellyquestRuntimeLibraryActive .skinHeader .headerTop,
-body.jellyquestRuntimeLibraryActive .skinHeader .jellyquestLibraryProfileTrigger,
-body.jellyquestRuntimeLibraryActive .skinHeader .jellyquestGlobalTabs,
-body.jellyquestRuntimeSearchActive .skinHeader,
-body.jellyquestRuntimeSearchActive .skinHeader .headerTop,
-body.jellyquestRuntimeSearchActive .skinHeader .jellyquestLibraryProfileTrigger,
-body.jellyquestRuntimeSearchActive .skinHeader .jellyquestGlobalTabs {
-    visibility: visible !important;
-}
-
-body.jellyquestRuntimeLibraryActive .skinHeader .headerLeft,
-body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
-    visibility: hidden !important;
-}
-
-.jellyquestLibraryProfileTrigger {
-    background: transparent;
-    border: 0;
-    box-sizing: border-box;
-    justify-content: flex-start;
-    left: 23px;
-    padding: 0;
-    position: absolute !important;
-    top: 18px;
-    width: 260px !important;
-    z-index: 3;
-}
-
-.jellyquestGlobalTabs {
-    align-items: center;
-    display: flex;
-    height: 72px;
-    justify-content: center;
-    left: 50%;
-    position: absolute;
-    top: 0;
-    transform: translateX(-50%);
-    z-index: 2;
-}
-
-.jellyquestGlobalTab {
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    color: #fff;
-    font-family: inherit;
-    font-size: 20px;
-    font-weight: 600;
-    height: 54px;
-    margin: 0 24px;
-    padding: 0;
-}
-
-.jellyquestGlobalTab:focus {
-    color: #fff;
-    outline: 3px solid #00a4dc;
-    outline-offset: 5px;
-}
-
-.jqRuntimeGridRoot {
-    background: #0e1013;
-    bottom: 0;
-    box-sizing: border-box;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    font-size: 16px;
-    left: 60px;
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding: 32px 48px 42px;
-    position: fixed;
-    right: 0;
-    scrollbar-width: none;
-    top: 72px;
-    z-index: 10;
-}
-
-.jqRuntimeGridRoot::-webkit-scrollbar {
-    display: none;
-}
-
-.jqRuntimeGridRoot .jqLibraryToolbar {
-    align-items: center;
-    display: flex;
-    height: 80px;
-    justify-content: space-between;
-}
-
-.jqRuntimeGridRoot .jqLibraryHeadingGroup {
-    align-items: center;
-    display: flex;
-    gap: 20px;
-    min-width: 0;
-}
-
-.jqRuntimeGridRoot .jqLibraryTitle {
-    font-size: 38px;
-    font-weight: 600;
-    margin: 0;
-}
-
-.jqRuntimeGridRoot .jqLibraryCount {
-    color: #9298a3;
-    font-size: 17px;
-    font-weight: 400;
-    margin-left: 12px;
-}
-
-.jqRuntimeGridRoot .jqLibraryControls {
-    align-items: center;
-    display: flex;
-    gap: 18px;
-}
-
-.jqRuntimeGridRoot .jqFilter,
-.jqRuntimeGridRoot .jqSort {
-    background: #20242a;
-    border: 2px solid #414750;
-    color: #e8e8e8;
-    font-family: inherit;
-    font-size: 18px;
-    min-height: 48px;
-    padding: 10px 18px;
-}
-
-.jqRuntimeGridRoot .jqFilter {
-    border-radius: 32px;
-}
-
-.jqRuntimeGridRoot .jqSort {
-    border-radius: 7px;
-    margin-left: 10px;
-}
-
-.jqRuntimeGridRoot .jqFilter.active {
-    background: #e8e8e8;
-    border-color: #fff;
-    color: #111;
-}
-
-.jqRuntimeGridRoot .jqFilter:focus,
-.jqRuntimeGridRoot .jqSort:focus {
-    outline: 3px solid #00a4dc;
-    outline-offset: 3px;
-}
-
-.jqRuntimeGridRoot .jqMovieGrid {
-    display: grid;
-    grid-column-gap: 18px;
-    grid-row-gap: 18px;
-    gap: 18px;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    padding: 12px 4px 32px;
-}
-
-.jqRuntimeGridRoot .jqMovieCard {
-    background: transparent;
-    border: 0;
-    color: #fff;
-    display: block;
-    height: 328px;
-    min-width: 0;
-    overflow: visible;
-    padding: 0;
-    position: relative;
-    text-align: left;
-    text-decoration: none;
-}
-
-.jqRuntimeGridRoot .jqPoster {
-    background: linear-gradient(145deg, #313844, #15181e);
-    background-position: center;
-    background-size: cover;
-    border: 3px solid transparent;
-    border-radius: 7px;
-    box-shadow: 0 7px 19px rgba(0, 0, 0, .45);
-    display: block;
-    height: 256px;
-    overflow: hidden;
-    position: relative;
-    transition: transform .12s ease, border-color .12s ease;
-}
-
-.jqRuntimeGridRoot .jqPosterArt {
-    bottom: 18px;
-    font-size: 23px;
-    font-weight: 800;
-    left: 14px;
-    line-height: 1.05;
-    max-width: 85%;
-    position: absolute;
-    text-transform: uppercase;
-    z-index: 1;
-}
-
-.jqRuntimeGridRoot .jqMovieCopy {
-    background: transparent;
-    display: block;
-    min-height: 64px;
-    padding: 10px 0 0;
-}
-
-.jqRuntimeGridRoot .jqMovieName {
-    display: block;
-    font-size: 18px;
-    line-height: 1.35;
-    margin: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jqRuntimeGridRoot .jqMovieMeta {
-    color: #9ca2aa;
-    display: block;
-    font-size: 15px;
-    margin-top: 3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jqRuntimeGridRoot .jqMovieCard:focus {
-    outline: none;
-}
-
-.jqRuntimeGridRoot .jqMovieCard:focus .jqPoster {
-    border-color: #fff;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, .8);
-    transform: scale(1.045);
-}
-
-.jqRuntimeGridRoot .jqMovieCard:focus .jqMovieName {
-    color: #00c7db;
-}
-
-.jellyquestRuntimeLibraryStatus {
-    color: #9298a3;
-    font-size: 17px;
-    padding: 4px 4px 24px;
-    text-align: center;
-}
-
-.jellyquestRuntimeLibraryStatus[hidden] {
-    display: none;
-}
-
-.jellyquestRuntimeSearchRoot .jqSearchToolbar {
-    gap: 34px;
-}
-
-.jellyquestRuntimeSearchRoot .jqSearchField {
-    align-items: center;
-    background: #20242a;
-    border: 2px solid #414750;
-    border-radius: 7px;
-    box-sizing: border-box;
-    display: flex;
-    height: 54px;
-    max-width: 720px;
-    padding: 0 16px;
-    width: 48vw;
-}
-
-.jellyquestRuntimeSearchRoot .jqSearchField:focus-within {
-    border-color: #fff;
-    box-shadow: 0 0 0 3px #00a4dc;
-}
-
-.jellyquestRuntimeSearchRoot .jqSearchField .jellyquestRailIcon {
-    color: #aeb3bb;
-    flex: 0 0 26px;
-    height: 26px;
-    margin-right: 13px;
-    width: 26px;
-}
-
-.jellyquestRuntimeSearchInput {
-    background: transparent;
-    border: 0;
-    color: #fff;
-    flex: 1 1 auto;
-    font-family: inherit;
-    font-size: 21px;
-    height: 48px;
-    min-width: 0;
-    outline: 0;
-}
-
-.jellyquestRuntimeSearchInput::placeholder {
-    color: #9298a3;
-}
-
-.jellyquestRuntimeSearchResults {
-    padding: 12px 4px 34px;
-}
-
-.jqSearchSection {
-    margin-bottom: 38px;
-}
-
-.jqSearchSectionHeading {
-    align-items: baseline;
-    display: flex;
-    gap: 14px;
-    margin-bottom: 16px;
-}
-
-.jqSearchSectionHeading h2 {
-    font-size: 27px;
-    font-weight: 600;
-    margin: 0;
-}
-
-.jqSearchSectionCount {
-    color: #9298a3;
-    font-size: 16px;
-}
-
-.jqSearchRow {
-    display: flex;
-    gap: 18px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 4px 4px 18px;
-    scrollbar-width: none;
-}
-
-.jqSearchRow::-webkit-scrollbar {
-    display: none;
-}
-
-.jqSearchRow .jellyquestRuntimeSearchCard {
-    flex: 0 0 calc((100% - 108px) / 7);
-}
-
-.jellyquestRuntimeLibraryMenu {
-    background: #20242a;
-    border: 2px solid #59616d;
-    border-radius: 7px;
-    box-shadow: 0 13px 35px rgba(0, 0, 0, .75);
-    box-sizing: border-box;
-    max-height: 70vh;
-    min-width: 250px;
-    overflow-y: auto;
-    padding: 8px;
-    position: fixed;
-    z-index: 100002;
-}
-
-.jellyquestRuntimeLibraryMenu h2 {
+.jq-rail-item {
+    background: none;
+    border: none;
+    color: #cfd2d6;
     font-size: 22px;
-    font-weight: 500;
-    margin: 8px 10px 12px;
-}
-
-.jellyquestRuntimeLibraryOption {
-    background: transparent;
-    border: 2px solid transparent;
-    border-radius: 5px;
-    color: #e8e8e8;
-    display: block;
-    font-family: inherit;
-    font-size: 18px;
-    padding: 11px 13px;
     text-align: left;
-    width: 100%;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
-.jellyquestRuntimeLibraryOption.is-selected::after {
-    color: #00c7db;
-    content: '\2713';
-    float: right;
-}
-
-.jellyquestRuntimeLibraryOption:focus {
-    background: #343a43;
-    outline: 2px solid #00a4dc;
-}
-
-body.jellyquestRuntimeDetailActive {
-    overflow: hidden !important;
-}
-
-body.jellyquestRuntimeDetailActive .mainAnimatedPages,
-body.jellyquestRuntimeLoading .mainAnimatedPages {
-    display: none !important;
-}
-
-body.jellyquestRuntimeLoading {
-    overflow: hidden !important;
-}
-
-body.jellyquestRuntimeLoading .skinHeader .headerTabs,
-body.jellyquestRuntimeLoading .skinHeader .headerRight,
-body.jellyquestRuntimeLoading .skinHeader .headerLeft {
-    visibility: hidden !important;
-}
-
-body.jellyquestRuntimeLoading .skinHeader,
-body.jellyquestRuntimeLoading .skinHeader .headerTop,
-body.jellyquestRuntimeLoading .skinHeader .jellyquestLibraryProfileTrigger,
-body.jellyquestRuntimeLoading .skinHeader .jellyquestGlobalTabs {
-    visibility: visible !important;
-}
-
-.jellyquestRuntimeLoadingRoot {
-    background: #101318;
-    bottom: 0;
-    box-sizing: border-box;
+.jq-rail-item:focus {
+    background: #2a2f36;
     color: #fff;
-    font-family: Arial, sans-serif;
-    left: 60px;
-    overflow: hidden;
-    padding: 58px 80px;
-    position: fixed;
-    right: 0;
-    top: 72px;
-    z-index: 10;
 }
 
-.jellyquestRuntimeLoadingRoot .jqLoadingHero {
-    max-width: 720px;
-    padding-top: 24px;
+.jq-shell-content {
+    flex: 1 1 auto;
+    padding: 48px;
+    color: #9aa0a8;
+    font-size: 24px;
 }
 
-.jellyquestRuntimeLoadingRoot .jqLoadingEyebrow,
-.jellyquestRuntimeLoadingRoot .jqLoadingTitle,
-.jellyquestRuntimeLoadingRoot .jqLoadingMeta,
-.jellyquestRuntimeLoadingRoot .jqLoadingCopy,
-.jellyquestRuntimeLoadingRoot .jqLoadingActions span,
-.jellyquestRuntimeLoadingRoot .jqLoadingCards span {
-    animation: jellyquestLoadingPulse 1.2s ease-in-out infinite alternate;
-    background: #252b33;
+/* ---- src/overlay/cards.css ---- */
+.jq-media-card {
+    width: 220px;
+    height: 130px;
+    flex: 0 0 auto;
+    background: #262b32;
     border-radius: 8px;
-    display: block;
-}
-
-.jellyquestRuntimeLoadingRoot .jqLoadingEyebrow { height: 16px; width: 110px; }
-.jellyquestRuntimeLoadingRoot .jqLoadingTitle { height: 54px; margin-top: 22px; width: 72%; }
-.jellyquestRuntimeLoadingRoot .jqLoadingMeta { height: 22px; margin-top: 22px; width: 46%; }
-.jellyquestRuntimeLoadingRoot .jqLoadingCopy { height: 72px; margin-top: 28px; width: 88%; }
-.jellyquestRuntimeLoadingRoot .jqLoadingActions { display: flex; gap: 16px; margin-top: 32px; }
-.jellyquestRuntimeLoadingRoot .jqLoadingActions span { height: 52px; width: 150px; }
-.jellyquestRuntimeLoadingRoot .jqLoadingCards { display: flex; gap: 18px; margin-top: 76px; }
-.jellyquestRuntimeLoadingRoot .jqLoadingCards span { height: 210px; width: 150px; }
-.jellyquestRuntimeLoadingRoot .jqLoadingLabel {
-    color: #aeb3bb;
-    font-size: 18px;
-    left: 80px;
-    position: absolute;
-    top: 34px;
-}
-
-@keyframes jellyquestLoadingPulse {
-    from { opacity: .48; }
-    to { opacity: .9; }
-}
-
-body.jellyquestRuntimeDetailActive .skinHeader .headerTabs,
-body.jellyquestRuntimeDetailActive .skinHeader .headerRight,
-body.jellyquestRuntimeDetailActive .skinHeader .headerLeft {
-    visibility: hidden !important;
-}
-
-body.jellyquestRuntimeDetailActive .skinHeader,
-body.jellyquestRuntimeDetailActive .skinHeader .headerTop,
-body.jellyquestRuntimeDetailActive .skinHeader .jellyquestLibraryProfileTrigger,
-body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
-    visibility: visible !important;
-}
-
-.jellyquestRuntimeDetailRoot {
-    background: #101318;
-    bottom: 0;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    font-size: 16px;
-    left: 60px;
-    overflow-x: hidden;
-    overflow-y: auto;
-    position: fixed;
-    right: 0;
-    scrollbar-width: none;
-    top: 72px;
-    z-index: 10;
-}
-
-.jellyquestRuntimeDetailRoot::-webkit-scrollbar {
-    display: none;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailHero {
-    background-color: #172633;
-    background-position: center;
-    background-size: cover;
-    box-sizing: border-box;
-    min-height: 500px;
-    padding: 66px 80px 44px;
-}
-
-.jellyquestRuntimeDetailRoot .jqShowHero {
-    background-image: radial-gradient(circle at 74% 30%, rgba(108, 71, 49, .75), transparent 29%),
-        linear-gradient(90deg, #101318 8%, rgba(16, 19, 24, .95) 43%, rgba(16, 19, 24, .35) 74%, #101318),
-        linear-gradient(145deg, #533f31, #172633);
-}
-
-.jellyquestRuntimeDetailRoot .jqSportsHero {
-    background-image: radial-gradient(circle at 75% 40%, rgba(35, 110, 64, .78), transparent 30%),
-        linear-gradient(90deg, #101318 8%, rgba(16, 19, 24, .96) 43%, rgba(16, 19, 24, .38) 75%, #101318),
-        linear-gradient(145deg, #1d4930, #222e42);
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailBack {
-    align-items: center;
-    background: rgba(20, 24, 30, .82);
-    border: 2px solid #59616d;
-    border-radius: 7px;
-    color: #fff;
-    display: inline-flex;
-    font-family: inherit;
-    font-size: 19px;
-    font-weight: 600;
-    gap: 7px;
-    margin-bottom: 24px;
-    min-height: 48px;
-    padding: 8px 18px 8px 13px;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailBack span {
-    font-size: 34px;
-    font-weight: 400;
-    line-height: 20px;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailBack:focus {
-    background: #fff;
-    border-color: #fff;
-    color: #111;
-    outline: 3px solid #00a4dc;
-    outline-offset: 3px;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailCopy {
-    max-width: 1120px;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailEyebrow {
-    color: #00c7db;
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailTitle {
-    font-size: 64px;
-    line-height: .98;
-    margin: 10px 0 18px;
-    max-width: 1000px;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailMeta {
-    align-items: center;
-    color: #d5d7da;
+    border: none;
+    color: #f2f2f2;
+    text-align: left;
+    padding: 16px;
+    cursor: pointer;
+    position: relative;
     display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.jq-media-card-title {
     font-size: 18px;
-    gap: 18px;
-}
-
-.jellyquestRuntimeDetailRoot .jqRating {
-    border: 1px solid #9ca2aa;
-    border-radius: 3px;
-    padding: 1px 6px;
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailOverview {
-    color: #d0d3d7;
-    font-size: 19px;
-    line-height: 1.5;
-    margin: 20px 0 22px;
-    max-width: 700px;
-}
-
-.jellyquestRuntimeDetailRoot .jqActions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-}
-
-.jellyquestRuntimeDetailRoot .jqAction {
-    background: rgba(39, 43, 50, .94);
-    border: 2px solid #565d68;
-    border-radius: 7px;
-    color: #fff;
-    font-family: inherit;
-    font-size: 19px;
-    min-height: 52px;
-    padding: 12px 22px;
-}
-
-.jellyquestRuntimeDetailRoot .jqAction.primary {
-    background: #fff;
-    border-color: #fff;
-    color: #111;
-    font-weight: 700;
-}
-
-.jellyquestRuntimeDetailRoot .jqAction:focus {
-    outline: 3px solid #00a4dc;
-    outline-offset: 3px;
-}
-
-.jellyquestRuntimeDetailRoot .jqSpoilerSafe {
-    align-items: center;
-    background: rgba(0, 0, 0, .42);
-    border: 1px solid #626a74;
-    border-radius: 32px;
-    color: #c8ccd2;
-    display: inline-flex;
-    font-size: 15px;
-    margin-top: 16px;
-    padding: 7px 11px;
-}
-
-.jellyquestRuntimeDetailLower {
-    background: #101318;
-    box-sizing: border-box;
-    padding: 24px 80px 64px;
-}
-
-.jellyquestRuntimeDetailLower[hidden] {
-    display: none;
-}
-
-.jellyquestRuntimeDetailRoot .jqSectionHeading {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 16px;
-}
-
-.jellyquestRuntimeDetailRoot .jqSectionHeading h2 {
-    font-size: 29px;
-    font-weight: 500;
-    margin: 0;
-}
-
-.jellyquestRuntimeDetailRoot .jqSectionHeading span {
-    color: #979da6;
-    font-size: 16px;
-}
-
-.jellyquestRuntimeDetailRoot .jqCollectionRow {
-    display: grid;
-    grid-column-gap: 19px;
-    grid-row-gap: 19px;
-    gap: 19px;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.jellyquestRuntimeDetailRoot .jqCollectionCard,
-.jellyquestRuntimeDetailRoot .jqEpisodeCard {
-    color: #fff;
     display: block;
-    min-width: 0;
-    text-decoration: none;
 }
 
-.jellyquestRuntimeDetailRoot .jqCollectionImage {
-    background: linear-gradient(145deg, #294f61, #1a1d24);
-    background-position: center;
-    background-size: cover;
-    border: 3px solid transparent;
-    border-radius: 7px;
+.jq-media-card-meta {
     display: block;
-    height: 132px;
-}
-
-.jellyquestRuntimeDetailRoot .jqCollectionName,
-.jellyquestRuntimeDetailRoot .jqEpisodeTitle {
-    display: block;
-    font-size: 17px;
-    margin: 8px 0 3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.jellyquestRuntimeDetailRoot .jqCollectionYear,
-.jellyquestRuntimeDetailRoot .jqEpisodeMeta,
-.jellyquestRuntimeDetailRoot .jqChapterTime {
-    color: #969ca4;
-    display: block;
+    margin-top: 4px;
+    color: #9aa0a8;
     font-size: 14px;
 }
 
-.jellyquestRuntimeDetailRoot .jqCollectionCard:focus,
-.jellyquestRuntimeDetailRoot .jqEpisodeCard:focus,
-.jellyquestRuntimeDetailRoot .jqChapterCard:focus {
-    outline: none;
-}
-
-.jellyquestRuntimeDetailRoot .jqCollectionCard:focus .jqCollectionImage,
-.jellyquestRuntimeDetailRoot .jqEpisodeCard:focus .jqEpisodeImage,
-.jellyquestRuntimeDetailRoot .jqChapterCard:focus .jqChapterImage {
-    border-color: #fff;
-    box-shadow: 0 10px 26px rgba(0, 0, 0, .75);
-    transform: scale(1.035);
-}
-
-.jellyquestRuntimeDetailRoot .jqEpisodeRow {
-    display: grid;
-    grid-column-gap: 19px;
-    grid-row-gap: 19px;
-    gap: 19px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.jellyquestRuntimeDetailRoot .jqDetailEmpty {
-    align-items: center;
-    background: #171a20;
-    border: 1px solid #343a44;
-    border-radius: 7px;
-    color: #b7bdc6;
-    display: flex;
-    font-size: 20px;
-    min-height: 96px;
-    padding: 22px 26px;
-}
-
-.jellyquestRuntimeDetailRoot .jqSeasonSelect {
-    background: #23272d;
-    border: 2px solid #555d68;
-    border-radius: 6px;
-    color: #fff;
-    font-family: inherit;
-    font-size: 18px;
-    padding: 10px 18px;
-}
-
-.jellyquestRuntimeDetailRoot .jqSeasonSelect:focus {
-    outline: 3px solid #00a4dc;
-    outline-offset: 3px;
-}
-
-.jellyquestRuntimeDetailRoot .jqEpisodeImage {
-    background: linear-gradient(145deg, #6a4936, #20252c);
-    background-position: center;
-    background-size: cover;
-    border: 3px solid transparent;
-    border-radius: 7px;
-    display: block;
-    height: 150px;
+.jq-media-card-progress {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 10px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
     overflow: hidden;
-    position: relative;
 }
 
-.jellyquestRuntimeDetailRoot .jqEpisodeNumber {
-    background: rgba(0, 0, 0, .72);
-    border-radius: 4px;
-    left: 10px;
-    padding: 4px 7px;
-    position: absolute;
-    top: 10px;
-}
-
-.jellyquestRuntimeDetailRoot .jqEpisodeProgress {
-    background: rgba(255, 255, 255, .25);
-    bottom: 0;
-    height: 5px;
-    left: 0;
-    position: absolute;
-    right: 0;
-}
-
-.jellyquestRuntimeDetailRoot .jqEpisodeProgress span {
-    background: #00a4dc;
-    display: block;
+.jq-media-card-progress-bar {
     height: 100%;
+    background: #00a4dc;
 }
 
-.jellyquestRuntimeDetailRoot .jqChapterRow {
-    display: grid;
-    grid-column-gap: 16px;
-    grid-row-gap: 16px;
-    gap: 16px;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.jellyquestRuntimeDetailRoot .jqChapterCard {
-    background: transparent;
-    border: 0;
-    color: #fff;
-    font-family: inherit;
-    padding: 0;
-    text-align: left;
-}
-
-.jellyquestRuntimeDetailRoot .jqChapterImage {
-    align-items: flex-end;
-    background: linear-gradient(145deg, #28563c, #1b2027);
-    border: 3px solid transparent;
-    border-radius: 7px;
+/* ---- src/overlay/screens/profiles.css ---- */
+.jq-profiles-screen {
     display: flex;
-    height: 134px;
-    padding: 12px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 48px;
+    box-sizing: border-box;
 }
 
-.jellyquestRuntimeDetailRoot .jqChapterName {
-    font-size: 17px;
-    font-weight: 650;
+.jq-profiles-heading {
+    font-size: 40px;
+    margin: 0 0 32px;
 }
 
-/* Tizen 5-era Chromium does not consistently implement modern gap syntax. Keep
-   explicit sibling spacing on focusable flex rows and legacy grid gaps above. */
-.jqRuntimeGridRoot .jqLibraryControls,
-.jellyquestRuntimeDetailRoot .jqActions,
-.jellyquestSettingsFooter,
-.jellyquestSettingsCategories,
-.jellyquestRuntimeSearchRoot .jqSearchToolbar,
-.jqSearchRow {
-    gap: 0;
+.jq-profiles-row {
+    gap: 20px;
 }
 
-.jqRuntimeGridRoot .jqLibraryControls > * + *,
-.jellyquestSettingsFooter > button + button {
-    margin-left: 18px;
+.jq-profile-card {
+    width: 220px;
+    height: 90px;
+    background: #262b32;
+    border-radius: 8px;
+    border: none;
+    color: #f2f2f2;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
 }
 
-.jellyquestRuntimeDetailRoot .jqAction {
-    margin: 0 20px 20px 0;
-    position: relative;
+.jq-profile-card:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
-.jellyquestSettingsCategories > * + * {
-    margin-top: 16px;
+.jq-profiles-error {
+    margin-top: 24px;
+    color: #ff6b6b;
 }
 
-.jellyquestRuntimeHomeCard:focus,
-.jellyquestRuntimeLibraryCard:focus,
-.jellyquestRuntimeSearchCard:focus,
-.jellyquestRuntimeDetailAction:focus,
-.jellyquestRuntimeDetailContent:focus,
-.jellyquestSettingsControl:focus,
-.jellyquestSettingsCategory:focus,
-.jellyquestSettingsFooter button:focus,
-.jqPageBack:focus,
-.jellyquestGlobalTab:focus,
-.jellyquestProfileTrigger:focus {
-    position: relative;
-    z-index: 4;
+/* ---- src/overlay/screens/home.css ---- */
+.jq-home-screen {
+    padding: 48px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-.jellyquestRuntimeHomeRoot .jqHomeGrid,
-.jqRuntimeGridRoot .jqMovieGrid {
-    padding-left: 10px;
-    padding-right: 10px;
+.jq-home-row-section {
+    margin-bottom: 32px;
 }
 
-.jqSearchRow {
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-top: 10px;
+.jq-home-row-heading {
+    font-size: 24px;
+    margin: 0 0 16px;
 }
 
-.jqSearchRow > * + * {
-    margin-left: 18px;
+.jq-home-row {
+    gap: 20px;
 }
 
-.jellyquestRuntimeDetailRoot .jqCollectionRow,
-.jellyquestRuntimeDetailRoot .jqEpisodeRow,
-.jellyquestRuntimeDetailRoot .jqChapterRow {
-    padding: 8px;
+.jq-see-all {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9aa0a8;
+}
+
+.jq-home-empty {
+    color: #9aa0a8;
+    font-size: 20px;
+}
+
+/* ---- src/overlay/screens/library.css ---- */
+.jq-library-screen {
+    padding: 48px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.jq-back-button {
+    background: none;
+    border: none;
+    color: #cfd2d6;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.jq-library-heading {
+    font-size: 28px;
+    margin: 12px 0 24px;
+}
+
+.jq-library-grid {
+    gap: 20px;
+}
+
+/* ---- src/overlay/screens/search.css ---- */
+.jq-search-screen {
+    padding: 48px;
+    box-sizing: border-box;
+}
+
+.jq-search-input {
+    width: 600px;
+    font-size: 22px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #262b32;
+    color: #f2f2f2;
+    box-sizing: border-box;
+}
+
+.jq-search-input:focus {
+    outline: 0.15rem solid #00a4dc;
+}
+
+.jq-search-results {
+    gap: 20px;
+    margin-top: 32px;
+}
+
+.jq-search-empty {
+    color: #9aa0a8;
+    font-size: 20px;
+    margin-top: 32px;
+}
+
+/* ---- src/overlay/screens/detail.css ---- */
+.jq-detail-screen {
+    padding: 48px;
+    box-sizing: border-box;
+    max-width: 1200px;
+}
+
+.jq-detail-title {
+    font-size: 36px;
+    margin: 0 0 16px;
+}
+
+.jq-detail-overview {
+    font-size: 18px;
+    color: #cfd2d6;
+    line-height: 1.5;
+    margin: 0 0 32px;
+    max-width: 800px;
+}
+
+.jq-detail-actions {
+    gap: 16px;
+}
+
+.jq-detail-action {
+    background: #262b32;
+    border: none;
+    color: #f2f2f2;
+    font-size: 18px;
+    padding: 14px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.jq-playback-options {
+    background: #1c1f24;
+    border-radius: 10px;
+    padding: 32px;
+    width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.jq-playback-options h2 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.jq-playback-option-group h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: #9aa0a8;
+}
+
+.jq-playback-option-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.jq-modal-option {
+    background: #262b32;
+    border: none;
+    color: #f2f2f2;
+    font-size: 18px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* ---- src/overlay/screens/requests.css ---- */
+.jq-requests-screen {
+    padding: 48px;
+    box-sizing: border-box;
+}
+
+.jq-requests-status {
+    color: #9aa0a8;
+    font-size: 22px;
+}
+
+.jq-requests-results {
+    gap: 20px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+}
+
+.jq-requests-empty {
+    color: #9aa0a8;
+    font-size: 20px;
+    margin-top: 32px;
+}
+
+.jq-request-card {
+    width: 220px;
+    background: #262b32;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.jq-request-card-title {
+    font-size: 18px;
+}
+
+.jq-request-card-meta {
+    color: #9aa0a8;
+    font-size: 14px;
+}
+
+.jq-request-card-action {
+    margin-top: 12px;
+    align-self: flex-start;
+}
+
+button.jq-request-card-action {
+    background: #00a4dc;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+button.jq-request-card-action:disabled {
+    background: #3a4048;
+    cursor: default;
+}
+
+.jq-request-card-label {
+    color: #9aa0a8;
+    font-size: 15px;
 }

@@ -1,0 +1,23 @@
+.jq-library-screen {
+    padding: 48px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.jq-back-button {
+    background: none;
+    border: none;
+    color: #cfd2d6;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.jq-library-heading {
+    font-size: 28px;
+    margin: 12px 0 24px;
+}
+
+.jq-library-grid {
+    gap: 20px;
+}
