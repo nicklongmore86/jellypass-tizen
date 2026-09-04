@@ -58,7 +58,7 @@
     outline-offset: .22em;
 }
 
-.headerTabs .jellyquestRequestsTab:focus {
+.jellyquestRequestsTab:focus {
     box-shadow: inset 0 -3px #00a4dc !important;
     color: #fff !important;
     outline: none !important;

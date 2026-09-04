@@ -48,7 +48,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnQuick/);
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
-    assert.match(styles, /\.headerTabs \.jellyquestRequestsTab:focus/);
+    assert.match(styles, /\.jellyquestRequestsTab:focus/);
     assert.match(styles, /box-shadow: inset 0 -3px #00a4dc !important/);
     assert.match(policy, /openRequests/);
     assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{ openingRequests = false; \}\)/);
@@ -268,6 +268,11 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     const bootstrap = fs.readFileSync(path.join(root, 'integration/jellyseerr-login.html'), 'utf8');
 
     assert.match(bootstrap, /function startBridge/);
+    assert.ok(
+        bootstrap.indexOf('bridgeReadyPromise = holder;') < bootstrap.indexOf("bridgeFrame = document.createElement('iframe');"),
+        'bridge readiness listener must be armed before the iframe can load'
+    );
+    assert.match(bootstrap, /\.requests-tab:focus \{ box-shadow: inset 0 -\.18rem #00a4dc;/);
     assert.match(bootstrap, /function bridgeApi/);
     assert.match(bootstrap, /function drainBridgeQueue/);
     assert.match(bootstrap, /bridgeConcurrency = 4/);
@@ -348,6 +353,10 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /function focusInitialDiscoverCard\(\)/);
     assert.match(bootstrap, /\[data-category="recently-added"\] \.card/);
     assert.match(bootstrap, /\.then\(loadDiscover\)\.then\(focusInitialDiscoverCard\)/);
+    assert.doesNotMatch(bootstrap, /document\.getElementById\('discoverNav'\)\.focus\(\)/);
+    assert.match(bootstrap, /loadDiscover\(\)\.then\(focusInitialDiscoverCard\)/);
+    assert.match(bootstrap, /var firstRequestCard = document\.querySelector\('#requestCards \.card'\)/);
+    assert.match(bootstrap, /if \(firstRequestCard\) firstRequestCard\.focus\(\)/);
     assert.match(bootstrap, /typeof value\.error === 'string'/);
     assert.match(bootstrap, /request = api\(category\.url\)\.then\(genreItems, genreItems\)/);
     assert.match(bootstrap, /function completeMove/);
