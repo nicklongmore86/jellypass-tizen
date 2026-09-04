@@ -1,10 +1,9 @@
 # JellyQuest Tizen: blank-canvas rebuild of the overlay layer
 
-Status as of this doc: **Phase 0 through 4 complete**, **Phase 5
-in progress** on `claude/code-audit-issues-rha2bz` -- two real bugs found
-via real-hardware testing are fixed and pushed, awaiting a fresh install
-to confirm on the actual TV. This file is the handoff/plan doc for
-continuing the rebuild from a fresh session (local CLI or otherwise)
+Status as of this doc: **all phases (0 through 5) complete** on
+`claude/code-audit-issues-rha2bz` -- the rebuild is done and confirmed
+working on real hardware. This file is the handoff/plan doc for
+continuing from a fresh session (local CLI or otherwise)
 without needing the original conversation history.
 
 **Correction, previously documented here as a real defect and now
@@ -472,7 +471,7 @@ e2e/config suites remain the real regression gate per this phase's plan
 above). Re-verify `build:full`/`package:wgt` in an environment with full
 GitHub access, or on real hardware, as part of Phase 5.
 
-**Phase 5 — Real hardware validation. IN PROGRESS.**
+**Phase 5 — Real hardware validation. DONE.**
 
 The user built and sideloaded successfully on their own machine/TV (this
 sandbox can't do either — see the Phase 4 network-limitation note above).
@@ -547,38 +546,48 @@ disproving it as the (sole) cause. Left in place as harmless insurance
 underneath it don't matter either way), but bug #2 above is the
 confirmed, evidenced fix — not this one.
 
-**Not yet confirmed**: the two fixes above are pushed but not yet
-verified against real hardware (that requires the user's own TV, which
-this sandbox has no path to). Next step is another install + a report of
-whether the profile picker now renders full-screen correctly. If it
-does, remove `src/overlay/diagnostics.js` and its `build-overlay.mjs`
-entry as a follow-up commit — it was never meant to ship.
+**Confirmed on real hardware**: a follow-up install produced a clean
+diagnostic report -- `#jellyquest-root`'s `getBoundingClientRect()`
+matched `window.inner{Width,Height}` exactly (`1920x1080`), no
+`ERROR:`/`REJECTION:` lines, and the real profile picker rendered
+full-screen with the household's actual profiles (not fixture data) and
+correct focus styling. `src/overlay/diagnostics.js` and its
+`build-overlay.mjs` entry were removed immediately after — it was always
+meant to be temporary, and its job is done.
 
-- Package and sideload via the existing `install-tv.sh` /
-  `georift/install-jellyfin-tizen` flow.
-- Physical-TV testing is the final validation pass, not the primary
-  feedback loop — the point of Phase 1. It already earned its keep: two
-  real bugs above were invisible to ~29 simulator/config tests across
-  four phases and only surfaced here.
+- Packaged and sideloaded via the existing `install-tv.sh` /
+  `georift/install-jellyfin-tizen` flow, on the user's own machine/TV
+  (this sandbox has no path to either — see the Phase 4 network-
+  limitation note above for `build:full`, and there's obviously no route
+  to a physical TV from here).
+- Physical-TV testing was the final validation pass, not the primary
+  feedback loop — the point of Phase 1. It earned its keep: both real
+  bugs above were invisible to ~29 simulator/config tests across four
+  phases and only surfaced here.
+
+**This closes out the rebuild.** All six phases are done and verified,
+including on real hardware. Anything from here is genuinely new work —
+Series/Sports detail support (deferred in Phase 3), TV/season-aware
+Requests (deferred in Phase 4), or whatever else comes up — not a
+continuation of an unfinished phase.
 
 ## Verification
 
 - `npm test` (= `node --test test/configuration.test.mjs`) —
-  config/plumbing tests, 7/7 passing as of Phase 4.
+  config/plumbing tests, 7/7 passing as of Phase 5.
 - `npm run test:e2e` (= `node --test "test/e2e/**/*.spec.mjs"`) — the
   Playwright navigation harness, 29/29 passing as of Phase 5, stable
   across repeated runs, served over a local HTTP server (see Phase 4's
   `file://` fix) rather than `file://`. This is the primary regression
-  gate going forward; grow it alongside each phase's screens rather than
-  after.
-- `npm run build:full` confirmed working elsewhere (see the correction
-  note at the top of this doc — use this entry point, not a bare
-  `npm install`), but currently fails inside *this* sandbox on an
-  unrelated GitHub-tarball network restriction (see Phase 4's status
-  above). `npm run package:wgt` still needs Tizen Studio to verify, saved
-  for Phase 5.
-- Final Phase 5 sideload to real hardware via
-  `npm run install:tv -- TV_IP`.
+  gate going forward for any future work; grow it alongside each new
+  screen/feature rather than after.
+- `npm run build:full` and `npm run package:wgt` confirmed working on the
+  user's own machine (both fail inside *this* sandbox — `build:full` on
+  an unrelated GitHub-tarball network restriction, see Phase 4's status
+  above; `package:wgt` needs Tizen Studio, not installed here).
+- `npm run install:tv -- TV_IP`: confirmed working, and the resulting
+  install confirmed correct on real hardware — see Phase 5's status
+  above.
 
 ## Resolved decisions (were "open items" going into Phase 1)
 

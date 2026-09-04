@@ -18,11 +18,6 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const JS_FILES = [
-    // TEMPORARY Phase 5 diagnostic instrumentation -- see
-    // src/overlay/diagnostics.js and docs/rebuild-plan.md's Phase 5
-    // status. Remove this line (and the file) once the real-device
-    // rendering issue it's investigating is understood and fixed.
-    path.join(root, 'src/overlay/diagnostics.js'),
     path.join(root, 'node_modules/spatial-navigation-polyfill/polyfill/spatial-navigation-polyfill.js'),
     path.join(root, 'src/overlay/focus.js'),
     path.join(root, 'src/overlay/session.js'),
