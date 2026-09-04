@@ -13,7 +13,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22: the e2e script passes a glob to `node --test`, and glob
+          # expansion in the test runner only landed in Node 22. Node 20 is
+          # also now deprecated on GitHub-hosted runners.
+          node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run lint
