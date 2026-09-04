@@ -77,7 +77,11 @@ test('keeps development configuration and notes out of the TV package', () => {
 
     assert.match(packager, /-e DETAIL_ACTIONS\.md/);
     assert.match(packager, /-e jellyquest\.config\.json/);
+    assert.match(packager, /-e "artifacts\/\*"/);
+    assert.match(packager, /-e "dev\/\*"/);
+    assert.match(packager, /-e "docs\/\*"/);
     assert.match(packager, /-e "integration\/\*"/);
+    assert.match(packager, /-e "src\/\*"/);
     assert.doesNotMatch(packager, /bridge\/\*/);
     assert.match(packager, /www\/jellyseerr-login\.html/);
 });
