@@ -17,6 +17,7 @@
     max-width: 800px;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-detail-actions > * + * {
     margin-left: 16px;
 }
@@ -40,6 +41,7 @@
     flex-direction: column;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-playback-options > * + * {
     margin-top: 16px;
 }
@@ -60,6 +62,7 @@
     flex-direction: column;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-playback-option-group > * + * {
     margin-top: 8px;
 }
