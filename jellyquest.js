@@ -5,6 +5,7 @@
     var requestsBridgeUrl;
     var requestsPageVersion;
     var openingRequests = false;
+    var requestsTabFocusPending = false;
     var profileSwitcher;
     var profileSwitcherTrigger;
     var profileSwitching = false;
@@ -2207,7 +2208,12 @@
                 tab.setAttribute('tabindex', '-1');
             }
         });
-        if (slider.querySelector('.jellyquestRequestsTab')) {
+        var currentRequestsTab = slider.querySelector('.jellyquestRequestsTab');
+        if (currentRequestsTab) {
+            if (requestsTabFocusPending
+                    && (document.activeElement === document.body || document.activeElement === document.documentElement)) {
+                currentRequestsTab.focus();
+            }
             return;
         }
 
@@ -2236,6 +2242,10 @@
             openRequests(requestsUrl);
         });
         slider.appendChild(button);
+        if (requestsTabFocusPending
+                && (document.activeElement === document.body || document.activeElement === document.documentElement)) {
+            button.focus();
+        }
         if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') {
             window.CustomElements.upgradeSubtree(button);
         }
@@ -3924,6 +3934,7 @@
     window.addEventListener('resize', positionRuntimeLibraryMenu);
     window.addEventListener('pageshow', function () { openingRequests = false; });
     document.addEventListener('focusin', function (event) {
+        requestsTabFocusPending = Boolean(event.target.closest && event.target.closest('.jellyquestRequestsTab'));
         var card = event.target.closest && event.target.closest('.jellyquestRuntimeLibraryCard');
         if (card) {
             var cards = runtimeHomeVisible(document.querySelectorAll('.jellyquestRuntimeLibraryCard'));

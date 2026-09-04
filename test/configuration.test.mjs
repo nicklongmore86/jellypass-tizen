@@ -29,7 +29,7 @@ test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     assert.equal(metadata.household, 'farmhouse');
     assert.equal(metadata.requestsUrl, 'https://jellyseerr.starrgroup.io');
     assert.equal(metadata.requestsBridgeUrl, 'https://jelly-farmhouse.starrgroup.io/jellyquest-bridge/bridge.html');
-    assert.equal(metadata.requestsPageVersion, '1.0.0');
+    assert.equal(metadata.requestsPageVersion, '1.0.1');
     assert.match(metadata.jellyfinWebRef, /^[a-f0-9]{40}$/);
 });
 
@@ -48,10 +48,14 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnQuick/);
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
+    assert.match(styles, /\.headerTabs \.jellyquestRequestsTab:focus/);
+    assert.match(styles, /box-shadow: inset 0 -3px #00a4dc !important/);
     assert.match(policy, /openRequests/);
     assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{ openingRequests = false; \}\)/);
     assert.match(policy, /runtimeHomeUserId = user\.Id;\s*ensureRequestsTab\(\);/);
     assert.match(policy, /document\.querySelectorAll\('\.jellyquestRequestsTab'\)/);
+    assert.match(policy, /requestsTabFocusPending = Boolean\(event\.target\.closest/);
+    assert.match(policy, /document\.activeElement === document\.body \|\| document\.activeElement === document\.documentElement/);
     assert.match(policy, /requestsPageVersion/);
     assert.match(policy, /getCurrentUser/);
     assert.match(policy, /jellyquestRequestsTab/);
@@ -341,6 +345,9 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /\/api\/v1\/discover\/genreslider\//);
     assert.match(bootstrap, /if \(path\.indexOf\('\/api\/v1\/discover\/genreslider\/'\) === 0\) \{/);
     assert.match(bootstrap, /function genreItems\(value\)/);
+    assert.match(bootstrap, /function focusInitialDiscoverCard\(\)/);
+    assert.match(bootstrap, /\[data-category="recently-added"\] \.card/);
+    assert.match(bootstrap, /\.then\(loadDiscover\)\.then\(focusInitialDiscoverCard\)/);
     assert.match(bootstrap, /typeof value\.error === 'string'/);
     assert.match(bootstrap, /request = api\(category\.url\)\.then\(genreItems, genreItems\)/);
     assert.match(bootstrap, /function completeMove/);

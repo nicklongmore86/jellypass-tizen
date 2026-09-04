@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <meta name="jellyquest-requests-version" content="1.0.0">
+  <meta name="jellyquest-requests-version" content="1.0.1">
   <title>JellyQuest Requests</title>
   <style>
     * { box-sizing: border-box; }
@@ -924,16 +924,25 @@
 
       function loadDiscover() {
         var rows = document.getElementById('discoverRows');
-        if (rows.children.length) return;
-        categories.forEach(function (category) {
+        if (rows.children.length) return Promise.resolve();
+        var firstRowReady = Promise.resolve();
+        categories.forEach(function (category, index) {
           rows.appendChild(createMediaRow(category));
-          loadCategory(category).then(function (items) {
+          var rowReady = loadCategory(category).then(function (items) {
             populateMediaRow(category, items);
           }).catch(function (error) {
             populateMediaRow(category, []);
             notice(category.title + ': ' + error.message);
           });
+          if (index === 0) firstRowReady = rowReady;
         });
+        return firstRowReady;
+      }
+
+      function focusInitialDiscoverCard() {
+        if (activeView !== 'discover') return;
+        var firstCard = document.querySelector('[data-category="recently-added"] .card, [data-category="recently-added"] .option-card');
+        if (firstCard) firstCard.focus();
       }
 
       function showView(name) {
@@ -1313,7 +1322,7 @@
             ownRequestKeys[request.type + ':' + request.media.tmdbId] = true;
           });
           rememberProfileClaims(results[1].claims);
-        }).then(loadDiscover);
+        }).then(loadDiscover).then(focusInitialDiscoverCard);
         document.getElementById('discoverNav').focus();
       }
 
