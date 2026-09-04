@@ -15,13 +15,17 @@
     "install:tv": "bash scripts/install-tv.sh",
     "preview:tv": "bash scripts/preview-tv.sh",
     "postinstall": "npm run build",
+    "lint": "eslint .",
     "test": "node --test test/configuration.test.mjs",
     "test:e2e": "npm run build:overlay && node --test \"test/e2e/**/*.spec.mjs\""
   },
   "devDependencies": {
     "@babel/preset-env": "7.25.7",
     "@babel/register": "7.25.7",
+    "@eslint/js": "10.0.1",
     "del": "8.0.0",
+    "eslint": "10.10.0",
+    "globals": "17.12.0",
     "gulp": "5.0.0",
     "gulp-dom": "1.0.0",
     "gulp-if": "3.0.0",
