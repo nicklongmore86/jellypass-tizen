@@ -21,9 +21,10 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm test
-      # npm ci --ignore-scripts above deliberately skips Playwright's
-      # postinstall browser download, so fetch the one browser the suite
-      # actually launches. The specs use chromium.launch() with no
-      # headed/display requirement, so no Xvfb wrapper is needed.
+      # The `playwright` package ships only the driver; browser binaries
+      # are always a separate download, so this step is required whether
+      # or not npm install runs lifecycle scripts. It fetches just the one
+      # browser the suite launches. The specs call chromium.launch() with
+      # no headed/display requirement, so no Xvfb wrapper is needed.
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

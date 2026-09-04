@@ -61,6 +61,7 @@ export default [
             'www/**',
             '.cache/**',
             'artifacts/**',
+            '.buildResult/**',
             '.worktrees/**',
         ],
     },
@@ -101,16 +102,27 @@ export default [
             // has had Promise since M32 and typed arrays since M7, and
             // the overlay uses both. Layering the es2015 globals back in
             // keeps no-undef honest without letting ES6 syntax through.
+            //
+            // Known limitation, recorded rather than fixed here: this
+            // gate therefore checks SYNTAX only, and cannot tell you that
+            // a runtime API is too new for the whole supported range.
+            // Promise.prototype.finally, for instance, needs Chrome 63 --
+            // the top of the documented M56-M63 floor, so it would parse
+            // and lint clean while failing on the oldest TVs. Catching
+            // that needs a browser-compat rule set (eslint-plugin-compat
+            // or similar), which is out of scope for this gate.
             globals: { ...globals.es2015, ...globals.browser, ...overlayGlobals },
         },
         rules: {
             ...js.configs.recommended.rules,
-            // caughtErrors is off here, and only here: ES5 has no
-            // optional catch binding, so `catch (error) { ... }` must
-            // name a binding even when the handler deliberately discards
-            // the error. Flagging that would report a syntax requirement
-            // as a defect. The modern ESM block above still checks it.
-            'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
+            // Caught errors ARE checked here, same as in the modern ESM
+            // block. ES5 has no optional catch binding, so a handler that
+            // deliberately discards its error still has to name one --
+            // but that is an exception to argue at each site, not a
+            // repo-wide licence, so it is suppressed with a narrow inline
+            // disable comment where it genuinely applies. There is exactly
+            // one such site today: src/overlay/requests-bridge.js.
+            'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
             // Every overlay file is an IIFE precisely so it adds nothing
             // to the global scope it shares with jellyfin-web; a stray
             // top-level declaration would be a real collision risk.
