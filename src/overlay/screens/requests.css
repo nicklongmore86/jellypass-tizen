@@ -16,6 +16,7 @@
     flex-wrap: wrap;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-requests-results > * {
     margin-top: 20px;
     margin-left: 20px;
@@ -36,6 +37,7 @@
     flex-direction: column;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-request-card > * + * {
     margin-top: 4px;
 }

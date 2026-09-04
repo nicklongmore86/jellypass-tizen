@@ -22,6 +22,7 @@
     margin-top: 32px;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-search-results > * + * {
     margin-left: 20px;
 }

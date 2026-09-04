@@ -13,8 +13,9 @@
     margin: 0 0 32px;
 }
 
-/* Flex gap is unsupported on older Tizen Chromium. Keep positive space
-   between cards: the spatial-navigation polyfill excludes touching edges. */
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css.
+   Keep positive space between cards: the spatial-navigation polyfill
+   excludes touching edges. */
 .jq-profiles-row > * + * {
     margin-left: 20px;
 }

@@ -19,6 +19,9 @@
 }
 
 .jq-library-grid {
-    /* Legacy spelling supported by early Chromium Grid implementations. */
+    /* Legacy spelling, required: unprefixed grid `gap` needs M66 and measures
+       0px on the 2019 / M63 set (measured), while grid `gap` does work on M69.
+       Different property and different reason from the flex `gap` case in
+       focus.css -- do not conflate them. */
     grid-gap: 20px;
 }
