@@ -1,6 +1,5 @@
 import fs from 'fs';
 import gulp from 'gulp';
-import gulpif from 'gulp-if';
 import { deleteAsync as del } from 'del';
 import dom from 'gulp-dom';
 import path from 'path';

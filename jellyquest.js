@@ -2229,6 +2229,13 @@
         close();
         return new Promise(function (resolve, reject) {
             var target;
+            // The catch below has to name a binding because ES5 -- the
+            // dialect this file ships in, for Tizen 4.6's Chromium --
+            // has no optional catch binding, and it then deliberately
+            // discards it: whatever the URL parser objected to, the only
+            // actionable problem for the caller is that no usable bridge
+            // URL is configured, so that is what gets reported. Hence the
+            // narrow eslint-disable-line rather than a repo-wide rule.
             try {
                 // Resolved against the page's own URL rather than required
                 // to stand alone: production config is always an absolute
@@ -2236,7 +2243,7 @@
                 // that at build time), but this also lets a dev/test
                 // fixture pass a same-origin relative path.
                 target = new URL(bridgeUrl, window.location.href);
-            } catch (error) {
+            } catch (error) { // eslint-disable-line no-unused-vars -- ES5 requires the binding; discarded on purpose (see above)
                 reject(new Error('Requests bridge is not configured.'));
                 return;
             }
