@@ -4,9 +4,12 @@ Status as of this doc: **all phases (0 through 5) complete** on
 `claude/code-audit-issues-rha2bz` -- the rebuild itself is done and
 confirmed working on real hardware. A **follow-up navigation bug**
 reported after that (see the end of the Phase 5 section) is under active
-investigation: a first fix attempt was wrong and was reverted before
-being committed, and a read-only diagnostic is now in place waiting on
-real-device data. This file is the handoff/plan doc for continuing from
+investigation: a first fix attempt (guessing a duplicate-keydown remote
+glitch) was reverted before being committed, and real-device data has
+since **disproved that theory outright** -- every keydown is single and
+normally paced. A second, more targeted read-only diagnostic (logging
+focus before/after each keydown) is now in place waiting on real-device
+data. This file is the handoff/plan doc for continuing from
 a fresh session (local CLI or otherwise)
 without needing the original conversation history.
 
@@ -601,16 +604,27 @@ that reliably tells those two apart from JS-visible timestamps alone.
 **Reverted in full before ever being committed** -- `focus.js` is back
 to its pre-attempt content; nothing from this attempt reached `origin`.
 
-**Correct next step, in progress**: `src/overlay/keydown-diagnostics.js`
-(TEMPORARY, same on-screen-panel pattern as `diagnostics.js` before it --
-remove once done) logs every keydown's `key`/`keyCode`/`repeat` and the
-timing gap since the last event of that same `keyCode`, directly on
-screen. Deliberately **read-only** — it never calls
-`preventDefault`/`stopPropagation`, so unlike the reverted attempt it
-cannot itself change navigation behavior while gathering evidence. Next:
-get a photo of this panel after pressing Right a few times on the actual
-remote, to see what events the hardware really sends before writing any
-fix.
+**`src/overlay/keydown-diagnostics.js` (v1) disproved the double-keydown
+theory outright.** A photo of the on-screen panel after pressing Left/
+Up/Back on the real remote showed every single keydown arriving with
+`repeat=false`, spaced 170-800ms apart from the previous event of that
+same `keyCode` — normal, single, human-paced presses. No duplicates, no
+near-simultaneous pairs, at all. The bug is not in event count.
+
+**v2, in progress**: since a single confirmed keydown is what's actually
+producing the "skip" behavior, the diagnostic now logs
+`document.activeElement` immediately before each keydown and again once
+its processing has finished (a `setTimeout(0)`, so it runs after the
+vendored polyfill's own synchronous handling of that same event
+completes) — showing directly whether one press really does move focus
+by more than one position, which would point at the
+spatial-navigation-polyfill's own geometry/candidate-selection logic
+(or something in this layout it doesn't handle the way the simulator's
+does) rather than event duplication. Still **read-only** (TEMPORARY,
+same on-screen-panel pattern as `diagnostics.js` before it — remove once
+done; never calls `preventDefault`/`stopPropagation`). Next: a photo of
+this panel after pressing Right a few times on the profile picker on the
+actual remote.
 
 Series/Sports detail support (deferred in Phase 3) and TV/season-aware
 Requests (deferred in Phase 4) remain genuinely separate follow-up work,
