@@ -134,15 +134,23 @@ gutted state** (all still true, not follow-ups):
    as separate, named files — not one giant file. `scripts/build-overlay.mjs`
    concatenates them (explicit order, not glob order) into the committed
    `jellyquest.js`/`jellyquest.css`. **Decided in Phase 1: no native ES
-   modules, no bundler** — the oldest Tizen this project targets (4.6,
-   per README) ships Chromium ~M56-M63, predating native `<script
-   type=module>` support (landed in M61). Plain concatenated scripts
-   avoid that risk entirely with zero build complexity.
+   modules, no bundler** — the oldest Tizen this project targets (5.0,
+   per README) ships Chromium M63. Native `<script type=module>` support
+   landed in M61, so it is *nominally* present, but the Samsung TV web
+   runtime loads the app from `file:///www/index.html`, where module
+   loading is subject to additional origin restrictions. Plain
+   concatenated scripts avoid that risk entirely with zero build
+   complexity.
+
+   > Corrected after direct device measurement: the floor is **Tizen 5.0
+   > / Chromium M63** (`UN55RU7100FXZA`, 2019), not "Tizen 4.6 / ~M56-M63".
+   > Samsung ships no TV platform numbered 4.6; that number is the *Tizen
+   > Studio* SDK version. See the Target hardware table in the README.
 2. **Spatial navigation: `spatial-navigation-polyfill` (MIT), not
    hand-rolled geometry code.** Done in Phase 1 — see below. Its license
    is compatible with this project's GPLv2 (unlike BBC's `lrud`,
    Apache-2.0, which the FSF considers GPLv2-incompatible), and its
-   plain-IIFE ES2015 syntax runs unmodified on the Tizen 4.6 floor.
+   plain-IIFE ES2015 syntax runs unmodified on the Tizen 5.0 / M63 floor.
 3. **One passwordless session-switch primitive.** *(Done in Phase 2 —
    `src/overlay/session.js`.)* A single `switchProfile(user)` function
    performs the blank-password `AuthenticateByName` call and swaps the
@@ -536,8 +544,10 @@ Two real, independent bugs found this way, both fixed and regression-tested:
    the fixed-position element falls back to its static in-flow position
    and content-driven size, while every other declared property on the
    rule still applies fine. `inset` as a shorthand only landed in
-   Chromium 87 (2020); this project's own documented floor is Tizen 4.6
-   (Chromium ~M56-63, 2017-2019) — squarely too old. Fixed by replacing
+   Chromium 87 (2020); this project's floor is Tizen 5.0 (Chromium M63,
+   2019) — squarely too old. Since confirmed by direct measurement on
+   both sets: `CSS.supports('inset','0')` returns `false` on the 2019
+   (M63) and 2020 (M69) TVs alike. Fixed by replacing
    `inset: 0` with explicit `top/right/bottom/left: 0` (supported
    essentially forever) in both `src/overlay/app.css`
    (`#jellyquest-root`) and `src/overlay/focus.css`

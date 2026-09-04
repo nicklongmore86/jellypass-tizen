@@ -44,9 +44,65 @@ The overlay lives entirely under `src/overlay/`, one file per concern:
 - `screens/profiles.js`, `screens/home.js`, `screens/library.js`, `screens/search.js`, `screens/detail.js`, `screens/requests.js` — one screen each.
 - `app.js` — the bootstrap and router. Creates JellyQuest's own full-viewport root container and switches which screen renders into the shell's content slot; also owns the hardware Back button.
 
-There are no native ES modules and no bundler: the oldest Tizen hardware this project targets (4.6) ships a Chromium old enough to predate `<script type="module">` support, so `scripts/build-overlay.mjs` just concatenates these files, in an explicit fixed order, into the two files `gulpfile.babel.js` actually injects into jellyfin-web's built `index.html`: `jellyquest.js` and `jellyquest.css`. Those two generated files are committed to the repo (packaging needs them present at the project root) — **always run `npm run build:overlay` after editing anything under `src/overlay/`** and commit the result; `test/configuration.test.mjs` has a drift check that fails if you forget.
+There are no native ES modules and no bundler: the oldest Tizen hardware this project targets (Tizen 5.0 / Chromium M63 — see [Target hardware](#target-hardware)) ships a Chromium old enough that native `<script type="module">` support in the TV web runtime cannot be relied on, so `scripts/build-overlay.mjs` just concatenates these files, in an explicit fixed order, into the two files `gulpfile.babel.js` actually injects into jellyfin-web's built `index.html`: `jellyquest.js` and `jellyquest.css`. Those two generated files are committed to the repo (packaging needs them present at the project root) — **always run `npm run build:overlay` after editing anything under `src/overlay/`** and commit the result; `test/configuration.test.mjs` has a drift check that fails if you forget.
 
 JellyQuest creates its own `#jellyquest-root` container and owns the whole visible TV surface — it doesn't try to coexist visually with jellyfin-web's own rendered UI underneath it.
+
+### Target hardware
+
+Two Samsung TVs, both measured directly over `sdb` + the on-device Chrome
+DevTools inspector (not inferred from vendor tables):
+
+| Set | Model | Tizen | Engine | `sdb capability` |
+| --- | --- | --- | --- | --- |
+| Older — the compatibility floor | `UN55RU7100FXZA` (2019) | 5.0 | `Chrome/63.0.3239.0` | `platform_version:5.0` |
+| Living room | `UN65TU7000FXZA` (2020) | 5.5 | `69.0.3497.106` | `platform_version:5.5` |
+
+**Tizen 5.0 / Chromium M63 is the floor.** Anything that must work on both
+sets has to work on M63.
+
+> Earlier revisions of this document claimed a floor of "Tizen 4.6 (Chromium
+> ~M56-63)". That was wrong: Samsung has never shipped a TV platform called
+> Tizen 4.6 — the TV series runs 4.0 (2018), 5.0 (2019), 5.5 (2020), 6.0
+> (2021), 6.5 (2022). The number came from **Tizen Studio 4.6**, the *SDK*
+> version required for packaging and signing, which is unrelated to the TV
+> platform version. References to Tizen Studio 4.6 elsewhere in this README
+> and in `docs/build-package-deploy.md` are correct and intentionally
+> unchanged.
+
+Measured feature support on the two sets, for the properties this codebase
+actually depends on:
+
+| Feature | Tizen 5.0 / M63 | Tizen 5.5 / M69 |
+| --- | --- | --- |
+| Flex `gap` — **measured pixels** | **0** (broken) | **0** (broken) |
+| Flex `gap` — `CSS.supports()` says | `false` | **`true`** ⚠️ |
+| Grid `gap` (unprefixed) — measured px | **0** (broken) | 20 (works) |
+| Grid `grid-gap` (legacy) — measured px | 20 (works) | 20 (works) |
+| `display: grid` | works | works |
+| `inset` shorthand | unsupported | unsupported |
+| `Object.entries`, `Promise.prototype.finally` | present | present |
+| Optional catch binding `try{}catch{}` | **`SyntaxError`** | parses |
+
+Three consequences worth internalising before changing any layout code:
+
+1. **Never feature-detect flex `gap` with `CSS.supports()`.** On M69 the
+   property parses and computes to `20px 20px` — `CSS.supports('gap','20px')`
+   returns `true` — and then flex layout ignores it entirely, because flex
+   `gap` only shipped in Chromium 84. The detect returns `false` on the 2019
+   set and `true` on the 2020 set, while the layout is broken on *both*. A
+   `CSS.supports` guard would therefore look correct when tested on the older
+   TV and silently regress on the newer one. Only measuring actual geometry
+   (`next.getBoundingClientRect().left - prev.getBoundingClientRect().right`)
+   detects this. Flex spacing is done with sibling margins for this reason —
+   do not "modernise" it back to `gap`.
+2. **Grid spacing must use the legacy `grid-gap` spelling.** Unprefixed `gap`
+   in grid context needs M66; on the 2019 set it measures 0px.
+3. **The ES5 constraint on `src/overlay/` is not merely stylistic.** Optional
+   catch binding needs M66 and throws a `SyntaxError` on the 2019 set while
+   parsing fine on the 2020 one — a crash on exactly one of the two TVs. Note
+   that arrow functions, `const` and template literals *are* supported on both;
+   if the ES5 rule is ever relaxed, optional catch binding must stay banned.
 
 ### Focus and D-pad navigation
 
