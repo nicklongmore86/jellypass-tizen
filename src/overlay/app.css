@@ -1,3 +1,23 @@
+/* #jellyquest-root is appended directly to <body> (see app.js), so
+   <html> and <body> are its only ancestors -- and `position: fixed` is
+   positioned relative to the nearest ancestor that has a `transform`,
+   `filter`, `perspective`, or `contain: layout/paint/content/strict`
+   set, not guaranteed the real viewport. jellyfin-web applies a
+   transform to its own page wrapper for view-transition animations,
+   which silently broke #jellyquest-root's "cover the whole screen"
+   requirement on real hardware (found via on-screen diagnostics on a
+   real TV, Phase 5 -- the bare dev/simulator.html has none of
+   jellyfin-web's real page markup, so this couldn't be caught there).
+   Once JellyQuest takes over, jellyfin-web's own transition effects
+   underneath it don't matter -- force these back to identity so
+   `position: fixed` is unconditionally relative to the viewport. */
+html, body {
+    transform: none !important;
+    filter: none !important;
+    perspective: none !important;
+    contain: none !important;
+}
+
 /* JellyQuest creates its own root container (see app.js) and, per the
    Phase 1 architecture decision, owns the whole visible TV surface
    rather than trying to coexist visually with jellyfin-web's own

@@ -73,6 +73,16 @@
             // stylesheet loaded or not).
             log('diag: root background-color=' + rootStyle.backgroundColor
                 + ' (css loaded if this is rgb(20, 22, 26), i.e. #14161a)');
+            // The computed `position` keyword stays "fixed" even when an
+            // ancestor's transform/filter/contain has redefined its
+            // containing block away from the real viewport -- only the
+            // actual rendered box proves whether it's really covering
+            // the screen. Compare against window.inner*, not screen.*,
+            // since that's what `inset: 0` is actually relative to.
+            var rect = root.getBoundingClientRect();
+            log('diag: root rect=' + JSON.stringify({ top: rect.top, left: rect.left, width: rect.width, height: rect.height })
+                + ' vs window=' + window.innerWidth + 'x' + window.innerHeight
+                + ' (should match exactly if truly covering the viewport)');
         }
 
         var bodyStyle = window.getComputedStyle(document.body);
