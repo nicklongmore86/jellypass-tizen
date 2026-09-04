@@ -57,6 +57,7 @@
     var runtimeDetailLastFocus;
     var runtimeDetailReturnContentId = '';
     var runtimeLoadingRoot;
+    var runtimeRefreshTimers = [];
     var detailActionLoading = false;
     var detailActionState;
     var playbackOptionsDialog;
@@ -341,6 +342,11 @@
         hideRuntimeLoading();
         runtimeHomeUserId = user.Id;
         ensureRequestsTab();
+        var current = document.activeElement;
+        if ((!runtimeManagedFocus(current) || (current.closest && current.closest('.jellyquestRailItem')))
+                && root.querySelector('.jellyquestRuntimeHomeCard')) {
+            focusRuntimeHomeTarget(root.querySelector('.jellyquestRuntimeHomeCard'), 0, null);
+        }
     }
 
     function removeRuntimeHome() {
@@ -359,11 +365,11 @@
             removeRuntimeHome();
             return;
         }
-        showRuntimeLoading('Loading Home…');
         var container = document.querySelector('#homeTab .sections.homeSectionsContainer, #homeTab .sections');
         var apiClient = window.ApiClient;
         if (!container || !apiClient || typeof apiClient.getCurrentUser !== 'function'
                 || typeof apiClient.getItems !== 'function' || runtimeHomeLoading) return;
+        showRuntimeLoading('Loading Home…');
         var existing = container.querySelector('.jellyquestRuntimeHomeRoot');
         if (!force && existing && runtimeHomeUserId) {
             document.body.classList.add('jellyquestRuntimeHomeActive');
@@ -1217,6 +1223,14 @@
                 returnCard.focus();
                 runtimeLibraryLastCard = returnCard;
                 runtimeLibraryReturnItemId = '';
+            }
+        } else if (reset) {
+            var current = document.activeElement;
+            var firstCard = root.querySelector('.jellyquestRuntimeLibraryCard');
+            if (firstCard && (!runtimeManagedFocus(current)
+                    || (current.closest && current.closest('.jellyquestRailItem')))) {
+                firstCard.focus();
+                runtimeLibraryLastCard = firstCard;
             }
         }
     }
@@ -3429,6 +3443,10 @@
             }
             return;
         }
+        if (libraryRail && !document.body.contains(libraryRail)) {
+            libraryRail = null;
+            libraryRailSignature = '';
+        }
         if (!libraryRail && !document.querySelector('.pageTitleWithDefaultLogo')) {
             return;
         }
@@ -3465,8 +3483,10 @@
                 }, 0);
             });
             document.body.appendChild(libraryRail);
-            document.body.classList.add('jellyquestHasLibraryRail');
         }
+        libraryRail.hidden = false;
+        libraryRail.removeAttribute('aria-hidden');
+        document.body.classList.add('jellyquestHasLibraryRail');
         positionLibraryRail();
         refreshLibraryRailLinks();
     }
@@ -3520,6 +3540,76 @@
             target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }
         return true;
+    }
+
+    function runtimeManagedFocus(element) {
+        return element && element.closest && element.closest([
+            '.jellyquestRailItem',
+            '.jellyquestProfileTrigger',
+            '.jellyquestGlobalTab',
+            '.headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab)',
+            '.jellyquestRuntimeHomeCard',
+            '.jqLibraryBack',
+            '.jellyquestRuntimeLibraryCard',
+            '.jellyquestRuntimeLibraryRoot .jqLibraryControls button',
+            '.jqSearchBack',
+            '.jellyquestRuntimeSearchInput',
+            '.jellyquestRuntimeSearchCard',
+            '.jqDetailBack',
+            '.jellyquestRuntimeDetailAction',
+            '.jellyquestRuntimeDetailContent',
+            '.jqSeasonSelect'
+        ].join(','));
+    }
+
+    function runtimeRecoveryTarget() {
+        var target;
+        if (isDetailRoute()) {
+            target = runtimeDetailLastFocus && document.body.contains(runtimeDetailLastFocus)
+                ? runtimeDetailLastFocus : document.querySelector('.jellyquestRuntimeDetailAction, .jqDetailBack');
+        } else if (isLibraryRoute()) {
+            target = runtimeLibraryLastCard && document.body.contains(runtimeLibraryLastCard)
+                ? runtimeLibraryLastCard : document.querySelector('.jellyquestRuntimeLibraryCard, .jqLibraryBack, .jqLibraryControls button');
+        } else if (isSearchRoute()) {
+            target = runtimeSearchLastCard && document.body.contains(runtimeSearchLastCard)
+                ? runtimeSearchLastCard : document.querySelector('.jellyquestRuntimeSearchInput, .jqSearchBack');
+        } else if (isHomeRoute()) {
+            target = runtimeHomeLastCard && document.body.contains(runtimeHomeLastCard)
+                ? runtimeHomeLastCard : document.querySelector('.jellyquestRuntimeHomeCard');
+        }
+        if (target && runtimeHomeVisible([target]).length) return target;
+        if (!libraryRail || !document.body.contains(libraryRail)) ensureLibraryRail();
+        return libraryRail && (libraryRail.querySelector('.jellyquestRailItem.is-active')
+            || libraryRail.querySelector('.jellyquestRailItem'));
+    }
+
+    function restoreRuntimeFocus() {
+        if (isStaticPreview || isSettingsOpen()
+                || (profileSwitcher && !profileSwitcher.hidden)
+                || (playbackOptionsDialog && !playbackOptionsDialog.hidden)
+                || /^#\/(?:login|selectserver|wizard|video)(?:\?|$)/.test(window.location.hash)) return false;
+        var current = document.activeElement;
+        var managed = runtimeManagedFocus(current);
+        if (managed && document.body.contains(managed) && runtimeHomeVisible([managed]).length) return false;
+        var target = runtimeRecoveryTarget();
+        return target ? focusRuntimeHomeTarget(target, 0, null) : false;
+    }
+
+    function handleRuntimeTransitionKeys(event) {
+        if ([37, 38, 39, 40].indexOf(event.keyCode) === -1 || isStaticPreview
+                || /^#\/(?:login|selectserver|wizard|video)(?:\?|$)/.test(window.location.hash)) return;
+        var current = document.activeElement;
+        var railItem = current && current.closest ? current.closest('.jellyquestRailItem') : null;
+        if (railItem && event.keyCode === 37) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+        var managed = runtimeManagedFocus(current);
+        if (managed && document.body.contains(managed) && runtimeHomeVisible([managed]).length) return;
+        restoreRuntimeFocus();
+        event.preventDefault();
+        event.stopImmediatePropagation();
     }
 
     function handleRuntimeHomeKeys(event) {
@@ -4109,6 +4199,16 @@
         ensureRuntimeDetail();
     }
 
+    function scheduleRuntimeRefresh() {
+        runtimeRefreshTimers.forEach(function (timer) { window.clearTimeout(timer); });
+        runtimeRefreshTimers = [0, 80, 300, 800].map(function (delay) {
+            return window.setTimeout(function () {
+                refreshRuntimeUi();
+                restoreRuntimeFocus();
+            }, delay);
+        });
+    }
+
     function start() {
         loadConfiguration();
         refreshRuntimeUi();
@@ -4119,6 +4219,7 @@
             window.setTimeout(function () {
                 observer.disconnect();
                 refreshRuntimeUi();
+                restoreRuntimeFocus();
                 observer.observe(document.documentElement, { childList: true, subtree: true });
                 refreshScheduled = false;
             }, 0);
@@ -4146,12 +4247,16 @@
     window.addEventListener('keydown', handleRuntimeLibraryKeys, true);
     window.addEventListener('keydown', handleRuntimeSearchKeys, true);
     window.addEventListener('keydown', handleRuntimeHomeKeys, true);
+    window.addEventListener('keydown', handleRuntimeTransitionKeys, true);
     window.addEventListener('keydown', handleProfileKeys, true);
     window.addEventListener('keydown', handlePlaybackOptionsKeys, true);
     window.addEventListener('resize', positionProfileSwitcher);
     window.addEventListener('resize', positionLibraryRail);
     window.addEventListener('resize', positionRuntimeLibraryMenu);
-    window.addEventListener('pageshow', function () { openingRequests = false; });
+    window.addEventListener('pageshow', function () {
+        openingRequests = false;
+        scheduleRuntimeRefresh();
+    });
     document.addEventListener('focusin', function (event) {
         requestsTabFocusPending = Boolean(event.target.closest && event.target.closest('.jellyquestRequestsTab'));
         var card = event.target.closest && event.target.closest('.jellyquestRuntimeLibraryCard');
@@ -4201,18 +4306,21 @@
         ensureMyListRow();
         ensureDetailActions();
         ensureRuntimeDetail();
+        scheduleRuntimeRefresh();
     });
     window.addEventListener('hashchange', updateLibraryRailSelection);
     window.addEventListener('viewshow', function () {
         enforceHouseholdLogin();
         checkRequestsEligibility(false);
         ensureRequestsTab();
+        ensureLibraryRail();
         ensureRuntimeLibrary();
         ensureRuntimeSearch();
         ensureMyListRow();
         labelMyListButtons();
         ensureDetailActions();
         ensureRuntimeDetail();
+        scheduleRuntimeRefresh();
     });
     console.info('[JellyQuest] Farmhouse household policy loaded');
 })();

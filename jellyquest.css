@@ -911,6 +911,8 @@ body.jellyquestRuntimeHomeActive #homeTab > .sections > :not(.jellyquestRuntimeH
 
 .jellyquestRuntimeHomeRoot .jqHomeGrid {
     display: grid;
+    grid-column-gap: 18px;
+    grid-row-gap: 18px;
     gap: 18px;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     padding: 6px 4px 4px;
@@ -1206,6 +1208,8 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
 
 .jqRuntimeGridRoot .jqMovieGrid {
     display: grid;
+    grid-column-gap: 18px;
+    grid-row-gap: 32px;
     gap: 32px 18px;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     padding: 12px 4px 32px;
@@ -1706,6 +1710,8 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
 
 .jellyquestRuntimeDetailRoot .jqCollectionRow {
     display: grid;
+    grid-column-gap: 19px;
+    grid-row-gap: 19px;
     gap: 19px;
     grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -1762,6 +1768,8 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
 
 .jellyquestRuntimeDetailRoot .jqEpisodeRow {
     display: grid;
+    grid-column-gap: 19px;
+    grid-row-gap: 19px;
     gap: 19px;
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -1831,6 +1839,8 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
 
 .jellyquestRuntimeDetailRoot .jqChapterRow {
     display: grid;
+    grid-column-gap: 16px;
+    grid-row-gap: 16px;
     gap: 16px;
     grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -1859,13 +1869,14 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
     font-weight: 650;
 }
 
-/* Tizen 5-era Chromium does not consistently implement flex gap. Keep explicit
-   sibling spacing on every focusable flex row so rings never share a boundary. */
+/* Tizen 5-era Chromium does not consistently implement modern gap syntax. Keep
+   explicit sibling spacing on focusable flex rows and legacy grid gaps above. */
 .jqRuntimeGridRoot .jqLibraryControls,
 .jellyquestRuntimeDetailRoot .jqActions,
 .jellyquestSettingsFooter,
 .jellyquestSettingsCategories,
-.jellyquestRuntimeSearchRoot .jqSearchToolbar {
+.jellyquestRuntimeSearchRoot .jqSearchToolbar,
+.jqSearchRow {
     gap: 0;
 }
 
@@ -1908,6 +1919,10 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
     padding-left: 10px;
     padding-right: 10px;
     padding-top: 10px;
+}
+
+.jqSearchRow > * + * {
+    margin-left: 18px;
 }
 
 .jellyquestRuntimeDetailRoot .jqCollectionRow,

@@ -169,6 +169,7 @@
       var categoryCache = {};
       var ownRequestKeys = {};
       var profileClaims = {};
+      var mediaStatusOverrides = {};
       var bridgeFrame = null;
       var bridgeOrigin = '';
       var bridgeNonce = '';
@@ -686,8 +687,34 @@
       }
 
       function applyKnownClaim(item) {
-        var claim = profileClaims[item.mediaType + ':' + itemTmdbId(item)];
+        var key = item.mediaType + ':' + itemTmdbId(item);
+        var claim = profileClaims[key];
+        if (mediaStatusOverrides[key]) {
+          item.mediaInfo = item.mediaInfo || {};
+          item.mediaInfo.status = mediaStatusOverrides[key];
+        }
         if (claim) item.jellyquestClaimState = claim.jellyfinItemId ? 'owned' : 'claimed';
+      }
+
+      function refreshVisibleMediaState(item, access, requested) {
+        var key = item.mediaType + ':' + itemTmdbId(item);
+        if (requested) {
+          ownRequestKeys[key] = true;
+          mediaStatusOverrides[key] = 2;
+        }
+        if (access) {
+          profileClaims[key] = access;
+          item.jellyquestAccess = access;
+        }
+        document.querySelectorAll('.card[data-media-key="' + key + '"]').forEach(function (card) {
+          var cardItem = card._jellyquestItem || item;
+          applyKnownClaim(cardItem);
+          var status = mediaStatus(cardItem);
+          var badge = card.querySelector('.badge');
+          if (!badge) return;
+          badge.className = 'badge ' + status.css;
+          badge.textContent = status.text;
+        });
       }
 
       function setModalAction(action, label, disabled) {
@@ -753,6 +780,8 @@
         var status = mediaStatus(item);
         button.type = 'button';
         button.className = 'card';
+        button.setAttribute('data-media-key', item.mediaType + ':' + itemTmdbId(item));
+        button._jellyquestItem = item;
         typeBadge.className = 'type-badge ' + (item.mediaType === 'tv' ? 'tv' : 'movie');
         typeBadge.textContent = item.mediaType === 'tv' ? 'TV' : 'Movie';
         if (item.posterPath) {
@@ -1073,6 +1102,7 @@
       }
 
       function openModal(item) {
+        applyKnownClaim(item);
         var status = mediaStatus(item);
         selectedItem = item;
         selectedSeasons = [];
@@ -1180,6 +1210,7 @@
             body: JSON.stringify({ mediaType: item.mediaType, tmdbId: itemTmdbId(item) })
           }).then(function (access) {
             var available = Boolean(access.jellyfinItemId);
+            refreshVisibleMediaState(item, access, false);
             closeModal();
             notice(itemTitle(item) + (available ? ' was added to your library.' : ' will be added when it is ready.'));
           }).catch(function (error) {
@@ -1207,15 +1238,13 @@
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ mediaType: item.mediaType, tmdbId: itemTmdbId(item) })
           });
-        }).then(function () {
+        }).then(function (access) {
+          refreshVisibleMediaState(item, access, true);
           closeModal();
           notice(itemTitle(item) + ' was requested and will be added when ready.');
-          item.mediaInfo = item.mediaInfo || {};
-          item.mediaInfo.status = 2;
         }).catch(function (error) {
           if (requestCreated) {
-            item.mediaInfo = item.mediaInfo || {};
-            item.mediaInfo.status = 2;
+            refreshVisibleMediaState(item, null, true);
             closeModal();
             notice(itemTitle(item) + ' was requested, but JellyPass could not record automatic access: ' + error.message);
             return;

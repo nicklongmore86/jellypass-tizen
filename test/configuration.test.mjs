@@ -54,12 +54,12 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.jellyquestRailItem:focus[\s\S]*#292d33 100%/);
     assert.match(styles, /\.jellyquestRuntimeDetailRoot \.jqActions \{[\s\S]*gap: 20px;/);
     assert.match(styles, /\.jqRuntimeGridRoot \.jqLibraryControls \{[\s\S]*gap: 18px;/);
-    assert.match(styles, /Tizen 5-era Chromium does not consistently implement flex gap/);
+    assert.match(styles, /Tizen 5-era Chromium does not consistently implement modern gap syntax/);
     assert.match(styles, /\.jellyquestRuntimeDetailRoot \.jqAction \{[\s\S]*margin: 0 20px 20px 0;/);
     assert.match(styles, /\.jellyquestLibraryProfileTrigger \{[\s\S]*width: 260px !important;/);
     assert.match(styles, /box-shadow: inset 0 -3px #00a4dc !important/);
     assert.match(policy, /openRequests/);
-    assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{ openingRequests = false; \}\)/);
+    assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{[\s\S]*openingRequests = false;[\s\S]*scheduleRuntimeRefresh\(\);/);
     assert.match(policy, /runtimeHomeUserId = user\.Id;\s*ensureRequestsTab\(\);/);
     assert.match(policy, /document\.querySelectorAll\('\.jellyquestRequestsTab'\)/);
     assert.match(policy, /requestsTabFocusPending = Boolean\(event\.target\.closest/);
@@ -78,6 +78,14 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /event\.keyCode !== 13 && event\.keyCode !== 32/);
     assert.match(policy, /addEventListener\('keydown', activateRequestsWithRemote, true\)/);
     assert.match(policy, /function runtimeRailTarget\(railItem, keyCode, rightFallback\)/);
+    assert.match(policy, /function handleRuntimeTransitionKeys\(event\)/);
+    assert.match(policy, /railItem && event\.keyCode === 37/);
+    assert.match(policy, /function restoreRuntimeFocus\(\)/);
+    assert.match(policy, /libraryRail && !document\.body\.contains\(libraryRail\)/);
+    assert.match(policy, /libraryRail\.hidden = false/);
+    assert.match(policy, /function scheduleRuntimeRefresh\(\)/);
+    assert.match(policy, /observer\.disconnect\(\);[\s\S]*refreshRuntimeUi\(\);[\s\S]*restoreRuntimeFocus\(\);[\s\S]*observer\.observe/);
+    assert.match(policy, /\[0, 80, 300, 800\]/);
     assert.match(policy, /data\.type === 'ready'\) finish\(true\)/);
     assert.match(policy, /rejected this Jellyfin profile/);
     assert.match(policy, /nativeTab\.cloneNode\(true\)/);
@@ -241,6 +249,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /width: 256px/);
     assert.match(styles, /overflow-y: hidden/);
     assert.match(styles, /box-sizing: border-box;[\s\S]*width: 256px/);
+    assert.match(styles, /grid-column-gap: 18px;[\s\S]*grid-row-gap: 32px;/);
+    assert.match(styles, /\.jqSearchRow > \* \+ \*[\s\S]*margin-left: 18px/);
     assert.match(styles, /margin-top: auto/);
     assert.match(styles, /margin-bottom: auto/);
     assert.match(styles, /\.skinHeader \{/);
@@ -309,6 +319,9 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /\.requests-tab:focus \{ box-shadow: inset 0 -\.18rem #00a4dc;/);
     assert.match(bootstrap, /\.requests-tab \{[^}]*color: #fff;/);
     assert.match(bootstrap, /\.nav \{[^}]*padding: 0 \.82em;[^}]*width: 16rem;/);
+    assert.match(bootstrap, /function refreshVisibleMediaState\(item, access, requested\)/);
+    assert.match(bootstrap, /data-media-key/);
+    assert.match(bootstrap, /refreshVisibleMediaState\(item, access, true\)/);
     assert.match(bootstrap, /function bridgeApi/);
     assert.match(bootstrap, /function drainBridgeQueue/);
     assert.match(bootstrap, /bridgeConcurrency = 4/);
