@@ -1,0 +1,8 @@
+{
+    "household": "simulator",
+    "productName": "JellyQuest Simulator",
+    "serverUrl": "http://127.0.0.1",
+    "requestsUrl": "http://127.0.0.1",
+    "requestsBridgeUrl": "fixtures/requests-bridge.html",
+    "requestsPageVersion": "dev"
+}

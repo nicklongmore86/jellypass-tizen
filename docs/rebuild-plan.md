@@ -1,9 +1,10 @@
 # JellyQuest Tizen: blank-canvas rebuild of the overlay layer
 
-Status as of this doc: **Phase 0 through 3 complete** on
-`claude/code-audit-issues-rha2bz`. Phase 4 is next. This file is the
-handoff/plan doc for continuing the rebuild from a fresh session (local
-CLI or otherwise) without needing the original conversation history.
+Status as of this doc: **Phase 0 through 4 complete** on
+`claude/code-audit-issues-rha2bz`. Phase 5 (real hardware validation) is
+next and is the last phase in this plan. This file is the handoff/plan
+doc for continuing the rebuild from a fresh session (local CLI or
+otherwise) without needing the original conversation history.
 
 **Correction, previously documented here as a real defect and now
 confirmed not to be one:** running a bare `npm install` (or letting
@@ -99,9 +100,10 @@ starting a new repo.
   turn its action matrix into literal Playwright test cases rather than
   re-deriving behavior from prose
 
-**Still to rewrite:**
-- `README.md` — describe the new architecture once more of it exists
-  (deferred to end of Phase 4)
+**Rewritten in Phase 4:**
+- `README.md` — describes the architecture as it stands after Phase 4
+  (module layout, focus system, profile-switch model, Requests bridge,
+  config layer, dev/test loop, build/package/install steps)
 
 **Fixed in Phase 0 to keep the plumbing buildable during the interim
 gutted state** (all still true, not follow-ups):
@@ -136,13 +138,14 @@ gutted state** (all still true, not follow-ups):
    visible login form. Every "profile" surface (picker, the shell's
    profile button) calls this one function.
 4. **Requests/Jellyseerr as a real bounded module**, not an iframe bridge
-   to a hand-duplicated standalone page. *(Phase 4, not yet built.)*
-   Shares `src/overlay/focus.js` and the session/profile model instead of
+   to a hand-duplicated standalone page. *(Done in Phase 4 —
+   `src/overlay/requests-bridge.js` + `src/overlay/screens/requests.js`.)*
+   Shares `src/overlay/focus.js` (the search input/results row uses the
+   same `.jq-row` + debounce pattern as `screens/search.js`) instead of
    reimplementing focus handling independently the way the old
    `jellyseerr-login.html` did. The actual JellyPass backend bridge
-   protocol (`/jellyquest-bridge/session`, `/eligibility`, `/proxy`)
-   stays the transport; only the TV-side implementation is being
-   rebuilt.
+   protocol (`/jellyquest-bridge/session`, `/eligibility`, `/proxy`) stays
+   the transport — only the TV-side implementation was rebuilt.
 5. **Zero hardcoded deployment values** anywhere under the new source
    tree — everything reachable only through `jellyquest.config.json` →
    `jellyquest-build.json`, matching the existing configure step's
@@ -346,13 +349,127 @@ Three more real bugs/findings the harness caught:
   a reminder to verify empirically rather than assume geometry results
   even when the pattern seems obvious from a previous phase.
 
-**Phase 4 — Requests/Jellyseerr module + README rewrite. NOT STARTED.**
-- Rebuild as a module sharing `focus.js` and `session.js`, talking to the
-  existing JellyPass bridge endpoints. Retire the standalone-page-in-an-
-  iframe pattern.
-- Rewrite `README.md` describing the new architecture, the config layer,
-  and setup steps for a new deployer — this is the point where "reusable
-  by others" gets written down, not just designed for.
+**Phase 4 — Requests/Jellyseerr module + README rewrite. DONE.**
+
+**Explicit scope decision, same discipline as Phase 3**: movie-only.
+Search, request, and claim all assume `mediaType: 'movie'`; TV/season
+selection is explicit follow-up, not silently missing.
+
+**Household-visibility decision** (settled earlier in this rebuild's
+planning, before any Requests code existed): a title requested by one
+household member shows as plain "Requested" to every other member of
+that *same* household — nobody's name is attached, and there's no
+separate "somebody in your household already asked for this" state.
+Critically, this build does **not** scope requests/claims to a household
+at all — a *different* household can independently request or claim the
+exact same title with no visibility into the first household's request,
+because JellyPass tracks claims per Jellyfin user, not per household
+(`MediaClaim.userIds`, `access-service.ts`). This was a deliberate
+reversal of an earlier draft (in the JellyPass repo, now reverted) that
+tried to scope media claims to a household — the actual security boundary
+in this system is authentication (who can act as which Jellyfin user),
+which the household-gateway hardening from Phase 2 already owns; media
+claims were never the boundary and restricting them added complexity
+serving no real requirement.
+
+- `src/overlay/requests-bridge.js`: low-level client for JellyPass's
+  request bridge (`jellypass/src/request-bridge.ts`) — a hidden iframe
+  loaded at the deployment's `requestsBridgeUrl`, talked to over
+  `postMessage` with an origin check and a random nonce per open. Reused
+  the exact security pattern the old (deleted) `jellyquest.js`'s
+  `probeRequestsEligibility` used for its eligibility check, generalized
+  into three calls: `checkEligibility(bridgeUrl, userId, userName)` (one
+  round trip, then closes itself), `openSession(bridgeUrl, userId,
+  userName)` (opens a session iframe that stays live), and `call(path,
+  options)` (the request/response pairing over that open session,
+  matching JellyPass's `/jellyquest-bridge/proxy` contract). Read
+  JellyPass's actual current `request-bridge.ts` and its inlined
+  `BRIDGE_HTML` directly from the `jellypass` repo (same branch,
+  `claude/code-audit-issues-rha2bz`) rather than relying on the deleted
+  TV-side code's memory of the protocol, since that file is the source of
+  truth for what the bridge actually expects and returns.
+- `src/overlay/screens/requests.js` + `requests.css`: search (same
+  debounced-input pattern as `search.js`), one card per movie result. Per
+  card, the action follows Jellyseerr's own `mediaInfo.status`: no
+  request yet → "Request" button (`POST /api/v1/request`); pending/
+  processing → plain "Requested" label, no action; available → resolves
+  this profile's own claim via JellyPass's `GET /jellyquest/access` and
+  shows either "Add to My Library" (`POST /jellyquest/access`) or, once
+  claimed, a plain "In My Library" label. Jumping straight to Detail after
+  a successful claim was considered and deliberately deferred (same
+  "clearly scoped follow-up, not a gap" reasoning as Phase 3's
+  Series/Sports deferral) — claiming just updates the card in place.
+- `src/overlay/app.js`: added `loadConfiguration()` (`fetch('jellyquest-build.json')`,
+  mirrors the old app's function of the same name and purpose), called
+  once at boot; wired the shell's Requests button to a real `showRequests()`
+  instead of the Phase 3 placeholder; every other screen-show function now
+  also calls `JellyQuestRequestsBridge.close()` on the way in, so
+  navigating away from Requests doesn't leave its iframe/session mounted
+  in the background.
+- `dev/fixtures/requests-bridge.html` + `requests-bridge-fixture.js`: a
+  fixture standing in for JellyPass's real `bridge.html`, backed by fake
+  data attached to the simulator page's own `window` (an iframe reading
+  its `window.parent`'s globals — a shortcut only valid because the
+  fixture is deliberately same-origin under the test server; the real
+  bridge is cross-origin, which is exactly what the nonce/origin check in
+  `requests-bridge.js` defends). Three fixture movies exercise all three
+  states (none/requested/available), and one profile (Charlie) is
+  deliberately left out of `eligibleUserIds` to exercise the "no
+  Jellyseerr account" path.
+- `dev/jellyquest-build.json`: a fixture config the simulator's `fetch()`
+  now actually needs (see the `file://` fix below) — `requestsBridgeUrl`
+  is a same-origin relative path (`fixtures/requests-bridge.html`) rather
+  than production's absolute `https://` URL; `requests-bridge.js` resolves
+  it against `window.location.href` rather than requiring an absolute URL
+  on its own specifically so a relative test fixture path works, while
+  `scripts/configure-jellyquest.mjs` still enforces an absolute
+  same-origin `https://.../jellyquest-bridge/bridge.html` URL at
+  production build time.
+- `test/e2e/requests.spec.mjs` (new): 6 tests — search returns one card
+  per movie result, an ineligible profile sees a message instead of a
+  search box, none → Requested transition, an already-requested title
+  shows the plain label with no action "regardless of who requested it"
+  (the household-visibility decision above, asserted directly), available
+  → claimed transition, and the hardware Back button back to Home.
+- `README.md` rewritten to describe the new architecture: the module
+  layout under `src/overlay/`, the `spatial-navigation-polyfill`-based
+  focus system and its `.jq-rail`/`.jq-row`/`.jq-grid`/`.jq-modal`
+  conventions, the passwordless profile-switch model and what it depends
+  on in JellyPass, the Requests bridge protocol and its movie-only scope,
+  the config layer, the `dev/simulator.html` + Playwright test-harness
+  dev loop, and build/package/install steps for a new deployer.
+
+**A prerequisite bug found and fixed before any Requests code was
+written**: Chromium refuses `fetch()` from a `file://` document (an
+opaque-origin CORS restriction), which would have silently blocked
+Requests' `jellyquest-build.json` config load from ever being exercised
+in the Playwright harness — confirmed directly with an isolated
+`file://` test page before touching any real code. The old app's
+`fetch()`-based config loading had shipped and worked fine, so this was
+specifically a test-harness gap (the simulator was being opened via
+`file://`), not a production concern; Tizen's packaged-app runtime, and
+any other real embedding, is never `file://`. Fixed by adding
+`test/e2e/support/server.mjs` (a small static file server using Node's
+built-in `http`, no new dependency) and pointing all five spec files'
+`simulatorUrl` at it instead of `file://dev/simulator.html` — landed as
+its own commit before any Phase 4 feature code, and incidentally makes
+the whole harness more faithful to production loading, not just
+fetch-capable.
+
+**Verified, not yet run in this sandbox**: `npm run build:full` failed
+here with `403 Forbidden` fetching
+`https://github.com/eligrey/classList.js/archive/...tar.gz` during
+jellyfin-web's own `npm ci` — this sandbox's outbound network proxy
+doesn't allow GitHub's tarball-archive domain, unrelated to any code in
+this repo (jellyfin-web's own `package.json` pulls that dependency
+directly from a GitHub archive URL, not npm). This is a sandbox egress
+policy limitation, not a regression: it's the same category of
+environment gap the correction note at the top of this doc already
+covers for the earlier `dist/` confusion, and `build:overlay` + the full
+e2e/config suites remain the real regression gate per this phase's plan
+(see Architecture principles and "Minimize physical-TV test cycles"
+above). Re-verify `build:full`/`package:wgt` in an environment with full
+GitHub access, or on real hardware, as part of Phase 5.
 
 **Phase 5 — Real hardware validation. NOT STARTED.**
 - Package and sideload via the existing `install-tv.sh` /
@@ -363,15 +480,19 @@ Three more real bugs/findings the harness caught:
 ## Verification
 
 - `npm test` (= `node --test test/configuration.test.mjs`) —
-  config/plumbing tests, 7/7 passing as of Phase 3.
+  config/plumbing tests, 7/7 passing as of Phase 4.
 - `npm run test:e2e` (= `node --test "test/e2e/**/*.spec.mjs"`) — the
-  Playwright navigation harness, 22/22 passing as of Phase 3, stable
-  across repeated runs. This is the primary regression gate going
-  forward; grow it alongside each phase's screens rather than after.
-- `npm run build:full` confirmed working (see the correction note at the
-  top of this doc — use this entry point, not a bare `npm install`).
-  `npm run package:wgt` still needs Tizen Studio to verify, saved for
-  Phase 5.
+  Playwright navigation harness, 28/28 passing as of Phase 4, stable
+  across repeated runs, served over a local HTTP server (see Phase 4's
+  `file://` fix) rather than `file://`. This is the primary regression
+  gate going forward; grow it alongside each phase's screens rather than
+  after.
+- `npm run build:full` confirmed working elsewhere (see the correction
+  note at the top of this doc — use this entry point, not a bare
+  `npm install`), but currently fails inside *this* sandbox on an
+  unrelated GitHub-tarball network restriction (see Phase 4's status
+  above). `npm run package:wgt` still needs Tizen Studio to verify, saved
+  for Phase 5.
 - Final Phase 5 sideload to real hardware via
   `npm run install:tv -- TV_IP`.
 

@@ -14,9 +14,26 @@
 
     var BACK_KEY_CODES = [10009, 27]; // Tizen hardware Back; Escape for desktop/simulator testing.
     var currentBackHandler = null;
+    var buildConfig = null;
+
+    // jellyquest-build.json is written by scripts/configure-jellyquest.mjs
+    // next to index.html at packaging time (fetched here the same way the
+    // old app's loadConfiguration() did); Requests is the only thing that
+    // needs it; every other screen works with no configuration at all.
+    function loadConfiguration() {
+        return fetch('jellyquest-build.json', { cache: 'no-store' }).then(function (response) {
+            if (!response.ok) throw new Error('configuration returned ' + response.status);
+            return response.json();
+        }).then(function (config) {
+            buildConfig = config;
+        }).catch(function (error) {
+            console.error('[JellyQuest] Requests configuration unavailable:', error);
+        });
+    }
 
     function showProfiles(root) {
         currentBackHandler = null;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestProfilesScreen.render(root, function () {
             showShell(root);
         });
@@ -27,13 +44,14 @@
             onSwitchProfile: function () { showProfiles(root); },
             onHome: showHome,
             onSearch: showSearch,
-            onRequests: showRequestsPlaceholder,
+            onRequests: showRequests,
         });
         showHome();
     }
 
     function showHome() {
         currentBackHandler = null; // top of the navigation stack
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestHomeScreen.render(window.JellyQuestShell.getContent(), {
             onSelectItem: function (item) { showDetail(item, showHome); },
             onSeeAll: function (row) { showLibrary(row, showHome); },
@@ -42,6 +60,7 @@
 
     function showSearch() {
         currentBackHandler = showHome;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestSearchScreen.render(window.JellyQuestShell.getContent(), {
             onSelectItem: function (item) { showDetail(item, showSearch); },
         });
@@ -49,6 +68,7 @@
 
     function showLibrary(row, returnTo) {
         currentBackHandler = returnTo;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestLibraryScreen.render(window.JellyQuestShell.getContent(), row, {
             onSelectItem: function (item) { showDetail(item, function () { showLibrary(row, returnTo); }); },
             onBack: returnTo,
@@ -57,6 +77,7 @@
 
     function showDetail(item, returnTo) {
         currentBackHandler = returnTo;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestDetailScreen.render(window.JellyQuestShell.getContent(), item, {
             onPlay: function (playItem, startPositionTicks) {
                 window.playbackManager.play({ ids: [playItem.Id], startPositionTicks: startPositionTicks });
@@ -70,14 +91,14 @@
         });
     }
 
-    // Requests is Phase 4 -- this is a placeholder, not a stand-in for
-    // real functionality.
-    function showRequestsPlaceholder() {
+    function showRequests() {
         currentBackHandler = showHome;
-        var content = window.JellyQuestShell.getContent();
-        content.innerHTML = '';
-        content.className = 'jq-requests-placeholder';
-        content.textContent = 'Requests -- Phase 4';
+        var user = window.JellyQuestSession.getCurrentProfile();
+        window.JellyQuestRequestsScreen.render(window.JellyQuestShell.getContent(), {
+            bridgeUrl: buildConfig && buildConfig.requestsBridgeUrl,
+            userId: user.Id,
+            userName: user.Name
+        });
     }
 
     document.addEventListener('keydown', function (event) {
@@ -96,6 +117,8 @@
     });
 
     window.JellyQuestFocus.ready(function () {
+        loadConfiguration(); // fire-and-forget: Requests waits on it lazily, nothing else needs it
+
         var root = document.getElementById('jellyquest-root');
         if (!root) {
             root = document.createElement('div');

@@ -1977,6 +1977,176 @@
     };
 })();
 
+/* ---- src/overlay/requests-bridge.js ---- */
+// Low-level client for JellyPass's request bridge (see jellypass's
+// src/request-bridge.ts): a hidden iframe loaded at the deployment's
+// requestsBridgeUrl, talked to over postMessage with an origin check and
+// a per-open random nonce. This is the same security pattern the old
+// (deleted) jellyquest.js used for its eligibility probe, generalized to
+// also carry the full request/proxy session Requests needs -- callers
+// never touch postMessage directly.
+//
+// Protocol (fixed by the JellyPass server, not this file):
+//   - Opening the iframe at `${bridgeUrl}#user=..&id=..&nonce=..`
+//     (add `mode=eligibility&` to just check eligibility, no session)
+//     gets back exactly one `{source:'jellyquest-bridge', nonce, type}`
+//     message: 'ready' or 'eligibility' on success, 'error' on failure.
+//   - Once a session is open, `{source:'jellyquest-app', type:'request',
+//     nonce, id, path, options}` posted to the frame gets back
+//     `{source:'jellyquest-bridge', nonce, type:'response', id, ok,
+//     data|error}` -- `call()` below is the request/response pairing for
+//     that.
+(function () {
+    'use strict';
+
+    var OPEN_TIMEOUT_MS = 15000;
+    var CALL_TIMEOUT_MS = 20000;
+
+    var frame = null;
+    var frameOrigin = '';
+    var frameNonce = '';
+    var pendingCalls = {};
+    var nextCallId = 1;
+
+    function randomNonce() {
+        var values = new Uint32Array(4);
+        window.crypto.getRandomValues(values);
+        return Array.prototype.map.call(values, function (value) { return value.toString(16); }).join('');
+    }
+
+    function receiveCallResponse(event) {
+        if (!frame || event.source !== frame.contentWindow || event.origin !== frameOrigin) return;
+        var data = event.data || {};
+        if (data.source !== 'jellyquest-bridge' || data.nonce !== frameNonce || data.type !== 'response') return;
+        var pending = pendingCalls[data.id];
+        if (!pending) return;
+        delete pendingCalls[data.id];
+        window.clearTimeout(pending.timer);
+        if (data.ok) pending.resolve(data.data);
+        else pending.reject(new Error(data.error || 'Requests bridge call failed.'));
+    }
+
+    // Opens the bridge iframe in `mode` ('eligibility' or null for a full
+    // session) and resolves with the bridge's first message. Tears down
+    // any previously-open frame first -- only one bridge session is ever
+    // live at a time.
+    function openFrame(bridgeUrl, mode, userId, userName) {
+        close();
+        return new Promise(function (resolve, reject) {
+            var target;
+            try {
+                // Resolved against the page's own URL rather than required
+                // to stand alone: production config is always an absolute
+                // https URL (scripts/configure-jellyquest.mjs enforces
+                // that at build time), but this also lets a dev/test
+                // fixture pass a same-origin relative path.
+                target = new URL(bridgeUrl, window.location.href);
+            } catch (error) {
+                reject(new Error('Requests bridge is not configured.'));
+                return;
+            }
+
+            var opened = document.createElement('iframe');
+            opened.hidden = true;
+            opened.setAttribute('aria-hidden', 'true');
+            opened.setAttribute('title', 'Requests');
+
+            var origin = target.origin;
+            var nonce = randomNonce();
+            var hash = 'user=' + encodeURIComponent(userName || '') + '&id=' + encodeURIComponent(userId) + '&nonce=' + encodeURIComponent(nonce);
+            if (mode) hash = 'mode=' + encodeURIComponent(mode) + '&' + hash;
+            target.hash = hash;
+
+            var timer = window.setTimeout(function () {
+                window.removeEventListener('message', onInit);
+                if (opened.parentNode) opened.parentNode.removeChild(opened);
+                reject(new Error('Requests bridge timed out.'));
+            }, OPEN_TIMEOUT_MS);
+
+            function onInit(event) {
+                if (event.source !== opened.contentWindow || event.origin !== origin) return;
+                var data = event.data || {};
+                if (data.source !== 'jellyquest-bridge' || data.nonce !== nonce) return;
+                if (data.type === 'error') {
+                    window.clearTimeout(timer);
+                    window.removeEventListener('message', onInit);
+                    if (opened.parentNode) opened.parentNode.removeChild(opened);
+                    reject(new Error(data.error || 'Requests bridge rejected this profile.'));
+                    return;
+                }
+                window.clearTimeout(timer);
+                window.removeEventListener('message', onInit);
+                frame = opened;
+                frameOrigin = origin;
+                frameNonce = nonce;
+                window.addEventListener('message', receiveCallResponse);
+                resolve(data);
+            }
+            window.addEventListener('message', onInit);
+
+            opened.src = target.href;
+            document.body.appendChild(opened);
+        });
+    }
+
+    function checkEligibility(bridgeUrl, userId, userName) {
+        return openFrame(bridgeUrl, 'eligibility', userId, userName).then(function (data) {
+            var eligible = data.eligible === true;
+            close();
+            return eligible;
+        });
+    }
+
+    function openSession(bridgeUrl, userId, userName) {
+        return openFrame(bridgeUrl, null, userId, userName).then(function () { return true; });
+    }
+
+    // path/options mirror JellyPass's own proxy contract: options may
+    // carry { method, headers: {'Content-Type': ...}, body } same as a
+    // fetch() call would.
+    function call(path, options) {
+        if (!frame) return Promise.reject(new Error('Requests session is not open.'));
+        var openFrameRef = frame;
+        return new Promise(function (resolve, reject) {
+            var id = String(nextCallId);
+            nextCallId += 1;
+            var timer = window.setTimeout(function () {
+                delete pendingCalls[id];
+                reject(new Error('Requests bridge call timed out.'));
+            }, CALL_TIMEOUT_MS);
+            pendingCalls[id] = { resolve: resolve, reject: reject, timer: timer };
+            openFrameRef.contentWindow.postMessage({
+                source: 'jellyquest-app',
+                type: 'request',
+                nonce: frameNonce,
+                id: id,
+                path: path,
+                options: options || {}
+            }, frameOrigin);
+        });
+    }
+
+    function close() {
+        window.removeEventListener('message', receiveCallResponse);
+        if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
+        frame = null;
+        frameOrigin = '';
+        frameNonce = '';
+        Object.keys(pendingCalls).forEach(function (id) {
+            window.clearTimeout(pendingCalls[id].timer);
+            pendingCalls[id].reject(new Error('Requests bridge closed.'));
+        });
+        pendingCalls = {};
+    }
+
+    window.JellyQuestRequestsBridge = {
+        checkEligibility: checkEligibility,
+        openSession: openSession,
+        call: call,
+        close: close
+    };
+})();
+
 /* ---- src/overlay/screens/profiles.js ---- */
 // Profile picker screen -- the true landing screen (see
 // docs/rebuild-plan.md, Phase 2). No login form, no manual-login/Quick
@@ -2395,6 +2565,222 @@
     };
 })();
 
+/* ---- src/overlay/screens/requests.js ---- */
+// Requests screen: search Jellyseerr (through JellyPass's request bridge,
+// see requests-bridge.js) and either request a title Jellyseerr doesn't
+// have yet, or claim access to one that's already available in the
+// library. Movie-only for this pass, matching Detail's scope (see
+// docs/rebuild-plan.md, Phase 3) -- TV/season-aware requesting is
+// explicit follow-up work, not silently missing.
+//
+// Household visibility is intentionally simple: any household member can
+// request or claim independently, and a title someone else in the same
+// household already requested just shows as "Requested" -- nobody's name
+// is attached, and nothing here restricts a *different* household from
+// independently requesting or claiming the same title (JellyPass tracks
+// claims per Jellyfin user, not per household). See docs/rebuild-plan.md's
+// Phase 4 notes.
+(function () {
+    'use strict';
+
+    var DEBOUNCE_MS = 300;
+    // Jellyseerr's MediaInfo.status enum (unknown/pending/processing/
+    // partially_available/available) -- only the "has this been asked
+    // for" and "is this watchable" buckets matter here, not each stage.
+    var STATUS_REQUESTED = [2, 3];
+    var STATUS_AVAILABLE = [4, 5];
+
+    // config: { bridgeUrl, userId, userName }
+    function renderRequests(container, config) {
+        container.innerHTML = '';
+        container.className = 'jq-requests-screen';
+
+        var status = document.createElement('p');
+        status.className = 'jq-requests-status';
+        container.appendChild(status);
+        window.JellyQuestFocus.focusFirst(container);
+
+        if (!config.bridgeUrl) {
+            status.textContent = 'Requests are not configured for this server.';
+            return;
+        }
+
+        var bridge = window.JellyQuestRequestsBridge;
+        status.textContent = 'Checking Requests for this profile…';
+
+        bridge.checkEligibility(config.bridgeUrl, config.userId, config.userName).then(function (eligible) {
+            if (!eligible) {
+                status.textContent = 'Requests are not available for this profile.';
+                return;
+            }
+            return bridge.openSession(config.bridgeUrl, config.userId, config.userName).then(function () {
+                renderSearch(container, status);
+            });
+        }).catch(function (error) {
+            status.textContent = 'Requests are unavailable right now.';
+            console.error('[JellyQuest] Requests bridge error:', error);
+        });
+    }
+
+    function renderSearch(container, status) {
+        status.hidden = true;
+
+        var input = document.createElement('input');
+        input.type = 'search';
+        input.className = 'jq-search-input jq-requests-input jq-focusable';
+        input.placeholder = 'Search movies to request';
+        input.setAttribute('data-jq-autofocus', '');
+        container.appendChild(input);
+
+        var results = document.createElement('div');
+        results.className = 'jq-row jq-requests-results';
+        container.appendChild(results);
+
+        var empty = document.createElement('p');
+        empty.className = 'jq-requests-empty';
+        empty.textContent = 'No matches.';
+        empty.hidden = true;
+        container.appendChild(empty);
+
+        var timer = null;
+        input.addEventListener('input', function () {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(function () { runSearch(input.value); }, DEBOUNCE_MS);
+        });
+
+        function runSearch(term) {
+            results.innerHTML = '';
+            empty.hidden = true;
+            if (!term.trim()) return;
+            window.JellyQuestRequestsBridge.call('/api/v1/search?query=' + encodeURIComponent(term)).then(function (data) {
+                if (input.value !== term) return; // a newer search superseded this one
+                var movies = (data.results || []).filter(function (item) { return item.mediaType === 'movie'; });
+                if (!movies.length) {
+                    empty.hidden = false;
+                    return;
+                }
+                movies.forEach(function (movie) { results.appendChild(createRequestCard(movie)); });
+            }).catch(function (error) {
+                console.error('[JellyQuest] Requests search failed:', error);
+            });
+        }
+
+        window.JellyQuestFocus.focusFirst(container);
+    }
+
+    function createRequestCard(movie) {
+        var card = document.createElement('div');
+        card.className = 'jq-card jq-request-card';
+        card.setAttribute('data-tmdb-id', String(movie.id));
+
+        var title = document.createElement('span');
+        title.className = 'jq-request-card-title';
+        title.textContent = movie.title;
+        card.appendChild(title);
+
+        if (movie.releaseDate) {
+            var year = document.createElement('small');
+            year.className = 'jq-request-card-meta';
+            year.textContent = movie.releaseDate.slice(0, 4);
+            card.appendChild(year);
+        }
+
+        renderAction(card, movie);
+        return card;
+    }
+
+    function movieState(movie) {
+        var status = movie.mediaInfo && movie.mediaInfo.status;
+        if (status && STATUS_AVAILABLE.indexOf(status) !== -1) return 'available';
+        if (status && STATUS_REQUESTED.indexOf(status) !== -1) return 'requested';
+        return 'none';
+    }
+
+    function renderAction(card, movie) {
+        var existing = card.querySelector('.jq-request-card-action');
+        if (existing) existing.remove();
+
+        var state = movieState(movie);
+        if (state === 'requested') {
+            appendLabel(card, 'Requested');
+            return;
+        }
+        if (state === 'none') {
+            appendButton(card, 'Request', function (button) {
+                button.disabled = true;
+                window.JellyQuestRequestsBridge.call('/api/v1/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mediaType: 'movie', mediaId: movie.id })
+                }).then(function () {
+                    movie.mediaInfo = movie.mediaInfo || {};
+                    movie.mediaInfo.status = 2;
+                    renderAction(card, movie);
+                }).catch(function (error) {
+                    button.disabled = false;
+                    console.error('[JellyQuest] Request failed:', error);
+                });
+            });
+            return;
+        }
+
+        // Available -- resolve this profile's own claim before offering
+        // to claim it again. Cached on the item once claimed so
+        // re-rendering after a click doesn't need another round trip.
+        if (movie.__claimed) {
+            appendLabel(card, 'In My Library');
+            return;
+        }
+        var checking = appendLabel(card, 'Checking…');
+        window.JellyQuestRequestsBridge.call('/jellyquest/access?mediaType=movie&tmdbId=' + movie.id).then(function (access) {
+            checking.remove();
+            if (access.claimed) {
+                movie.__claimed = true;
+                appendLabel(card, 'In My Library');
+                return;
+            }
+            appendButton(card, 'Add to My Library', function (button) {
+                button.disabled = true;
+                window.JellyQuestRequestsBridge.call('/jellyquest/access', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mediaType: 'movie', tmdbId: movie.id })
+                }).then(function () {
+                    movie.__claimed = true;
+                    renderAction(card, movie);
+                }).catch(function (error) {
+                    button.disabled = false;
+                    console.error('[JellyQuest] Claim failed:', error);
+                });
+            });
+        }).catch(function (error) {
+            checking.textContent = 'Unavailable';
+            console.error('[JellyQuest] Access check failed:', error);
+        });
+    }
+
+    function appendLabel(card, text) {
+        var label = document.createElement('span');
+        label.className = 'jq-request-card-action jq-request-card-label';
+        label.textContent = text;
+        card.appendChild(label);
+        return label;
+    }
+
+    function appendButton(card, text, onClick) {
+        var button = document.createElement('button');
+        button.className = 'jq-request-card-action jq-focusable';
+        button.textContent = text;
+        button.addEventListener('click', function () { onClick(button); });
+        card.appendChild(button);
+        return button;
+    }
+
+    window.JellyQuestRequestsScreen = {
+        render: renderRequests
+    };
+})();
+
 /* ---- src/overlay/shell.js ---- */
 // Top-level nav shell -- the persistent rail (Profile/Home/Search/Requests)
 // stays mounted across every screen; app.js swaps what's in the content
@@ -2484,9 +2870,26 @@
 
     var BACK_KEY_CODES = [10009, 27]; // Tizen hardware Back; Escape for desktop/simulator testing.
     var currentBackHandler = null;
+    var buildConfig = null;
+
+    // jellyquest-build.json is written by scripts/configure-jellyquest.mjs
+    // next to index.html at packaging time (fetched here the same way the
+    // old app's loadConfiguration() did); Requests is the only thing that
+    // needs it; every other screen works with no configuration at all.
+    function loadConfiguration() {
+        return fetch('jellyquest-build.json', { cache: 'no-store' }).then(function (response) {
+            if (!response.ok) throw new Error('configuration returned ' + response.status);
+            return response.json();
+        }).then(function (config) {
+            buildConfig = config;
+        }).catch(function (error) {
+            console.error('[JellyQuest] Requests configuration unavailable:', error);
+        });
+    }
 
     function showProfiles(root) {
         currentBackHandler = null;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestProfilesScreen.render(root, function () {
             showShell(root);
         });
@@ -2497,13 +2900,14 @@
             onSwitchProfile: function () { showProfiles(root); },
             onHome: showHome,
             onSearch: showSearch,
-            onRequests: showRequestsPlaceholder,
+            onRequests: showRequests,
         });
         showHome();
     }
 
     function showHome() {
         currentBackHandler = null; // top of the navigation stack
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestHomeScreen.render(window.JellyQuestShell.getContent(), {
             onSelectItem: function (item) { showDetail(item, showHome); },
             onSeeAll: function (row) { showLibrary(row, showHome); },
@@ -2512,6 +2916,7 @@
 
     function showSearch() {
         currentBackHandler = showHome;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestSearchScreen.render(window.JellyQuestShell.getContent(), {
             onSelectItem: function (item) { showDetail(item, showSearch); },
         });
@@ -2519,6 +2924,7 @@
 
     function showLibrary(row, returnTo) {
         currentBackHandler = returnTo;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestLibraryScreen.render(window.JellyQuestShell.getContent(), row, {
             onSelectItem: function (item) { showDetail(item, function () { showLibrary(row, returnTo); }); },
             onBack: returnTo,
@@ -2527,6 +2933,7 @@
 
     function showDetail(item, returnTo) {
         currentBackHandler = returnTo;
+        window.JellyQuestRequestsBridge.close();
         window.JellyQuestDetailScreen.render(window.JellyQuestShell.getContent(), item, {
             onPlay: function (playItem, startPositionTicks) {
                 window.playbackManager.play({ ids: [playItem.Id], startPositionTicks: startPositionTicks });
@@ -2540,14 +2947,14 @@
         });
     }
 
-    // Requests is Phase 4 -- this is a placeholder, not a stand-in for
-    // real functionality.
-    function showRequestsPlaceholder() {
+    function showRequests() {
         currentBackHandler = showHome;
-        var content = window.JellyQuestShell.getContent();
-        content.innerHTML = '';
-        content.className = 'jq-requests-placeholder';
-        content.textContent = 'Requests -- Phase 4';
+        var user = window.JellyQuestSession.getCurrentProfile();
+        window.JellyQuestRequestsScreen.render(window.JellyQuestShell.getContent(), {
+            bridgeUrl: buildConfig && buildConfig.requestsBridgeUrl,
+            userId: user.Id,
+            userName: user.Name
+        });
     }
 
     document.addEventListener('keydown', function (event) {
@@ -2566,6 +2973,8 @@
     });
 
     window.JellyQuestFocus.ready(function () {
+        loadConfiguration(); // fire-and-forget: Requests waits on it lazily, nothing else needs it
+
         var root = document.getElementById('jellyquest-root');
         if (!root) {
             root = document.createElement('div');

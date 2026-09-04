@@ -364,3 +364,70 @@
     text-align: left;
     cursor: pointer;
 }
+
+/* ---- src/overlay/screens/requests.css ---- */
+.jq-requests-screen {
+    padding: 48px;
+    box-sizing: border-box;
+}
+
+.jq-requests-status {
+    color: #9aa0a8;
+    font-size: 22px;
+}
+
+.jq-requests-results {
+    gap: 20px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+}
+
+.jq-requests-empty {
+    color: #9aa0a8;
+    font-size: 20px;
+    margin-top: 32px;
+}
+
+.jq-request-card {
+    width: 220px;
+    background: #262b32;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.jq-request-card-title {
+    font-size: 18px;
+}
+
+.jq-request-card-meta {
+    color: #9aa0a8;
+    font-size: 14px;
+}
+
+.jq-request-card-action {
+    margin-top: 12px;
+    align-self: flex-start;
+}
+
+button.jq-request-card-action {
+    background: #00a4dc;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+button.jq-request-card-action:disabled {
+    background: #3a4048;
+    cursor: default;
+}
+
+.jq-request-card-label {
+    color: #9aa0a8;
+    font-size: 15px;
+}
