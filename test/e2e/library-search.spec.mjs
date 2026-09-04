@@ -1,12 +1,12 @@
 // Library grid and Search screens (see docs/rebuild-plan.md, Phase 3).
 import assert from 'node:assert/strict';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { startServer } from './support/server.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const simulatorUrl = `file://${path.join(root, 'dev/simulator.html')}`;
+const server = await startServer();
+const simulatorUrl = `${server.baseUrl}/dev/simulator.html`;
+test.after(() => server.close());
 
 async function signInAsAlice(page) {
     await page.goto(simulatorUrl);

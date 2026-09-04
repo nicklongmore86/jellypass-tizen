@@ -4,13 +4,13 @@
 // same navigation conventions -- .jq-row here plays the role
 // jq-row/jq-rail did in that spike.
 import assert from 'node:assert/strict';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { startServer } from './support/server.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const simulatorUrl = `file://${path.join(root, 'dev/simulator.html')}`;
+const server = await startServer();
+const simulatorUrl = `${server.baseUrl}/dev/simulator.html`;
+test.after(() => server.close());
 
 test('profile picker is the landing screen: no login form, autofocus on the first profile', async () => {
     const browser = await chromium.launch();
