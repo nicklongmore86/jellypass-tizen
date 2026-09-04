@@ -1209,16 +1209,23 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
 .jqRuntimeGridRoot .jqMovieGrid {
     display: grid;
     grid-column-gap: 18px;
-    grid-row-gap: 32px;
-    gap: 32px 18px;
+    grid-row-gap: 18px;
+    gap: 18px;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     padding: 12px 4px 32px;
 }
 
 .jqRuntimeGridRoot .jqMovieCard {
+    background: transparent;
+    border: 0;
     color: #fff;
     display: block;
+    height: 328px;
     min-width: 0;
+    overflow: visible;
+    padding: 0;
+    position: relative;
+    text-align: left;
     text-decoration: none;
 }
 
@@ -1236,17 +1243,6 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
     transition: transform .12s ease, border-color .12s ease;
 }
 
-.jqRuntimeGridRoot .jqPoster::after {
-    background: linear-gradient(transparent 35%, rgba(0, 0, 0, .72));
-    bottom: 0;
-    content: '';
-    left: 0;
-    pointer-events: none;
-    position: absolute;
-    right: 0;
-    top: 0;
-}
-
 .jqRuntimeGridRoot .jqPosterArt {
     bottom: 18px;
     font-size: 23px;
@@ -1259,10 +1255,18 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
     z-index: 1;
 }
 
+.jqRuntimeGridRoot .jqMovieCopy {
+    background: transparent;
+    display: block;
+    min-height: 64px;
+    padding: 10px 0 0;
+}
+
 .jqRuntimeGridRoot .jqMovieName {
     display: block;
     font-size: 18px;
-    margin: 10px 0 3px;
+    line-height: 1.35;
+    margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1272,6 +1276,7 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
     color: #9ca2aa;
     display: block;
     font-size: 15px;
+    margin-top: 3px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

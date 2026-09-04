@@ -1017,6 +1017,7 @@
         var card = document.createElement('a');
         var poster = document.createElement('span');
         var fallback = document.createElement('span');
+        var copy = document.createElement('span');
         var title = document.createElement('span');
         var meta = document.createElement('span');
         var serverId = item.ServerId || (typeof apiClient.serverId === 'function' ? apiClient.serverId() : '');
@@ -1039,10 +1040,12 @@
         title.textContent = item.Name || '';
         meta.className = 'jqMovieMeta';
         meta.textContent = runtimeLibraryMeta(item, descriptor);
+        copy.className = 'jqMovieCopy';
         poster.appendChild(fallback);
+        copy.appendChild(title);
+        copy.appendChild(meta);
         card.appendChild(poster);
-        card.appendChild(title);
-        card.appendChild(meta);
+        card.appendChild(copy);
         return card;
     }
 
@@ -1800,7 +1803,8 @@
         var root = document.querySelector('.jellyquestRuntimeDetailRoot');
         var item = runtimeDetailState.item;
         if (!root || !item) return;
-        var definitions = runtimePlaybackActionDefinitions(item).concat(nativeDetailActionDefinitions(item).map(function (definition) {
+        var playbackDefinitions = runtimePlaybackActionDefinitions(item);
+        var definitions = playbackDefinitions.concat(nativeDetailActionDefinitions(item).map(function (definition) {
             var nativeButton = visibleNativeDetailAction(definition[0]);
             return nativeButton ? {
                 fallback: definition[1],
@@ -1813,12 +1817,17 @@
                 + (definition.item ? definition.item.Id + ':' + definition.ticks : '');
         }).join('|');
         var actions = root.querySelector('.jqActions');
+        var firstPopulation = !actions.hasAttribute('data-actions-ready') && definitions.length > 0;
+        var firstPlaybackPopulation = !actions.hasAttribute('data-playback-actions-ready')
+            && playbackDefinitions.length > 0;
         if (actions.getAttribute('data-action-signature') === signature) return;
         var focusedAction = document.activeElement && document.activeElement.closest
             ? document.activeElement.closest('.jellyquestRuntimeDetailAction') : null;
         var focusedKey = focusedAction ? focusedAction.getAttribute('data-action-key') : '';
         actions.innerHTML = '';
         actions.setAttribute('data-action-signature', signature);
+        if (definitions.length) actions.setAttribute('data-actions-ready', 'true');
+        if (playbackDefinitions.length) actions.setAttribute('data-playback-actions-ready', 'true');
         definitions.forEach(function (definition, index) {
             var button = document.createElement('button');
             button.type = 'button';
@@ -1856,6 +1865,21 @@
             if (replacement) {
                 replacement.focus();
                 runtimeDetailLastFocus = replacement;
+            }
+        }
+        if (firstPlaybackPopulation && document.activeElement
+                && document.activeElement.closest('.jqDetailBack, .jellyquestRuntimeDetailAction')) {
+            var firstPlaybackAction = actions.querySelector('[data-playback-id]');
+            if (firstPlaybackAction) {
+                firstPlaybackAction.focus();
+                runtimeDetailLastFocus = firstPlaybackAction;
+            }
+        } else if (firstPopulation && document.activeElement
+                && document.activeElement.closest('.jqDetailBack')) {
+            var firstAction = actions.querySelector('.jellyquestRuntimeDetailAction');
+            if (firstAction) {
+                firstAction.focus();
+                runtimeDetailLastFocus = firstAction;
             }
         }
     }
@@ -3019,6 +3043,10 @@
                         var resumeIndex = allEpisodes.map(function (episode) { return episode.Id; }).indexOf(resumeEpisode.Id);
                         nextEpisode = resumeIndex !== -1 ? allEpisodes[resumeIndex + 1] : nextEpisode;
                         if (nextEpisode && nextEpisode.Id === resumeEpisode.Id) nextEpisode = null;
+                    } else if (!nextEpisode) {
+                        nextEpisode = allEpisodes.filter(function (episode) {
+                            return !(episode.UserData && episode.UserData.Played);
+                        })[0] || allEpisodes[0] || null;
                     }
                     var playbackIds = [];
                     [resumeEpisode, nextEpisode].forEach(function (episode) {
@@ -3552,6 +3580,7 @@
             '.jqLibraryBack',
             '.jellyquestRuntimeLibraryCard',
             '.jellyquestRuntimeLibraryRoot .jqLibraryControls button',
+            '.jellyquestRuntimeLibraryOption',
             '.jqSearchBack',
             '.jellyquestRuntimeSearchInput',
             '.jellyquestRuntimeSearchCard',
@@ -3694,6 +3723,20 @@
         return controls[2] || controls[controls.length - 1];
     }
 
+    function resetRuntimeLibraryScroll(root, target, cards) {
+        if (!root || !target) return;
+        var targetCard = target.closest && target.closest('.jellyquestRuntimeLibraryCard');
+        var topRowCard = targetCard && cards.indexOf(targetCard) < 7;
+        if (topRowCard || (target.closest && target.closest([
+            '.jqLibraryBack',
+            '.jqLibraryControls button',
+            '.jellyquestProfileTrigger',
+            '.jellyquestGlobalTab'
+        ].join(',')))) {
+            root.scrollTop = 0;
+        }
+    }
+
     function handleRuntimeLibraryKeys(event) {
         if (isSettingsOpen() || !document.body.classList.contains('jellyquestRuntimeLibraryActive')) return;
         var keyCode = event.keyCode;
@@ -3795,6 +3838,7 @@
         if (target) {
             event.preventDefault();
             event.stopImmediatePropagation();
+            resetRuntimeLibraryScroll(root, target, cards);
         } else if (railItem || card || control || back || headerItem) {
             event.preventDefault();
             event.stopImmediatePropagation();
@@ -3956,6 +4000,7 @@
         var actions = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeDetailAction'));
         var lower = runtimeHomeVisible(root.querySelectorAll('.jqSeasonSelect, .jellyquestRuntimeDetailContent'));
         var contents = runtimeHomeVisible(root.querySelectorAll('.jellyquestRuntimeDetailContent'));
+        var seasonSelector = root.querySelector('.jqSeasonSelect');
         var headers = runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger, .jellyquestGlobalTab'));
         var target = null;
         var remembered = current._jellyquestRuntimeReturn && current._jellyquestRuntimeReturn[keyCode];
@@ -3979,9 +4024,7 @@
             if (keyCode === 38) target = backButton
                 || headers[actionIndex < Math.ceil(actions.length / 2) ? 1 : 2] || headers[1] || headers[0];
             if (keyCode === 40) {
-                target = season && actionIndex === actions.length - 1
-                    ? season
-                    : runtimeHomeNearest(action, runtimeDetailEdgeRow(contents, 'top'), 'x');
+                target = seasonSelector || runtimeHomeNearest(action, runtimeDetailEdgeRow(contents, 'top'), 'x');
             }
         } else if (!target && season) {
             runtimeDetailLastFocus = season;
@@ -3993,7 +4036,7 @@
             if (!target && keyCode === 37) target = libraryRail
                 ? runtimeHomeNearest(content, runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem')), 'y') : null;
             if (!target && keyCode === 38) {
-                target = runtimeHomeNearest(content, actions.concat(season ? [season] : []), 'x');
+                target = runtimeHomeNearest(content, actions.concat(seasonSelector ? [seasonSelector] : []), 'x');
             }
         } else if (!target && headerItem) {
             var headerIndex = headers.indexOf(headerItem);

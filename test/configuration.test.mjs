@@ -81,6 +81,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /function handleRuntimeTransitionKeys\(event\)/);
     assert.match(policy, /railItem && event\.keyCode === 37/);
     assert.match(policy, /function restoreRuntimeFocus\(\)/);
+    assert.match(policy, /'\.jellyquestRuntimeLibraryOption'/);
     assert.match(policy, /libraryRail && !document\.body\.contains\(libraryRail\)/);
     assert.match(policy, /libraryRail\.hidden = false/);
     assert.match(policy, /function scheduleRuntimeRefresh\(\)/);
@@ -116,6 +117,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /jellyquestGlobalTabs/);
     assert.match(policy, /jellyquestRuntimeDetailRoot/);
     assert.match(policy, /function handleRuntimeDetailKeys/);
+    assert.match(policy, /data-playback-actions-ready/);
+    assert.match(policy, /target = seasonSelector \|\| runtimeHomeNearest/);
     assert.match(policy, /function returnFromRuntimeDetail/);
     assert.match(policy, /function detailBackdropUrl/);
     assert.match(policy, /login\|selectserver\|wizard\|video/);
@@ -154,6 +157,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /function seriesResumeEpisode/);
     assert.match(policy, /episode\.UserData\.PlaybackPositionTicks > 0/);
     assert.match(policy, /LastPlayedDate/);
+    assert.match(policy, /episode\.UserData && episode\.UserData\.Played/);
     assert.doesNotMatch(policy, /SeriesIds: item\.Id/);
     assert.match(policy, /state\.id !== item\.Id/);
     assert.match(policy, /data-playback-id/);
@@ -249,7 +253,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /width: 256px/);
     assert.match(styles, /overflow-y: hidden/);
     assert.match(styles, /box-sizing: border-box;[\s\S]*width: 256px/);
-    assert.match(styles, /grid-column-gap: 18px;[\s\S]*grid-row-gap: 32px;/);
+    assert.match(styles, /grid-column-gap: 18px;[\s\S]*grid-row-gap: 18px;/);
+    assert.match(styles, /\.jqRuntimeGridRoot \.jqMovieCopy/);
     assert.match(styles, /\.jqSearchRow > \* \+ \*[\s\S]*margin-left: 18px/);
     assert.match(styles, /margin-top: auto/);
     assert.match(styles, /margin-bottom: auto/);
