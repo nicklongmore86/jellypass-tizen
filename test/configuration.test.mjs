@@ -53,6 +53,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.jellyquestRailItem:focus[\s\S]*rgba\(51, 51, 51, 0\) 100%/);
     assert.match(styles, /\.jellyquestRuntimeDetailRoot \.jqActions \{[\s\S]*gap: 20px;/);
     assert.match(styles, /\.jqRuntimeGridRoot \.jqLibraryControls \{[\s\S]*gap: 18px;/);
+    assert.match(styles, /Tizen 5-era Chromium does not consistently implement flex gap/);
+    assert.match(styles, /\.jellyquestRuntimeDetailRoot \.jqAction \{[\s\S]*margin: 0 20px 20px 0;/);
+    assert.match(styles, /\.jellyquestLibraryProfileTrigger \{[\s\S]*width: 260px !important;/);
     assert.match(styles, /box-shadow: inset 0 -3px #00a4dc !important/);
     assert.match(policy, /openRequests/);
     assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{ openingRequests = false; \}\)/);
@@ -68,8 +71,11 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /function checkRequestsEligibility/);
     assert.match(policy, /mode=eligibility/);
     assert.match(policy, /requestsEligibilityCache\[userId\]/);
-    assert.match(policy, /requestsEligibilityStatus === 'eligible'/);
+    assert.match(policy, /requestsEligibilityStatus !== 'ineligible'/);
     assert.match(policy, /jellyquestGlobalRequestsTab/);
+    assert.match(policy, /function runtimeRailTarget\(railItem, keyCode, rightFallback\)/);
+    assert.match(policy, /data\.type === 'ready'\) finish\(true\)/);
+    assert.match(policy, /rejected this Jellyfin profile/);
     assert.match(policy, /nativeTab\.cloneNode\(true\)/);
     assert.match(policy, /jellyquestHiddenFavoritesTab/);
     assert.match(policy, /Filters: 'IsFavorite'/);
@@ -84,7 +90,7 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /window\.scrollTo\(0, 0\)/);
     assert.match(policy, /Recently Added/);
     assert.match(policy, /function handleRuntimeHomeKeys/);
-    assert.match(policy, /railItems\[railIndex - 1\]/);
+    assert.match(policy, /index > 0 \? items\[index - 1\] : runtimeProfileTarget\(\)/);
     assert.match(policy, /grid\.appendChild\(createRuntimeHomeCard/);
     assert.match(policy, /jellyquestRuntimeLibraryRoot/);
     assert.match(policy, /function handleRuntimeLibraryKeys/);
@@ -372,6 +378,7 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     assert.match(bootstrap, /if \(path\.indexOf\('\/api\/v1\/discover\/genreslider\/'\) === 0\) \{/);
     assert.match(bootstrap, /function genreItems\(value\)/);
     assert.match(bootstrap, /function focusInitialDiscoverCard\(\)/);
+    assert.match(bootstrap, /direction === 'up' \|\| direction === 'down'/);
     assert.match(bootstrap, /\[data-category="recently-added"\] \.card/);
     assert.match(bootstrap, /\.then\(loadDiscover\)\.then\(focusInitialDiscoverCard\)/);
     assert.doesNotMatch(bootstrap, /document\.getElementById\('discoverNav'\)\.focus\(\)/);

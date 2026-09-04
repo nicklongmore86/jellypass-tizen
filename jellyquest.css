@@ -1071,10 +1071,13 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
 .jellyquestLibraryProfileTrigger {
     background: transparent;
     border: 0;
+    box-sizing: border-box;
+    justify-content: flex-start;
     left: 23px;
     padding: 0;
     position: absolute !important;
     top: 18px;
+    width: 260px !important;
     z-index: 3;
 }
 
@@ -1849,4 +1852,61 @@ body.jellyquestRuntimeDetailActive .skinHeader .jellyquestGlobalTabs {
 .jellyquestRuntimeDetailRoot .jqChapterName {
     font-size: 17px;
     font-weight: 650;
+}
+
+/* Tizen 5-era Chromium does not consistently implement flex gap. Keep explicit
+   sibling spacing on every focusable flex row so rings never share a boundary. */
+.jqRuntimeGridRoot .jqLibraryControls,
+.jellyquestRuntimeDetailRoot .jqActions,
+.jellyquestSettingsFooter,
+.jellyquestSettingsCategories,
+.jellyquestRuntimeSearchRoot .jqSearchToolbar {
+    gap: 0;
+}
+
+.jqRuntimeGridRoot .jqLibraryControls > * + *,
+.jellyquestSettingsFooter > button + button {
+    margin-left: 18px;
+}
+
+.jellyquestRuntimeDetailRoot .jqAction {
+    margin: 0 20px 20px 0;
+    position: relative;
+}
+
+.jellyquestSettingsCategories > * + * {
+    margin-top: 16px;
+}
+
+.jellyquestRuntimeHomeCard:focus,
+.jellyquestRuntimeLibraryCard:focus,
+.jellyquestRuntimeSearchCard:focus,
+.jellyquestRuntimeDetailAction:focus,
+.jellyquestRuntimeDetailContent:focus,
+.jellyquestSettingsControl:focus,
+.jellyquestSettingsCategory:focus,
+.jellyquestSettingsFooter button:focus,
+.jqPageBack:focus,
+.jellyquestGlobalTab:focus,
+.jellyquestProfileTrigger:focus {
+    position: relative;
+    z-index: 4;
+}
+
+.jellyquestRuntimeHomeRoot .jqHomeGrid,
+.jqRuntimeGridRoot .jqMovieGrid {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.jqSearchRow {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 10px;
+}
+
+.jellyquestRuntimeDetailRoot .jqCollectionRow,
+.jellyquestRuntimeDetailRoot .jqEpisodeRow,
+.jellyquestRuntimeDetailRoot .jqChapterRow {
+    padding: 8px;
 }

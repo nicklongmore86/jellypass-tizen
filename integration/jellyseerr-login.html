@@ -13,7 +13,7 @@
     button, input { font: inherit; }
     button { color: #fff; }
     body:before { background: radial-gradient(circle at 78% 6%, rgba(32,84,108,.34), transparent 29%), linear-gradient(180deg, #15171b 0, #0e1013 23rem); content: ''; height: 25rem; left: 3.75rem; pointer-events: none; position: fixed; right: 0; top: 0; }
-    button:focus, input:focus { border-color: #fff !important; box-shadow: 0 0 0 .16rem #00a4dc, 0 .35rem 1rem rgba(0,0,0,.62); outline: none; }
+    button:focus, input:focus { border-color: #fff !important; box-shadow: 0 0 0 .16rem #00a4dc, 0 .35rem 1rem rgba(0,0,0,.62); outline: none; position: relative; z-index: 3; }
     header { background: rgba(14,14,16,.96); bottom: 0; box-shadow: .25rem 0 1rem rgba(0,0,0,.35); display: flex; flex-direction: column; left: 0; overflow: hidden; padding: .5rem 0; position: fixed; top: 4.5rem; transition: width .16s ease, box-shadow .16s ease; width: 3.75rem; z-index: 4; }
     header:focus-within, header:hover, header.is-expanded { background: linear-gradient(90deg, rgba(14,14,16,.98) 0, rgba(14,14,16,.94) 72%, rgba(14,14,16,.68) 86%, rgba(14,14,16,0) 100%); box-shadow: .45rem 0 1.6rem rgba(0,0,0,.3); width: 16rem; }
     header > .nav:first-child { margin-top: auto; }
@@ -48,10 +48,11 @@
     .row-header { align-items: flex-start; display: flex; height: 4rem; justify-content: space-between; }
     .row-header h2 { color: #fff; font-size: 1.8rem; font-weight: 500; margin: 0; }
     .see-more { background: transparent; border: .12rem solid transparent; border-radius: .35rem; color: #b9bec5; font-size: 1.1rem; font-weight: 500; padding: .45rem .7rem; }
-    .row-scroller { display: flex; gap: 1.15rem; margin: 0; overflow: hidden; padding: .35rem .25rem .55rem; }
+    .row-scroller { display: flex; gap: 0; margin: 0; overflow: hidden; padding: .65rem .4rem 1rem; }
     .cards { display: flex; flex-wrap: wrap; margin: 0 -.55rem; }
     .card { background: transparent; border: 0; color: #fff; flex: 0 0 auto; height: 20.5rem; margin: 0 .5rem; overflow: visible; padding: 0; position: relative; text-align: left; width: 14.7rem; }
-    .row-scroller .card { margin: 0; width: calc((100% - 6.9rem) / 7); }
+    .row-scroller .card { margin: 0 1.15rem 0 0; width: calc((100% - 6.9rem) / 7); }
+    .row-scroller .card:last-child { margin-right: 0; }
     .cards .card { margin: 0 .55rem 1.1rem; }
     .card:focus { box-shadow: none; }
     .poster { background: linear-gradient(145deg, #313844, #15181e); border: .18rem solid transparent; border-radius: .45rem; box-shadow: 0 .45rem 1.2rem rgba(0,0,0,.45); display: block; height: 16rem; object-fit: cover; overflow: hidden; transition: border-color .12s ease, transform .12s ease; width: 100%; }
@@ -82,9 +83,9 @@
     .dialog { background: #20242a; border: .1rem solid #59616d; border-radius: .45rem; box-shadow: 0 .8rem 2.4rem rgba(0,0,0,.82); max-height: 88%; max-width: 52rem; overflow-y: auto; padding: 1.75rem; width: 100%; }
     .dialog h2 { margin-bottom: .7rem; }
     .dialog p { color: #d0d3d7; font-size: 1.2rem; line-height: 1.45; }
-    .season-options { display: flex; flex-wrap: wrap; gap: .9rem; margin-top: 1.25rem; }
+    .season-options { display: flex; flex-wrap: wrap; gap: 0; margin-top: 1.25rem; }
     .season-options[hidden] { display: none; }
-    .season-toggle { background: #343a43; border: .12rem solid #565d68; border-radius: .4rem; min-width: 4.5rem; padding: .65rem .85rem; }
+    .season-toggle { background: #343a43; border: .12rem solid #565d68; border-radius: .4rem; margin: 0 .9rem .9rem 0; min-width: 4.5rem; padding: .65rem .85rem; }
     .season-toggle[aria-pressed="true"] { background: #fff; border-color: #fff; color: #111; font-weight: 700; }
     .dialog-actions { margin-top: 1.25rem; text-align: right; }
     .dialog-actions button { background: #343a43; border: .12rem solid #565d68; border-radius: .4rem; margin-left: .9rem; padding: .7rem 1rem; }
@@ -505,7 +506,8 @@
           event.preventDefault();
           return;
         }
-        var remembered = current._jellyquestReturnFocus && current._jellyquestReturnFocus[direction];
+        var remembered = (direction === 'up' || direction === 'down')
+          && current._jellyquestReturnFocus && current._jellyquestReturnFocus[direction];
         var forceProfileToRail = current.id === 'requestsProfile' && direction === 'down';
         if (!forceProfileToRail && remembered && document.body.contains(remembered) && isVisible(remembered)) {
           completeMove(event, current, remembered, direction);

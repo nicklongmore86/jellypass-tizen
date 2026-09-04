@@ -964,12 +964,16 @@
             if (keyCode === 39 && headerIndex < headers.length - 1) target = headers[headerIndex + 1];
             if (keyCode === 40) target = headerItem._jellyquestRuntimeReturn && headerItem._jellyquestRuntimeReturn[40];
             if (!target && keyCode === 40) target = backButton || categories[0];
-        } else if (!target && railItem && keyCode === 39) {
-            target = backButton || settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected') || categories[0];
+        } else if (!target && railItem) {
+            target = runtimeRailTarget(railItem, keyCode,
+                backButton || settingsRoot.querySelector('.jellyquestSettingsCategory.is-selected') || categories[0]);
         }
         if (target) {
             focusRuntimeHomeTarget(target, keyCode === 38 ? 40
                 : (keyCode === 40 ? 38 : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0))), current);
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        } else if (railItem || footerButton || control || category || back || headerItem) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -3050,9 +3054,11 @@
         }
         var rect = profileSwitcherTrigger.getBoundingClientRect();
         var gutter = 16;
-        var left = Math.max(gutter, Math.min(rect.left, window.innerWidth - profileSwitcher.offsetWidth - gutter));
+        var anchoredRuntimeTrigger = profileSwitcherTrigger.classList.contains('jellyquestLibraryProfileTrigger');
+        var anchorLeft = anchoredRuntimeTrigger ? 23 : rect.left;
+        var left = Math.max(gutter, Math.min(anchorLeft, window.innerWidth - profileSwitcher.offsetWidth - gutter));
         profileSwitcher.style.left = Math.round(left) + 'px';
-        profileSwitcher.style.top = Math.round(rect.bottom + 14) + 'px';
+        profileSwitcher.style.top = Math.round(anchoredRuntimeTrigger ? 86 : rect.bottom + 14) + 'px';
     }
 
     function updateProfileTrigger(trigger) {
@@ -3471,6 +3477,24 @@
         })[0] || null;
     }
 
+    function runtimeProfileTarget() {
+        return runtimeHomeVisible(document.querySelectorAll('.jellyquestProfileTrigger'))[0] || null;
+    }
+
+    function runtimeRailTarget(railItem, keyCode, rightFallback) {
+        if (!libraryRail || !railItem) return null;
+        var items = runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem'));
+        var index = items.indexOf(railItem);
+        if (keyCode === 38) return index > 0 ? items[index - 1] : runtimeProfileTarget();
+        if (keyCode === 40) return index >= 0 && index < items.length - 1 ? items[index + 1] : null;
+        if (keyCode === 39) {
+            var remembered = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
+            if (remembered && document.body.contains(remembered)) return remembered;
+            return rightFallback || null;
+        }
+        return null;
+    }
+
     function focusRuntimeHomeTarget(target, returnKey, origin) {
         if (!target) return false;
         if (returnKey && origin) {
@@ -3530,15 +3554,9 @@
                 focusRuntimeHomeTarget(target, keyCode === 38 ? 40 : (keyCode === 37 ? 39 : 0), card);
             }
         } else if (railItem) {
-            var railItems = runtimeHomeVisible(libraryRail.querySelectorAll('.jellyquestRailItem'));
-            var railIndex = railItems.indexOf(railItem);
-            if (keyCode === 38 && railIndex > 0) target = railItems[railIndex - 1];
-            if (keyCode === 40 && railIndex < railItems.length - 1) target = railItems[railIndex + 1];
-            if (keyCode === 39) {
-                target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
-                if (!target || !document.body.contains(target)) target = runtimeHomeLastCard;
-                if (!target || !document.body.contains(target)) target = root.querySelector('.jellyquestRuntimeHomeCard');
-            }
+            var homeFallback = runtimeHomeLastCard;
+            if (!homeFallback || !document.body.contains(homeFallback)) homeFallback = root.querySelector('.jellyquestRuntimeHomeCard');
+            target = runtimeRailTarget(railItem, keyCode, homeFallback);
             if (target) focusRuntimeHomeTarget(target, keyCode === 39 ? 37 : 0, railItem);
         } else if (headerItem) {
             var headers = runtimeHomeVisible(document.querySelectorAll(
@@ -3559,10 +3577,8 @@
                 : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0)), headerItem);
         }
 
-        if (target) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
     }
 
     function runtimeLibraryTopTarget(card, index) {
@@ -3665,14 +3681,17 @@
                 }
             }
             if (target) focusRuntimeHomeTarget(target, keyCode === 40 ? 38 : 0, headerItem);
-        } else if (railItem && keyCode === 39) {
-            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
-            if (!target || !document.body.contains(target)) target = runtimeLibraryLastCard;
-            if (!target || !document.body.contains(target)) target = cards[0] || backButton;
+        } else if (railItem) {
+            var libraryFallback = runtimeLibraryLastCard;
+            if (!libraryFallback || !document.body.contains(libraryFallback)) libraryFallback = cards[0] || backButton;
+            target = runtimeRailTarget(railItem, keyCode, libraryFallback);
             if (target) focusRuntimeHomeTarget(target, 37, railItem);
         }
 
         if (target) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        } else if (railItem || card || control || back || headerItem) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -3743,14 +3762,17 @@
             if (keyCode === 40) target = headerItem.classList.contains('jellyquestProfileTrigger')
                 ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
                 : (headerIndex === 1 ? backButton : searchInput);
-        } else if (railItem && keyCode === 39) {
-            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
-            if (!target || !document.body.contains(target)) target = runtimeSearchLastCard;
-            if (!target || !document.body.contains(target)) target = searchInput || backButton;
+        } else if (railItem) {
+            var searchFallback = runtimeSearchLastCard;
+            if (!searchFallback || !document.body.contains(searchFallback)) searchFallback = searchInput || backButton;
+            target = runtimeRailTarget(railItem, keyCode, searchFallback);
         }
         if (target) {
             focusRuntimeHomeTarget(target, keyCode === 38 ? 40
                 : (keyCode === 40 ? 38 : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0))), current);
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        } else if (railItem || card || back || headerItem || (input && keyCode !== 37 && keyCode !== 39)) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -3879,15 +3901,18 @@
                     ? (libraryRail && libraryRail.querySelector('.jellyquestRailItem'))
                     : (backButton || actions[headerIndex === headers.length - 1 ? actions.length - 1 : 0]);
             }
-        } else if (!target && railItem && keyCode === 39) {
-            target = railItem._jellyquestRuntimeReturn && railItem._jellyquestRuntimeReturn[39];
-            if (!target || !document.body.contains(target)) target = runtimeDetailLastFocus;
-            if (!target || !document.body.contains(target)) target = backButton || actions[0] || lower[0];
+        } else if (!target && railItem) {
+            var detailFallback = runtimeDetailLastFocus;
+            if (!detailFallback || !document.body.contains(detailFallback)) detailFallback = backButton || actions[0] || lower[0];
+            target = runtimeRailTarget(railItem, keyCode, detailFallback);
         }
 
         if (target) {
             focusRuntimeHomeTarget(target, keyCode === 38 ? 40
                 : (keyCode === 40 ? 38 : (keyCode === 37 ? 39 : (keyCode === 39 ? 37 : 0))), current);
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        } else if (railItem || content || season || action || back || headerItem) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
@@ -3905,7 +3930,7 @@
     }
 
     function requestsAreAvailable() {
-        return isStaticPreview || requestsEligibilityStatus === 'eligible';
+        return isStaticPreview || requestsEligibilityStatus !== 'ineligible';
     }
 
     function syncRequestsAvailability() {
@@ -3930,7 +3955,7 @@
             }
             requestsEligibilityStatus = 'checking';
             syncRequestsAvailability();
-            probeRequestsEligibility(user.Id);
+            probeRequestsEligibility(user.Id, user.Name || '');
         }).catch(function (error) {
             requestsEligibilityChecking = false;
             requestsEligibilityStatus = 'unavailable';
@@ -3940,7 +3965,7 @@
         });
     }
 
-    function probeRequestsEligibility(userId) {
+    function probeRequestsEligibility(userId, userName) {
         var nonce = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
         var frame = document.createElement('iframe');
         var timeout;
@@ -3975,11 +4000,14 @@
             var data = event.data || {};
             if (event.source !== frame.contentWindow || data.source !== 'jellyquest-bridge' || data.nonce !== nonce) return;
             if (data.type === 'eligibility') finish(data.eligible === true);
+            else if (data.type === 'ready') finish(true);
+            else if (data.type === 'error' && /rejected this Jellyfin profile|user (?:was )?not found/i.test(data.error || '')) finish(false);
             else if (data.type === 'error') finish(undefined, data.error);
         }
         try {
             var bridge = new URL(requestsBridgeUrl);
-            bridge.hash = 'mode=eligibility&id=' + encodeURIComponent(userId) + '&nonce=' + encodeURIComponent(nonce);
+            bridge.hash = 'mode=eligibility&id=' + encodeURIComponent(userId)
+                + '&user=' + encodeURIComponent(userName) + '&nonce=' + encodeURIComponent(nonce);
             frame.hidden = true;
             frame.setAttribute('aria-hidden', 'true');
             frame.setAttribute('title', 'Requests profile check');
