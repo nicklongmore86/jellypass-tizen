@@ -116,6 +116,35 @@
         currentBackHandler();
     });
 
+    var API_CLIENT_POLL_MS = 50;
+    var API_CLIENT_MAX_ATTEMPTS = 300; // ~15s
+
+    // jellyquest.js is injected (deferred) before jellyfin-web's own
+    // bundle in the built index.html, and deferred scripts run in
+    // document order -- so window.ApiClient is NOT guaranteed to exist
+    // the instant this file runs; jellyfin-web's own bundle hasn't
+    // necessarily executed yet at all. Confirmed on real hardware
+    // (Phase 5): this crashed every time in the field (session.js's
+    // listProfiles() calling ApiClient.getPublicUsers() on undefined),
+    // but never in the simulator, where the fixture scripts set
+    // window.ApiClient synchronously before jellyquest.js's own <script>
+    // tag even runs -- the simulator never actually exercised real
+    // script load-order timing.
+    function waitForApiClient(callback, attempt) {
+        attempt = attempt || 0;
+        if (window.ApiClient && typeof window.ApiClient.getPublicUsers === 'function') {
+            callback();
+            return;
+        }
+        if (attempt >= API_CLIENT_MAX_ATTEMPTS) {
+            console.error('[JellyQuest] Jellyfin Web never initialized ApiClient -- giving up.');
+            var root = document.getElementById('jellyquest-root');
+            if (root) root.textContent = 'Unable to start -- Jellyfin did not finish loading.';
+            return;
+        }
+        window.setTimeout(function () { waitForApiClient(callback, attempt + 1); }, API_CLIENT_POLL_MS);
+    }
+
     window.JellyQuestFocus.ready(function () {
         loadConfiguration(); // fire-and-forget: Requests waits on it lazily, nothing else needs it
 
@@ -126,10 +155,12 @@
             document.body.appendChild(root);
         }
 
-        if (window.JellyQuestSession.getCurrentProfile()) {
-            showShell(root);
-        } else {
-            showProfiles(root);
-        }
+        waitForApiClient(function () {
+            if (window.JellyQuestSession.getCurrentProfile()) {
+                showShell(root);
+            } else {
+                showProfiles(root);
+            }
+        });
     });
 })();

@@ -31,7 +31,19 @@
 
 .jq-modal-backdrop {
     position: fixed;
-    inset: 0;
+    /* `inset` shorthand only landed in Chromium 87 (2020); this project's
+       documented floor is Tizen 4.6 (Chromium ~M56-63) -- an old WebKit
+       silently drops the unsupported declaration, which falls this back
+       to its static in-flow position/size instead of covering the
+       screen (found via docs/rebuild-plan.md's Phase 5 on-screen
+       diagnostics on real hardware -- z-index/background still apply
+       fine since those aren't part of the dropped declaration, only
+       top/right/bottom/left are wrong, which is exactly what that looks
+       like). Longhand has been supported forever. */
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     background: rgba(0, 0, 0, 0.75);
     display: flex;
     align-items: center;

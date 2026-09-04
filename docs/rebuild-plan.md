@@ -1,10 +1,11 @@
 # JellyQuest Tizen: blank-canvas rebuild of the overlay layer
 
-Status as of this doc: **Phase 0 through 4 complete** on
-`claude/code-audit-issues-rha2bz`. Phase 5 (real hardware validation) is
-next and is the last phase in this plan. This file is the handoff/plan
-doc for continuing the rebuild from a fresh session (local CLI or
-otherwise) without needing the original conversation history.
+Status as of this doc: **Phase 0 through 4 complete**, **Phase 5
+in progress** on `claude/code-audit-issues-rha2bz` -- two real bugs found
+via real-hardware testing are fixed and pushed, awaiting a fresh install
+to confirm on the actual TV. This file is the handoff/plan doc for
+continuing the rebuild from a fresh session (local CLI or otherwise)
+without needing the original conversation history.
 
 **Correction, previously documented here as a real defect and now
 confirmed not to be one:** running a bare `npm install` (or letting
@@ -471,18 +472,101 @@ e2e/config suites remain the real regression gate per this phase's plan
 above). Re-verify `build:full`/`package:wgt` in an environment with full
 GitHub access, or on real hardware, as part of Phase 5.
 
-**Phase 5 — Real hardware validation. NOT STARTED.**
+**Phase 5 — Real hardware validation. IN PROGRESS.**
+
+The user built and sideloaded successfully on their own machine/TV (this
+sandbox can't do either — see the Phase 4 network-limitation note above).
+First install rendered broken: a "Who's watching?" panel partially
+appeared (proving `jellyquest.js` ran) but didn't cover the screen —
+stock Jellyfin's own library view was visible behind and around it. No
+devtools access to the TV, so diagnosis happened entirely through
+**`src/overlay/diagnostics.js`**, a temporary on-screen panel (catches
+`window.onerror`/`unhandledrejection`, reports `#jellyquest-root`'s
+computed style and actual `getBoundingClientRect()`, and `<html>`/`<body>`
+transform/filter state) added specifically because this TV had no other
+inspectable output channel. **Still in the tree, marked temporary — pull
+it (and its `build-overlay.mjs` entry) once Phase 5 is confirmed fixed on
+real hardware.**
+
+Two real, independent bugs found this way, both fixed and regression-tested:
+
+1. **Boot race: `window.ApiClient` isn't ready when JellyQuest's own
+   script runs.** The diagnostic panel showed `typeof ApiClient=undefined`
+   followed by `Uncaught TypeError: Cannot read property 'getPublicUsers'
+   of undefined @ jellyquest.js:1973` — `session.js`'s `listProfiles()`
+   calling `ApiClient.getPublicUsers()` the instant JellyQuest boots.
+   Root cause: `jellyquest.js` is injected with `defer` *before*
+   `main.jellyfin.bundle.js` in the built `index.html` (gulp's injection
+   order), and deferred scripts run in document order — so JellyQuest's
+   boot code runs, and can crash, before jellyfin-web's own bundle has
+   even started, let alone defined `window.ApiClient`. **The simulator
+   structurally could never catch this**: `dev/simulator.html`'s fixture
+   scripts are plain synchronous `<script>` tags that set
+   `window.ApiClient` *before* `jellyquest.js`'s own tag is even reached,
+   so real script-load-order timing was never actually exercised in
+   ~29 tests across four phases. Fixed in `src/overlay/app.js` with
+   `waitForApiClient()` — polls every 50ms (bounded to ~15s, then shows a
+   plain "Unable to start" message rather than hanging silently forever)
+   before doing anything that touches `ApiClient`. Regression-tested in
+   `test/e2e/boot-race.spec.mjs`, which reproduces the real timing via a
+   new `window.__jqTestDelayApiClientMs` flag in
+   `dev/fixtures/api-client-stub.js` (delays the fixture's own
+   `window.ApiClient` assignment instead of setting it synchronously) —
+   **verified this test actually fails with the pre-fix `app.js`**
+   (reproduced the exact same `TypeError` from the TV) before confirming
+   it passes with the fix, so it's a real regression test, not a
+   false-positive.
+2. **`inset: 0` isn't honored on this TV's WebKit.** The diagnostic panel
+   showed `#jellyquest-root` at `top=96.875px width=393.859px` instead of
+   `0`/`1920` (the TV's actual viewport), while `height=1080px`,
+   `background-color`, and `z-index` — from the same CSS rule — were all
+   correct. That's the exact signature of an unsupported declaration
+   being silently dropped: `top`/`right`/`bottom`/`left` are unset, so
+   the fixed-position element falls back to its static in-flow position
+   and content-driven size, while every other declared property on the
+   rule still applies fine. `inset` as a shorthand only landed in
+   Chromium 87 (2020); this project's own documented floor is Tizen 4.6
+   (Chromium ~M56-63, 2017-2019) — squarely too old. Fixed by replacing
+   `inset: 0` with explicit `top/right/bottom/left: 0` (supported
+   essentially forever) in both `src/overlay/app.css`
+   (`#jellyquest-root`) and `src/overlay/focus.css`
+   (`.jq-modal-backdrop`, same shorthand, same risk, not yet observed
+   broken but no reason to leave it). No practical way to regression-test
+   old-WebKit-specific CSS parsing in a Chromium-based Playwright harness
+   — this one relies on the code comment and real-hardware verification
+   instead.
+
+A third hypothesis (jellyfin-web applying a CSS `transform` to
+`<html>`/`<body>` for its own page-transition animations, which would
+redefine `position: fixed`'s containing block away from the real
+viewport) was tried first — `html, body { transform: none !important; ...
+}` was added to `app.css` — but the *next* round of on-screen diagnostics
+showed `transform: none` on both already, with the layout still broken,
+disproving it as the (sole) cause. Left in place as harmless insurance
+(once JellyQuest takes over, jellyfin-web's own transition effects
+underneath it don't matter either way), but bug #2 above is the
+confirmed, evidenced fix — not this one.
+
+**Not yet confirmed**: the two fixes above are pushed but not yet
+verified against real hardware (that requires the user's own TV, which
+this sandbox has no path to). Next step is another install + a report of
+whether the profile picker now renders full-screen correctly. If it
+does, remove `src/overlay/diagnostics.js` and its `build-overlay.mjs`
+entry as a follow-up commit — it was never meant to ship.
+
 - Package and sideload via the existing `install-tv.sh` /
   `georift/install-jellyfin-tizen` flow.
 - Physical-TV testing is the final validation pass, not the primary
-  feedback loop — the point of Phase 1.
+  feedback loop — the point of Phase 1. It already earned its keep: two
+  real bugs above were invisible to ~29 simulator/config tests across
+  four phases and only surfaced here.
 
 ## Verification
 
 - `npm test` (= `node --test test/configuration.test.mjs`) —
   config/plumbing tests, 7/7 passing as of Phase 4.
 - `npm run test:e2e` (= `node --test "test/e2e/**/*.spec.mjs"`) — the
-  Playwright navigation harness, 28/28 passing as of Phase 4, stable
+  Playwright navigation harness, 29/29 passing as of Phase 5, stable
   across repeated runs, served over a local HTTP server (see Phase 4's
   `file://` fix) rather than `file://`. This is the primary regression
   gate going forward; grow it alongside each phase's screens rather than

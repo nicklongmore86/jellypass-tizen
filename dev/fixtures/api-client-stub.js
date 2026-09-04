@@ -72,7 +72,7 @@
         return true;
     }
 
-    window.ApiClient = {
+    var apiClient = {
         getPublicUsers: function () {
             return Promise.resolve(USERS.slice());
         },
@@ -112,4 +112,15 @@
             return Promise.resolve();
         },
     };
+
+    // Real jellyfin-web doesn't define window.ApiClient the instant
+    // jellyquest.js runs (see docs/rebuild-plan.md's Phase 5 boot-race
+    // finding) -- window.__jqTestDelayApiClientMs lets
+    // test/e2e/boot-race.spec.mjs reproduce that instead of always
+    // defining it synchronously like every other test relies on.
+    if (window.__jqTestDelayApiClientMs) {
+        window.setTimeout(function () { window.ApiClient = apiClient; }, window.__jqTestDelayApiClientMs);
+    } else {
+        window.ApiClient = apiClient;
+    }
 })();
