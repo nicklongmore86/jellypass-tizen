@@ -5,15 +5,19 @@ Status as of this doc: **Phase 0, 1, and 2 complete** on
 handoff/plan doc for continuing the rebuild from a fresh session (local
 CLI or otherwise) without needing the original conversation history.
 
-Known environment gap: `npm run build:full` (the real jellyfin-web
-wrapper build) fails in some environments because the fetched
-jellyfin-web checkout ends up with no `dist/` directory -- confirmed
-independent of everything in this doc (present before Phase 0, and
-present in two different environments this rebuild has been tested in).
-The overlay build (`npm run build:overlay`), the simulator, and
-`node --test` all work regardless, since none of them need a real
-jellyfin-web build. Root-cause this separately before Phase 5 (real
-hardware needs a working `www/` tree); it's not this rebuild's doing.
+**Correction, previously documented here as a real defect and now
+confirmed not to be one:** running a bare `npm install` (or letting
+something else trigger the `postinstall` hook without
+`JELLYFIN_WEB_DIR` set) fails, because `npm run build`'s `gulp` step
+defaults `WEB_DIR` to `node_modules/jellyfin-web/dist` -- which never
+exists, since jellyfin-web isn't an npm dependency at all; it's fetched
+by `scripts/build.sh` via `git clone` into `.cache/jellyfin-web`. The
+correct entry point is `npm run build:full`, which sets
+`JELLYFIN_WEB_DIR` correctly before running `npm ci`. Confirmed working
+when invoked that way -- there is no missing-`dist/` defect in this
+branch. (`npm run build:overlay`, the simulator, and `node --test` never
+needed a real jellyfin-web build regardless, which is why this stayed
+invisible for two phases.)
 
 ## Context
 
@@ -155,10 +159,11 @@ Deleted the old overlay files, fixed the two hard-fail dependencies on
 them found by actually running the pipeline (see "Fixed in Phase 0"
 above), pruned the config test suite. Verified `npx gulp` +
 `npm run configure` run cleanly end-to-end against a stub jellyfin-web
-build. **Not verified in the sandbox this was built in**: `build:full`
-(needs a real jellyfin-web clone) and `package:wgt` (needs the Tizen
-CLI) — re-verify these on a machine that has both before relying on
-them.
+build. `build:full` needed a real jellyfin-web clone this sandbox
+didn't have, but has since been confirmed working elsewhere (see the
+correction note at the top of this doc — use `npm run build:full`
+itself, not a bare `npm install`). `package:wgt` still needs Tizen
+Studio to verify, saved for Phase 5.
 
 **Phase 1 — Dev-loop foundation. DONE (`a5078ab`).**
 - `src/overlay/focus.js` + `focus.css`: JellyQuest's conventions on top
@@ -285,11 +290,10 @@ Two more real bugs the harness caught (both fixed, both Phase-2-specific
   Playwright navigation harness, 5/5 passing as of Phase 2, stable across
   repeated runs. This is the primary regression gate going forward; grow
   it alongside each phase's screens rather than after.
-- `npm run build:full` and `npm run package:wgt` must still produce a
-  valid WGT — **still not verified end-to-end** as of Phase 2. The
-  `build:full` gap (missing jellyfin-web `dist/`) is a confirmed,
-  separate defect noted at the top of this doc; get it resolved before
-  Phase 5, since real hardware needs a working `www/` tree.
+- `npm run build:full` confirmed working (see the correction note at the
+  top of this doc — use this entry point, not a bare `npm install`).
+  `npm run package:wgt` still needs Tizen Studio to verify, saved for
+  Phase 5.
 - Final Phase 5 sideload to real hardware via
   `npm run install:tv -- TV_IP`.
 
