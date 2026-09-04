@@ -7,9 +7,11 @@ reported after that (see the end of the Phase 5 section) is under active
 investigation: a first fix attempt (guessing a duplicate-keydown remote
 glitch) was reverted before being committed, and real-device data has
 since **disproved that theory outright** -- every keydown is single and
-normally paced. A second, more targeted read-only diagnostic (logging
-focus before/after each keydown) is now in place waiting on real-device
-data. This file is the handoff/plan doc for continuing from
+normally paced, so the remote is not sending two events per press. The
+live hypothesis is now one event moving focus twice, because on device
+(and never in the simulator) two independent arrow-key navigation
+systems are live at once; a read-only diagnostic measuring exactly that
+is in place waiting on a photo from the TV. This file is the handoff/plan doc for continuing from
 a fresh session (local CLI or otherwise)
 without needing the original conversation history.
 
@@ -611,20 +613,69 @@ Up/Back on the real remote showed every single keydown arriving with
 same `keyCode` — normal, single, human-paced presses. No duplicates, no
 near-simultaneous pairs, at all. The bug is not in event count.
 
-**v2, in progress**: since a single confirmed keydown is what's actually
-producing the "skip" behavior, the diagnostic now logs
-`document.activeElement` immediately before each keydown and again once
-its processing has finished (a `setTimeout(0)`, so it runs after the
-vendored polyfill's own synchronous handling of that same event
-completes) — showing directly whether one press really does move focus
-by more than one position, which would point at the
-spatial-navigation-polyfill's own geometry/candidate-selection logic
-(or something in this layout it doesn't handle the way the simulator's
-does) rather than event duplication. Still **read-only** (TEMPORARY,
-same on-screen-panel pattern as `diagnostics.js` before it — remove once
-done; never calls `preventDefault`/`stopPropagation`). Next: a photo of
-this panel after pressing Right a few times on the profile picker on the
-actual remote.
+**v2** kept that finding and added the obvious next measurement: log
+`document.activeElement` immediately before each keydown and again after
+a `setTimeout(0)`, showing directly whether one press moves focus by
+more than one position.
+
+**v3, in progress** — what v2 could not distinguish. A two-position jump
+has two very different explanations, and "focus before/after" alone
+cannot tell them apart:
+
+1. the vendored spatial-navigation-polyfill's own geometry picking the
+   wrong candidate, or
+2. **two independent navigation systems both acting on the same event.**
+
+(2) is real and specific to the device. `gulpfile.babel.js` injects
+`jellyquest.js` into jellyfin-web's own `index.html`, so on hardware
+these are both live:
+
+- the bundled **spatial-navigation-polyfill** — `window` keydown, bubble
+  phase, registered from its own `load` handler
+  (`spatial-navigation-polyfill.js:83`, registered at `:1746`); and
+- **jellyfin-web's `keyboardnavigation`** → `inputManager.handleCommand`
+  → `focusManager.moveRight`, a completely separate geometry
+  implementation, confirmed present in the shipped
+  `www/main.jellyfin.bundle.js`.
+
+Nothing in JellyQuest disables either one. `app.js:104` is the overlay's
+only other keydown listener and it returns early for anything but Back;
+`scripts/patch-jellyfin-web.mjs` does not touch keyboard nav. Both
+systems guard on `!event.defaultPrevented` and both call
+`preventDefault()`, so normally whichever runs first wins and one press
+moves focus once. **The hole**: if the TV dispatches keydown with
+`cancelable: false`, `preventDefault()` is a silent no-op,
+`defaultPrevented` stays false, and *both* handlers move focus — two
+cards per press, exactly the reported symptom.
+
+Note this is **not** the disproved theory. That one was two *events* per
+press, and the device data killed it. This is one event, two *handlers*
+— and single, human-paced keydowns are precisely what it predicts.
+
+Neither the simulator nor desktop Chromium can show this: `dev/simulator.html`
+loads the overlay alone, so system (2) isn't there at all, and
+jellyfin-web's arrow branch is gated on its own `browser.tv` detection,
+false off-device. Playwright's keyboard events are also cancelable, so
+the guard works and the bug cannot appear in e2e.
+
+So v3 samples each press at three points — capture phase on `window`,
+a bubble-phase `window` listener registered from a `setTimeout` after
+`load` (behind the polyfill's, and last in the bubble path anyway for
+anything bound to `document`), and once more after dispatch unwinds —
+recording `cancelable` and `defaultPrevented` at each point plus the
+focused element's label and sibling index before/after. Still
+**read-only** (TEMPORARY, same on-screen-panel pattern as
+`diagnostics.js` before it — remove once done; never calls
+`preventDefault`/`stopPropagation`, only reads `document.activeElement`).
+
+**Next**: photo of the panel after pressing Right along the profile row
+on the actual remote. `cancelable=NO` beside a `(+2) <-- DOUBLE MOVE`
+confirms the two-systems cause; `cancelable=YES` rules it out and sends
+the investigation back to explanation (1), the polyfill's geometry. The
+fix that follows from (1) and from (2) are different — for (2) it is
+making JellyQuest the only arrow-key consumer on device (disable
+jellyfin-web's `keyboardnavigation`, or guarantee polyfill-first
+registration) — so do not write either until the photo says which.
 
 Series/Sports detail support (deferred in Phase 3) and TV/season-aware
 Requests (deferred in Phase 4) remain genuinely separate follow-up work,
