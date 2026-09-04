@@ -475,30 +475,40 @@ in the Playwright harness — confirmed directly with an isolated
 specifically a test-harness gap (the simulator was being opened via
 `file://`), not a production concern.
 
-> **Correction (measured on hardware).** The claim originally made here
+> **Correction (observed on hardware).** The claim originally made here
 > — that "Tizen's packaged-app runtime, and any other real embedding, is
 > never `file://`" — is **false**. Attaching to the running app's
-> DevTools inspector on both TVs reports the page URL as
-> `file:///www/index.html#/home` (and `faviconUrl`
-> `file:///www/favicon.…ico`), on the 2019 / Tizen 5.0 set and the 2020 /
-> Tizen 5.5 set alike. The packaged runtime **is** a `file://` origin.
+> DevTools inspector reports the page URL as
+> `file:///www/index.html#/home` on both the 2019 / Tizen 5.0 set and the
+> 2020 / Tizen 5.5 set. (The 2019 capture additionally shows
+> `faviconUrl: file:///www/favicon.…ico`; that field was not captured on
+> the 2020 set.) **The packaged app is loaded from a `file://` URL.**
 >
-> The surrounding conclusion survives anyway, for a different reason than
-> stated: the shipped app's `fetch()`-based config load demonstrably
-> worked on-device, so Samsung's web runtime evidently grants packaged
-> apps file-access privileges that desktop Chromium withholds. The
-> harness fix below is still correct and still worth having — it makes
-> the simulator load over `http://`, which is the *more* constrained
-> case. But do not reason from "production is not `file://`", because
-> production is.
+> Note the deliberately narrow phrasing: the inspector records the page
+> *URL*, not how the runtime treats its security origin. File-origin
+> handling is implementation-dependent, so "loaded from a `file://` URL"
+> is what the evidence supports — not a claim about origin semantics.
+>
+> The surrounding conclusion survives, but the mechanism is **not
+> established**: the shipped app's config loading worked on-device
+> despite its `file://` page URL, whereas the desktop harness's
+> local-file test failed. Why the two differ has not been determined —
+> it is not known whether native `fetch` or a shim performed the
+> on-device load, nor what permissions the runtime grants. Serving the
+> simulator over HTTP enables its config fetch; it does not establish
+> equivalent runtime permissions or module-loading behaviour, and
+> passing under the HTTP harness therefore cannot demonstrate
+> compatibility with packaged-file loading. Do not reason from
+> "production is not `file://`" — it is — and do not reason from the
+> harness passing, either.
 
 Fixed by adding
 `test/e2e/support/server.mjs` (a small static file server using Node's
 built-in `http`, no new dependency) and pointing all five spec files'
 `simulatorUrl` at it instead of `file://dev/simulator.html` — landed as
-its own commit before any Phase 4 feature code, and incidentally makes
-the whole harness more faithful to production loading, not just
-fetch-capable.
+its own commit before any Phase 4 feature code. It makes the harness
+fetch-capable; see the correction above for why that does **not** amount
+to reproducing the packaged runtime's loading behaviour.
 
 **Verified, not yet run in this sandbox**: `npm run build:full` failed
 here with `403 Forbidden` fetching

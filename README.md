@@ -44,7 +44,7 @@ The overlay lives entirely under `src/overlay/`, one file per concern:
 - `screens/profiles.js`, `screens/home.js`, `screens/library.js`, `screens/search.js`, `screens/detail.js`, `screens/requests.js` — one screen each.
 - `app.js` — the bootstrap and router. Creates JellyQuest's own full-viewport root container and switches which screen renders into the shell's content slot; also owns the hardware Back button.
 
-There are no native ES modules and no bundler. Note that the original reason given for this — that the oldest TV's Chromium predates `<script type="module">` — was **wrong**: modules shipped in Chromium 61 and the floor is M63 (see [Target hardware](#target-hardware)). The decision stands on a weaker, *untested* concern instead: the packaged app runs from a `file://` origin (measured on both sets), module fetches are CORS-governed, and nobody has tried a real module graph inside Samsung's runtime. Concatenation avoids the question at no cost, so `scripts/build-overlay.mjs` just concatenates these files, in an explicit fixed order, into the two files `gulpfile.babel.js` actually injects into jellyfin-web's built `index.html`: `jellyquest.js` and `jellyquest.css`. Those two generated files are committed to the repo (packaging needs them present at the project root) — **always run `npm run build:overlay` after editing anything under `src/overlay/`** and commit the result; `test/configuration.test.mjs` has a drift check that fails if you forget.
+There are no native ES modules and no bundler. Note that the original reason given for this — that the oldest TV's Chromium predates `<script type="module">` — was **wrong**: modules shipped in Chromium 61 and the floor is M63 (see [Target hardware](#target-hardware)). The decision stands on a weaker, *untested* concern instead: the packaged app is loaded from a `file://` URL (observed on both sets — though how the runtime treats that origin is *not* established), module fetches are CORS-governed, and nobody has tried a real module graph inside Samsung's runtime. Concatenation avoids the question at no cost, so `scripts/build-overlay.mjs` just concatenates these files, in an explicit fixed order, into the two files `gulpfile.babel.js` actually injects into jellyfin-web's built `index.html`: `jellyquest.js` and `jellyquest.css`. Those two generated files are committed to the repo (packaging needs them present at the project root) — **always run `npm run build:overlay` after editing anything under `src/overlay/`** and commit the result; `test/configuration.test.mjs` has a drift check that fails if you forget.
 
 JellyQuest creates its own `#jellyquest-root` container and owns the whole visible TV surface — it doesn't try to coexist visually with jellyfin-web's own rendered UI underneath it.
 
@@ -82,7 +82,14 @@ actually depends on:
 | `display: grid` | works | works |
 | `inset` shorthand | unsupported | unsupported |
 | `Object.entries`, `Promise.prototype.finally` | present | present |
-| Optional catch binding `try{}catch{}` | **`SyntaxError`** | parses |
+| Optional catch binding `try{}catch{}` | **`SyntaxError`** | parses † |
+
+† **Provenance.** Every 5.0 / M63 cell above was measured directly on the
+2019 set via the on-device DevTools inspector. On the 5.5 / M69 set the
+gap pixel measurements, `CSS.supports` results and API-presence checks
+were likewise measured — but the optional-catch-binding row is
+**inferred** from the M66 shipping version, not measured; that probe was
+never run on the 2020 set. Treat it as strongly expected, not confirmed.
 
 Three consequences worth internalising before changing any layout code:
 
