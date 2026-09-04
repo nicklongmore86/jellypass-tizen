@@ -49,6 +49,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
     assert.match(styles, /\.jellyquestRequestsTab:focus/);
+    assert.match(styles, /\.jellyquestLibraryRail:focus-within[\s\S]*linear-gradient\(90deg/);
+    assert.match(styles, /\.jellyquestRailItem:focus[\s\S]*rgba\(51, 51, 51, 0\) 100%/);
     assert.match(styles, /box-shadow: inset 0 -3px #00a4dc !important/);
     assert.match(policy, /openRequests/);
     assert.match(policy, /window\.addEventListener\('pageshow', function \(\) \{ openingRequests = false; \}\)/);
@@ -91,6 +93,14 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /function handleRuntimeDetailKeys/);
     assert.match(policy, /function returnFromRuntimeDetail/);
     assert.match(policy, /function detailBackdropUrl/);
+    assert.match(policy, /function focusRuntimeDetailInitial\(root\)/);
+    assert.match(policy, /function restoreRuntimeDetailContentFocus\(root\)/);
+    assert.match(policy, /runtimeLibraryReturnItemId = item\.Id/);
+    assert.match(policy, /runtimeSearchReturnItemId = item\.Id/);
+    assert.match(policy, /runtimeDetailReturnContentId = item\.Id/);
+    assert.match(policy, /root\.querySelector\('\.jellyquestRuntimeDetailAction'\) \|\| root\.querySelector\('\.jqDetailBack'\)/);
+    assert.match(policy, /button\.setAttribute\('data-action-key', definition\.key \|\| definition\.selector\)/);
+    assert.match(policy, /actions\.querySelector\('\[data-action-key="' \+ focusedKey \+ '\"\]'\)/);
     assert.match(policy, /item\.Type === 'Episode'/);
     assert.match(policy, /parentBackdrop \|\| itemBackdropUrl\(apiClient, parentSeries\)/);
     assert.match(policy, /item\.ParentBackdropImageTags/);
@@ -268,6 +278,8 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
     const bootstrap = fs.readFileSync(path.join(root, 'integration/jellyseerr-login.html'), 'utf8');
 
     assert.match(bootstrap, /function startBridge/);
+    assert.match(bootstrap, /header:focus-within, header:hover, header\.is-expanded \{ background: linear-gradient\(90deg/);
+    assert.match(bootstrap, /\.nav:focus \{ background: linear-gradient\(90deg/);
     assert.ok(
         bootstrap.indexOf('bridgeReadyPromise = holder;') < bootstrap.indexOf("bridgeFrame = document.createElement('iframe');"),
         'bridge readiness listener must be armed before the iframe can load'

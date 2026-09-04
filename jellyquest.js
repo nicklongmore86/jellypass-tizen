@@ -37,16 +37,19 @@
         unwatched: false
     };
     var runtimeLibraryLastCard;
+    var runtimeLibraryReturnItemId = '';
     var runtimeLibraryMenu;
     var runtimeLibraryMenuTrigger;
     var runtimeGlobalTabs;
     var runtimeSearchState = { categories: [], loading: false, pageSize: 70, requestId: 0, term: '', total: 0 };
     var runtimeSearchTimer;
     var runtimeSearchLastCard;
+    var runtimeSearchReturnItemId = '';
     var runtimeSearchOriginHash = '';
     var runtimeDetailOrigin;
     var runtimeDetailState = { id: '', loading: false, requestId: 0 };
     var runtimeDetailLastFocus;
+    var runtimeDetailReturnContentId = '';
     var runtimeLoadingRoot;
     var detailActionLoading = false;
     var detailActionState;
@@ -988,6 +991,9 @@
             + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         card.setAttribute('aria-label', item.Name || descriptor.itemType);
         card.setAttribute('data-itemid', item.Id);
+        card.addEventListener('click', function () {
+            if (card.classList.contains('jellyquestRuntimeLibraryCard')) runtimeLibraryReturnItemId = item.Id;
+        });
         poster.className = 'jqPoster';
         if (imageUrl) poster.style.backgroundImage = 'url("' + imageUrl.replace(/"/g, '%22') + '")';
         else poster.classList.add('is-placeholder');
@@ -1174,6 +1180,15 @@
             status.hidden = true;
         }
         updateRuntimeLibraryControls(root);
+        if (runtimeLibraryReturnItemId) {
+            var returnCard = root.querySelector('.jellyquestRuntimeLibraryCard[data-itemid="'
+                + runtimeLibraryReturnItemId + '"]');
+            if (returnCard) {
+                returnCard.focus();
+                runtimeLibraryLastCard = returnCard;
+                runtimeLibraryReturnItemId = '';
+            }
+        }
     }
 
     function loadRuntimeLibrary(reset) {
@@ -1306,6 +1321,7 @@
         card.classList.add('jellyquestRuntimeSearchCard');
         card.setAttribute('data-search-category', categoryKey);
         card.addEventListener('click', function () {
+            runtimeSearchReturnItemId = item.Id;
             runtimeDetailOrigin = {
                 hash: window.location.hash,
                 itemType: item.Type,
@@ -1413,6 +1429,15 @@
             results.appendChild(section);
         });
         updateRuntimeSearchStatus(root);
+        if (runtimeSearchReturnItemId) {
+            var returnCard = root.querySelector('.jellyquestRuntimeSearchCard[data-itemid="'
+                + runtimeSearchReturnItemId + '"]');
+            if (returnCard) {
+                returnCard.focus();
+                runtimeSearchLastCard = returnCard;
+                runtimeSearchReturnItemId = '';
+            }
+        }
     }
 
     function loadRuntimeSearch(reset) {
@@ -1745,14 +1770,16 @@
         }).join('|');
         var actions = root.querySelector('.jqActions');
         if (actions.getAttribute('data-action-signature') === signature) return;
-        var focusedSelector = document.activeElement && document.activeElement.getAttribute
-            ? document.activeElement.getAttribute('data-native-selector') : '';
+        var focusedAction = document.activeElement && document.activeElement.closest
+            ? document.activeElement.closest('.jellyquestRuntimeDetailAction') : null;
+        var focusedKey = focusedAction ? focusedAction.getAttribute('data-action-key') : '';
         actions.innerHTML = '';
         actions.setAttribute('data-action-signature', signature);
         definitions.forEach(function (definition, index) {
             var button = document.createElement('button');
             button.type = 'button';
             button.className = 'jqAction jellyquestRuntimeDetailAction';
+            button.setAttribute('data-action-key', definition.key || definition.selector);
             if (index === 0) button.classList.add('primary');
             if (definition.selector) button.setAttribute('data-native-selector', definition.selector);
             if (definition.item) {
@@ -1779,10 +1806,21 @@
             });
             actions.appendChild(button);
         });
-        if (focusedSelector) {
-            var replacement = actions.querySelector('[data-native-selector="' + focusedSelector + '"]');
-            if (replacement) replacement.focus();
+        if (focusedKey) {
+            var replacement = actions.querySelector('[data-action-key="' + focusedKey + '"]')
+                || actions.querySelector('.jellyquestRuntimeDetailAction');
+            if (replacement) {
+                replacement.focus();
+                runtimeDetailLastFocus = replacement;
+            }
         }
+    }
+
+    function focusRuntimeDetailInitial(root) {
+        var target = root.querySelector('.jellyquestRuntimeDetailAction') || root.querySelector('.jqDetailBack');
+        if (!target) return;
+        target.focus();
+        runtimeDetailLastFocus = target;
     }
 
     function createRuntimeDetailLink(apiClient, item, className) {
@@ -1796,6 +1834,8 @@
         card.href = '#/details?id=' + encodeURIComponent(item.Id)
             + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         card.setAttribute('aria-label', item.Name || 'Media item');
+        card.setAttribute('data-itemid', item.Id);
+        card.addEventListener('click', function () { runtimeDetailReturnContentId = item.Id; });
         image.className = className.indexOf('Episode') !== -1 ? 'jqEpisodeImage' : 'jqCollectionImage';
         if (imageUrl) image.style.backgroundImage = 'url("' + imageUrl.replace(/"/g, '%22') + '")';
         name.className = className.indexOf('Episode') !== -1 ? 'jqEpisodeTitle' : 'jqCollectionName';
@@ -1822,6 +1862,16 @@
         card.appendChild(name);
         card.appendChild(meta);
         return card;
+    }
+
+    function restoreRuntimeDetailContentFocus(root) {
+        if (!runtimeDetailReturnContentId) return;
+        var returnCard = root.querySelector('.jellyquestRuntimeDetailContent[data-itemid="'
+            + runtimeDetailReturnContentId + '"]');
+        if (!returnCard) return;
+        returnCard.focus();
+        runtimeDetailLastFocus = returnCard;
+        runtimeDetailReturnContentId = '';
     }
 
     function applyCurrentPlaybackPreferences(button, item) {
@@ -1886,6 +1936,7 @@
                 chapterRow.appendChild(button);
             });
             lower.appendChild(chapterRow);
+            restoreRuntimeDetailContentFocus(root);
             return;
         }
         if (item.Type === 'Series') {
@@ -1923,6 +1974,7 @@
                     : 'No episodes are available in this season.';
                 lower.appendChild(empty);
             }
+            restoreRuntimeDetailContentFocus(root);
             return;
         }
         lower.className = 'jellyquestRuntimeDetailLower jqCollectionSection';
@@ -1934,6 +1986,7 @@
         });
         lower.appendChild(similarRow);
         lower.hidden = !similarRow.children.length;
+        restoreRuntimeDetailContentFocus(root);
     }
 
     function returnFromRuntimeDetail() {
@@ -2062,6 +2115,7 @@
         hideRuntimeLoading();
         ensureRuntimeGlobalTabs();
         syncRuntimeDetailActions();
+        focusRuntimeDetailInitial(root);
     }
 
     function loadRuntimeDetail() {
