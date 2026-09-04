@@ -18,6 +18,10 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const JS_FILES = [
+    // TEMPORARY diagnostic for the Phase 5 follow-up navigation report --
+    // see src/overlay/keydown-diagnostics.js and docs/rebuild-plan.md.
+    // Remove this line (and the file) once the real cause is understood.
+    path.join(root, 'src/overlay/keydown-diagnostics.js'),
     path.join(root, 'node_modules/spatial-navigation-polyfill/polyfill/spatial-navigation-polyfill.js'),
     path.join(root, 'src/overlay/focus.js'),
     path.join(root, 'src/overlay/session.js'),

@@ -38,7 +38,7 @@ test('JellyQuest waits for a late window.ApiClient instead of crashing', async (
         const names = await page.evaluate(() =>
             Array.from(document.querySelectorAll('.jq-profile-card')).map((card) => card.textContent)
         );
-        assert.deepEqual(names, ['Alice', 'Bob', 'Charlie']);
+        assert.deepEqual(names, ['Alice', 'Bob', 'Charlie', 'Dana']);
         assert.deepEqual(pageErrors, []);
     } finally {
         await browser.close();

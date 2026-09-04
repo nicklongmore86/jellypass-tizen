@@ -22,7 +22,7 @@ test('profile picker is the landing screen: no login form, autofocus on the firs
         const names = await page.evaluate(() =>
             Array.from(document.querySelectorAll('.jq-profile-card')).map((card) => card.textContent)
         );
-        assert.deepEqual(names, ['Alice', 'Bob', 'Charlie']);
+        assert.deepEqual(names, ['Alice', 'Bob', 'Charlie', 'Dana']);
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Alice');
 
         // No manual-login/Quick Connect/admin surfaces anywhere on this screen.
@@ -39,9 +39,18 @@ test('arrow keys move across the profile row', async () => {
         await page.goto(simulatorUrl);
         await page.waitForSelector('.jq-profile-card');
 
+        // 4 profiles, not 3 -- a real household reported only being able
+        // to reach every other item (see docs/rebuild-plan.md's Phase 5
+        // notes); not yet reproduced or root-caused, but this pins down
+        // that ordinary sequential navigation through a realistic
+        // profile count works correctly here.
         await page.keyboard.press('ArrowRight');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Bob');
         await page.keyboard.press('ArrowRight');
+        assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Charlie');
+        await page.keyboard.press('ArrowRight');
+        assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Dana');
+        await page.keyboard.press('ArrowLeft');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Charlie');
         await page.keyboard.press('ArrowLeft');
         assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Bob');

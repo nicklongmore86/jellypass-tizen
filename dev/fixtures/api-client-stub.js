@@ -12,6 +12,7 @@
         { Id: 'user-alice', Name: 'Alice' },
         { Id: 'user-bob', Name: 'Bob' },
         { Id: 'user-charlie', Name: 'Charlie' },
+        { Id: 'user-dana', Name: 'Dana' },
     ];
 
     // A library big enough to exercise a real grid's partial last row

@@ -1,9 +1,13 @@
 # JellyQuest Tizen: blank-canvas rebuild of the overlay layer
 
 Status as of this doc: **all phases (0 through 5) complete** on
-`claude/code-audit-issues-rha2bz` -- the rebuild is done and confirmed
-working on real hardware. This file is the handoff/plan doc for
-continuing from a fresh session (local CLI or otherwise)
+`claude/code-audit-issues-rha2bz` -- the rebuild itself is done and
+confirmed working on real hardware. A **follow-up navigation bug**
+reported after that (see the end of the Phase 5 section) is under active
+investigation: a first fix attempt was wrong and was reverted before
+being committed, and a read-only diagnostic is now in place waiting on
+real-device data. This file is the handoff/plan doc for continuing from
+a fresh session (local CLI or otherwise)
 without needing the original conversation history.
 
 **Correction, previously documented here as a real defect and now
@@ -565,11 +569,53 @@ meant to be temporary, and its job is done.
   bugs above were invisible to ~29 simulator/config tests across four
   phases and only surfaced here.
 
-**This closes out the rebuild.** All six phases are done and verified,
-including on real hardware. Anything from here is genuinely new work —
-Series/Sports detail support (deferred in Phase 3), TV/season-aware
-Requests (deferred in Phase 4), or whatever else comes up — not a
-continuation of an unfinished phase.
+**This closed out the rebuild** as originally scoped. All six phases were
+done and verified, including on real hardware.
+
+**Follow-up bug report, post-rebuild.** The same household then reported
+a navigation problem on the real TV: from the 4-profile picker (their
+actual household, not this fixture's placeholder names), only every
+other card was reachable with the remote (first and third, never second
+or fourth). Simulator testing with an identically-sized 4-profile row
+navigated correctly, ruling out a plain navigation-logic bug.
+
+**A first attempt at a fix was wrong, and was reverted rather than
+shipped.** The pattern (reaching only positions 0 and 2 of 4) looked
+exactly like a keydown double-fire -- a known class of bug on some
+Samsung Tizen remotes, where a single physical press delivers two
+keydown events, silently moving focus two positions instead of one. A
+time-windowed debounce guard was added to `focus.js` to suppress a
+same-key duplicate arriving within 100ms, registered in the capture
+phase specifically so it runs before the vendored polyfill's own
+(bubble-phase) listener regardless of script load order. It was written
+**without an on-device measurement first** — a real inconsistency with
+how the other two Phase 5 bugs were handled (both had concrete on-screen
+diagnostic proof before any fix was written). Running the full test
+suite against it, before committing anything, caught the mistake
+immediately: 7 tests failed, because Playwright's own back-to-back
+`keyboard.press()` calls land only 5-20ms apart in this environment
+(measured directly) -- comfortably inside the 100ms window, so the "fix"
+was also swallowing completely ordinary, legitimate repeated presses,
+not just a hypothetical hardware artifact. There is no timing threshold
+that reliably tells those two apart from JS-visible timestamps alone.
+**Reverted in full before ever being committed** -- `focus.js` is back
+to its pre-attempt content; nothing from this attempt reached `origin`.
+
+**Correct next step, in progress**: `src/overlay/keydown-diagnostics.js`
+(TEMPORARY, same on-screen-panel pattern as `diagnostics.js` before it --
+remove once done) logs every keydown's `key`/`keyCode`/`repeat` and the
+timing gap since the last event of that same `keyCode`, directly on
+screen. Deliberately **read-only** — it never calls
+`preventDefault`/`stopPropagation`, so unlike the reverted attempt it
+cannot itself change navigation behavior while gathering evidence. Next:
+get a photo of this panel after pressing Right a few times on the actual
+remote, to see what events the hardware really sends before writing any
+fix.
+
+Series/Sports detail support (deferred in Phase 3) and TV/season-aware
+Requests (deferred in Phase 4) remain genuinely separate follow-up work,
+not part of either the original rebuild or this navigation
+investigation.
 
 ## Verification
 
