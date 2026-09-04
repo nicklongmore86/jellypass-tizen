@@ -49,8 +49,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.btnManual/);
     assert.match(styles, /\.btnForgotPassword/);
     assert.match(styles, /\.jellyquestRequestsTab:focus/);
+    assert.match(styles, /\.headerTabs \.emby-tab-button:not\(\.jellyquestHiddenFavoritesTab\)[\s\S]*color: #fff !important/);
     assert.match(styles, /\.jellyquestLibraryRail:focus-within[\s\S]*linear-gradient\(90deg/);
-    assert.match(styles, /\.jellyquestRailItem:focus[\s\S]*rgba\(51, 51, 51, 0\) 100%/);
+    assert.match(styles, /\.jellyquestRailItem:focus[\s\S]*#292d33 100%/);
     assert.match(styles, /\.jellyquestRuntimeDetailRoot \.jqActions \{[\s\S]*gap: 20px;/);
     assert.match(styles, /\.jqRuntimeGridRoot \.jqLibraryControls \{[\s\S]*gap: 18px;/);
     assert.match(styles, /Tizen 5-era Chromium does not consistently implement flex gap/);
@@ -306,6 +307,8 @@ test('Jellyseerr bootstrap delegates identity verification without logging it in
         'bridge readiness listener must be armed before the iframe can load'
     );
     assert.match(bootstrap, /\.requests-tab:focus \{ box-shadow: inset 0 -\.18rem #00a4dc;/);
+    assert.match(bootstrap, /\.requests-tab \{[^}]*color: #fff;/);
+    assert.match(bootstrap, /\.nav \{[^}]*padding: 0 \.82em;[^}]*width: 16rem;/);
     assert.match(bootstrap, /function bridgeApi/);
     assert.match(bootstrap, /function drainBridgeQueue/);
     assert.match(bootstrap, /bridgeConcurrency = 4/);

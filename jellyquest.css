@@ -212,6 +212,10 @@
     width: auto !important;
 }
 
+.jellyquestHasLibraryRail .skinHeader .headerTabs .emby-tab-button:not(.jellyquestHiddenFavoritesTab) {
+    color: #fff !important;
+}
+
 .jellyquestHiddenFavoritesTab {
     display: none !important;
 }
@@ -478,10 +482,10 @@ body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
 .jellyquestLibraryRail:hover,
 .jellyquestLibraryRail.is-expanded {
     background: linear-gradient(90deg,
-        rgba(14, 14, 16, .98) 0,
-        rgba(14, 14, 16, .94) 72%,
-        rgba(14, 14, 16, .68) 86%,
-        rgba(14, 14, 16, 0) 100%);
+        rgba(14, 14, 16, .99) 0,
+        rgba(14, 14, 16, .99) 60px,
+        rgba(22, 24, 28, .98) 60px,
+        rgba(22, 24, 28, .98) 100%);
     box-shadow: .45em 0 1.6em rgba(0, 0, 0, .3);
     width: 256px;
 }
@@ -546,9 +550,9 @@ body.jellyquestHasLibraryRail:not(.dashboardDocument) .skinBody {
 .jellyquestRailItem:focus {
     background: linear-gradient(90deg,
         #333 0,
-        rgba(51, 51, 51, .96) 72%,
-        rgba(51, 51, 51, .62) 86%,
-        rgba(51, 51, 51, 0) 100%);
+        #333 60px,
+        #292d33 60px,
+        #292d33 100%);
     color: #fff;
     outline: .14em solid #fff;
     outline-offset: -.14em;
@@ -1098,7 +1102,7 @@ body.jellyquestRuntimeSearchActive .skinHeader .headerLeft {
     background: transparent;
     border: 0;
     border-radius: 0;
-    color: #aaa;
+    color: #fff;
     font-family: inherit;
     font-size: 20px;
     font-weight: 600;

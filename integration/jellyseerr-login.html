@@ -15,17 +15,17 @@
     body:before { background: radial-gradient(circle at 78% 6%, rgba(32,84,108,.34), transparent 29%), linear-gradient(180deg, #15171b 0, #0e1013 23rem); content: ''; height: 25rem; left: 3.75rem; pointer-events: none; position: fixed; right: 0; top: 0; }
     button:focus, input:focus { border-color: #fff !important; box-shadow: 0 0 0 .16rem #00a4dc, 0 .35rem 1rem rgba(0,0,0,.62); outline: none; position: relative; z-index: 3; }
     header { background: rgba(14,14,16,.96); bottom: 0; box-shadow: .25rem 0 1rem rgba(0,0,0,.35); display: flex; flex-direction: column; left: 0; overflow: hidden; padding: .5rem 0; position: fixed; top: 4.5rem; transition: width .16s ease, box-shadow .16s ease; width: 3.75rem; z-index: 4; }
-    header:focus-within, header:hover, header.is-expanded { background: linear-gradient(90deg, rgba(14,14,16,.98) 0, rgba(14,14,16,.94) 72%, rgba(14,14,16,.68) 86%, rgba(14,14,16,0) 100%); box-shadow: .45rem 0 1.6rem rgba(0,0,0,.3); width: 16rem; }
+    header:focus-within, header:hover, header.is-expanded { background: linear-gradient(90deg, rgba(14,14,16,.99) 0, rgba(14,14,16,.99) 3.75rem, rgba(22,24,28,.98) 3.75rem, rgba(22,24,28,.98) 100%); box-shadow: .45rem 0 1.6rem rgba(0,0,0,.3); width: 16rem; }
     header > .nav:first-child { margin-top: auto; }
     header > .nav:last-child { margin-bottom: auto; }
     .brand-mark { display: block; height: 1.7rem; margin-right: .7rem; object-fit: contain; width: 1.7rem; }
-    .nav { align-items: center; background: transparent; border: 0; border-radius: 0; color: rgba(255,255,255,.78); display: flex; flex: 0 0 3.4rem; font-size: 1.25rem; font-weight: 400; height: 3.4rem; overflow: hidden; padding: 0 .82rem; text-align: left; width: 100%; }
+    .nav { align-items: center; background: transparent; border: 0; border-radius: 0; color: rgba(255,255,255,.78); display: flex; flex: 0 0 3.4rem; font-size: 1.25rem; font-weight: 400; height: 3.4rem; overflow: hidden; padding: 0 .82em; text-align: left; width: 16rem; }
     .nav-icon { color: currentColor; display: block; flex: 0 0 1.35em; height: 1.35em; margin-right: 1em; width: 1.35em; }
     .nav-icon svg { fill: none; height: 100%; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 100%; }
     .nav-label { opacity: 0; overflow: hidden; text-overflow: ellipsis; transition: opacity .1s ease; white-space: nowrap; }
     header:focus-within .nav-label, header:hover .nav-label, header.is-expanded .nav-label { opacity: 1; }
     .nav.active { color: #00a4dc; }
-    .nav:focus { background: linear-gradient(90deg, #333 0, rgba(51,51,51,.96) 72%, rgba(51,51,51,.62) 86%, rgba(51,51,51,0) 100%); color: #fff; outline: .14em solid #fff; outline-offset: -.14em; }
+    .nav:focus { background: linear-gradient(90deg, #333 0, #333 3.75rem, #292d33 3.75rem, #292d33 100%); color: #fff; outline: .14em solid #fff; outline-offset: -.14em; }
     #topbar { align-items: center; background: rgba(20,20,20,.7); box-shadow: 0 .2rem .8rem #000; display: none; height: 4.5rem; left: 0; padding: 0 1.4375rem 0 4.8125rem; position: fixed; right: 0; top: 0; z-index: 5; }
     .requests-header-top { align-items: center; display: flex; height: auto; }
     #topPageTitle, #globalSearchForm { display: none; }
@@ -33,7 +33,7 @@
     .profile-dot { align-items: center; background: transparent; border: 0; border-radius: 0; display: flex; flex: 0 0 auto; font-size: 1.25rem; font-weight: 500; height: 2.25rem; justify-content: center; margin: 0; padding: 0; width: auto; }
     .profile-dot:focus { filter: drop-shadow(0 0 .22rem #00a4dc); outline: .12rem solid #fff; outline-offset: .22rem; }
     .requests-tabs { align-items: center; color: #ddd; display: flex; font-size: 1.25rem; height: 4.5rem; justify-content: center; left: 50%; margin: 0; position: absolute; top: 0; transform: translateX(-50%); }
-    .requests-tab { background: transparent; border: 0; color: #ddd; font-size: 1.25rem; font-weight: 600; height: 3.375rem; margin: 0 1.5rem; padding: 0; }
+    .requests-tab { background: transparent; border: 0; color: #fff; font-size: 1.25rem; font-weight: 600; height: 3.375rem; margin: 0 1.5rem; padding: 0; }
     .requests-tab.active { border-bottom: .18rem solid #00a4dc; color: #fff; }
     .requests-tab:focus { box-shadow: inset 0 -.18rem #00a4dc; color: #fff; outline: none; }
     #status { align-items: center; display: flex; font-size: 1.4rem; height: 100%; justify-content: center; margin-left: 3.75rem; padding: 2rem; position: relative; text-align: center; }
