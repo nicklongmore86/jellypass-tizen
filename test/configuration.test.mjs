@@ -65,6 +65,11 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /jellyquestRequestsTab/);
     assert.match(policy, /headerTabs \.tabs-viewmenubar \.emby-tabs-slider/);
     assert.match(policy, /foreground\.textContent = 'Requests'/);
+    assert.match(policy, /function checkRequestsEligibility/);
+    assert.match(policy, /mode=eligibility/);
+    assert.match(policy, /requestsEligibilityCache\[userId\]/);
+    assert.match(policy, /requestsEligibilityStatus === 'eligible'/);
+    assert.match(policy, /jellyquestGlobalRequestsTab/);
     assert.match(policy, /nativeTab\.cloneNode\(true\)/);
     assert.match(policy, /jellyquestHiddenFavoritesTab/);
     assert.match(policy, /Filters: 'IsFavorite'/);

@@ -6,6 +6,12 @@
     var requestsPageVersion;
     var openingRequests = false;
     var requestsTabFocusPending = false;
+    var requestsEligibilityCache = {};
+    var requestsEligibilityChecking = false;
+    var requestsEligibilityFrame;
+    var requestsEligibilityRetryAfter = 0;
+    var requestsEligibilityStatus = 'unknown';
+    var requestsEligibilityUserId = '';
     var profileSwitcher;
     var profileSwitcherTrigger;
     var profileSwitching = false;
@@ -444,23 +450,35 @@
             header.appendChild(profile);
             ensureProfileSwitcher();
         }
-        if (runtimeGlobalTabs && document.body.contains(runtimeGlobalTabs)) return;
+        if (runtimeGlobalTabs && document.body.contains(runtimeGlobalTabs)) {
+            var existingRequests = runtimeGlobalTabs.querySelector('.jellyquestGlobalRequestsTab');
+            if (requestsAreAvailable() && !existingRequests) {
+                runtimeGlobalTabs.appendChild(createRuntimeRequestsTab());
+            } else if (!requestsAreAvailable() && existingRequests) {
+                existingRequests.parentNode.removeChild(existingRequests);
+            }
+            return;
+        }
         runtimeGlobalTabs = document.createElement('nav');
         runtimeGlobalTabs.className = 'jellyquestGlobalTabs';
         runtimeGlobalTabs.setAttribute('aria-label', 'Primary navigation');
         var home = document.createElement('button');
-        var requests = document.createElement('button');
         home.type = 'button';
         home.className = 'jellyquestGlobalTab';
         home.textContent = 'Home';
         home.addEventListener('click', function () { window.location.hash = '#/home'; });
+        runtimeGlobalTabs.appendChild(home);
+        if (requestsAreAvailable()) runtimeGlobalTabs.appendChild(createRuntimeRequestsTab());
+        header.appendChild(runtimeGlobalTabs);
+    }
+
+    function createRuntimeRequestsTab() {
+        var requests = document.createElement('button');
         requests.type = 'button';
-        requests.className = 'jellyquestGlobalTab';
+        requests.className = 'jellyquestGlobalTab jellyquestGlobalRequestsTab';
         requests.textContent = 'Requests';
         requests.addEventListener('click', function () { openRequests(requestsUrl); });
-        runtimeGlobalTabs.appendChild(home);
-        runtimeGlobalTabs.appendChild(requests);
-        header.appendChild(runtimeGlobalTabs);
+        return requests;
     }
 
     function settingsLocalKey(name, userScoped) {
@@ -2262,6 +2280,13 @@
                 tab.setAttribute('tabindex', '-1');
             }
         });
+        if (!requestsAreAvailable()) {
+            slider.querySelectorAll('.jellyquestRequestsTab').forEach(function (existing) {
+                existing.parentNode.removeChild(existing);
+            });
+            requestsTabFocusPending = false;
+            return;
+        }
         var currentRequestsTab = slider.querySelector('.jellyquestRequestsTab');
         if (currentRequestsTab) {
             if (requestsTabFocusPending
@@ -3879,11 +3904,107 @@
         }
     }
 
+    function requestsAreAvailable() {
+        return isStaticPreview || requestsEligibilityStatus === 'eligible';
+    }
+
+    function syncRequestsAvailability() {
+        if (!requestsAreAvailable()) requestsTabFocusPending = false;
+        ensureRequestsTab();
+        ensureRuntimeGlobalTabs();
+    }
+
+    function checkRequestsEligibility(force) {
+        if (isStaticPreview || !requestsBridgeUrl || !window.ApiClient
+                || typeof window.ApiClient.getCurrentUser !== 'function' || requestsEligibilityChecking) return;
+        if (!force && Date.now() < requestsEligibilityRetryAfter) return;
+        requestsEligibilityChecking = true;
+        window.ApiClient.getCurrentUser(false).then(function (user) {
+            if (!user || !user.Id) throw new Error('Jellyfin did not return the current profile.');
+            requestsEligibilityUserId = user.Id;
+            if (Object.prototype.hasOwnProperty.call(requestsEligibilityCache, user.Id)) {
+                requestsEligibilityStatus = requestsEligibilityCache[user.Id] ? 'eligible' : 'ineligible';
+                requestsEligibilityChecking = false;
+                syncRequestsAvailability();
+                return;
+            }
+            requestsEligibilityStatus = 'checking';
+            syncRequestsAvailability();
+            probeRequestsEligibility(user.Id);
+        }).catch(function (error) {
+            requestsEligibilityChecking = false;
+            requestsEligibilityStatus = 'unavailable';
+            requestsEligibilityRetryAfter = Date.now() + 30000;
+            syncRequestsAvailability();
+            console.error('[JellyQuest] Unable to identify Requests eligibility:', error);
+        });
+    }
+
+    function probeRequestsEligibility(userId) {
+        var nonce = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+        var frame = document.createElement('iframe');
+        var timeout;
+        var finished = false;
+        function cleanup() {
+            window.clearTimeout(timeout);
+            window.removeEventListener('message', receive);
+            if (frame.parentNode) frame.parentNode.removeChild(frame);
+            if (requestsEligibilityFrame === frame) requestsEligibilityFrame = null;
+        }
+        function finish(eligible, error) {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            requestsEligibilityChecking = false;
+            if (requestsEligibilityUserId !== userId) {
+                checkRequestsEligibility(true);
+                return;
+            }
+            if (typeof eligible === 'boolean') {
+                requestsEligibilityCache[userId] = eligible;
+                requestsEligibilityStatus = eligible ? 'eligible' : 'ineligible';
+                requestsEligibilityRetryAfter = 0;
+            } else {
+                requestsEligibilityStatus = 'unavailable';
+                requestsEligibilityRetryAfter = Date.now() + 30000;
+                console.error('[JellyQuest] Requests eligibility check failed:', error || 'request bridge unavailable');
+            }
+            syncRequestsAvailability();
+        }
+        function receive(event) {
+            var data = event.data || {};
+            if (event.source !== frame.contentWindow || data.source !== 'jellyquest-bridge' || data.nonce !== nonce) return;
+            if (data.type === 'eligibility') finish(data.eligible === true);
+            else if (data.type === 'error') finish(undefined, data.error);
+        }
+        try {
+            var bridge = new URL(requestsBridgeUrl);
+            bridge.hash = 'mode=eligibility&id=' + encodeURIComponent(userId) + '&nonce=' + encodeURIComponent(nonce);
+            frame.hidden = true;
+            frame.setAttribute('aria-hidden', 'true');
+            frame.setAttribute('title', 'Requests profile check');
+            frame.src = bridge.href;
+            window.addEventListener('message', receive);
+            timeout = window.setTimeout(function () { finish(undefined, 'request bridge timed out'); }, 10000);
+            if (requestsEligibilityFrame && requestsEligibilityFrame.parentNode) {
+                requestsEligibilityFrame.parentNode.removeChild(requestsEligibilityFrame);
+            }
+            requestsEligibilityFrame = frame;
+            document.body.appendChild(frame);
+        } catch (error) {
+            finish(undefined, error.message);
+        }
+    }
+
     function openRequests(url) {
         if (!isRequestsUrl(url)) {
             return false;
         }
         if (openingRequests) {
+            return true;
+        }
+        if (!requestsAreAvailable()) {
+            window.alert('Requests are not available for this profile.');
             return true;
         }
         openingRequests = true;
@@ -3925,6 +4046,7 @@
                 requestsBridgeUrl = new URL(config.requestsBridgeUrl).href;
                 requestsPageVersion = config.requestsPageVersion || '';
                 console.info('[JellyQuest] Requests configured for ' + requestsUrl);
+                checkRequestsEligibility(true);
             })
             .catch(function (error) {
                 console.error('[JellyQuest] Requests are unavailable:', error);
@@ -3933,6 +4055,7 @@
 
     function refreshRuntimeUi() {
         enforceHouseholdLogin();
+        checkRequestsEligibility(false);
         ensureRequestsTab();
         ensureProfileSwitcher();
         ensureLibraryRail();
@@ -4029,6 +4152,7 @@
         closePlaybackOptions();
         closeRuntimeLibraryMenu(false);
         ensureLibraryRail();
+        checkRequestsEligibility(false);
         ensureRequestsTab();
         ensureRuntimeLibrary();
         ensureRuntimeSearch();
@@ -4039,6 +4163,7 @@
     window.addEventListener('hashchange', updateLibraryRailSelection);
     window.addEventListener('viewshow', function () {
         enforceHouseholdLogin();
+        checkRequestsEligibility(false);
         ensureRequestsTab();
         ensureRuntimeLibrary();
         ensureRuntimeSearch();
