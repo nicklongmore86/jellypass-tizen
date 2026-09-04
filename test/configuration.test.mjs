@@ -7,6 +7,27 @@ import test from 'node:test';
 
 const root = path.resolve(import.meta.dirname, '..');
 
+test('committed jellyquest.js/jellyquest.css match what src/overlay/* currently generates', () => {
+    // jellyquest.js/jellyquest.css are generated (see scripts/build-overlay.mjs)
+    // but committed directly, since gulpfile.babel.js/package-wgt.sh expect
+    // them to already exist at the project root at packaging time. This
+    // regenerates them for real and fails if that produced any diff --
+    // catching the case where src/overlay/* was edited without re-running
+    // `npm run build:overlay` before committing.
+    const before = {
+        js: fs.readFileSync(path.join(root, 'jellyquest.js'), 'utf8'),
+        css: fs.readFileSync(path.join(root, 'jellyquest.css'), 'utf8'),
+    };
+    const result = spawnSync(process.execPath, [path.join(root, 'scripts/build-overlay.mjs')], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const after = {
+        js: fs.readFileSync(path.join(root, 'jellyquest.js'), 'utf8'),
+        css: fs.readFileSync(path.join(root, 'jellyquest.css'), 'utf8'),
+    };
+    assert.equal(after.js, before.js, 'jellyquest.js is stale -- run `npm run build:overlay` and commit the result');
+    assert.equal(after.css, before.css, 'jellyquest.css is stale -- run `npm run build:overlay` and commit the result');
+});
+
 test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-tizen-'));
     fs.writeFileSync(path.join(outputDirectory, 'config.json'), JSON.stringify({ multiserver: true, servers: [], plugins: [] }));

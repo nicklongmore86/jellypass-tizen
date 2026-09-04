@@ -1,0 +1,51 @@
+// Builds the shipped jellyquest.js / jellyquest.css from src/overlay/*.
+//
+// JellyQuest deliberately avoids native ES modules (<script type="module">)
+// because the oldest Tizen hardware this project targets (Tizen 4.6, per
+// README.md) ships Chromium ~M56-M63, and native module support only
+// landed in Chromium 61. Instead, source lives as separate, named files
+// under src/overlay/ for maintainability, and this script concatenates
+// them -- in an explicit order, not directory/glob order -- into the
+// single jellyquest.js/jellyquest.css files gulpfile.babel.js injects.
+//
+// The vendored spatial-navigation-polyfill is prepended first so every
+// overlay module can rely on window.navigate() / window.JellyQuestFocus
+// being ready.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+const JS_FILES = [
+    path.join(root, 'node_modules/spatial-navigation-polyfill/polyfill/spatial-navigation-polyfill.js'),
+    path.join(root, 'src/overlay/focus.js'),
+];
+
+const CSS_FILES = [
+    path.join(root, 'src/overlay/focus.css'),
+];
+
+function concatenate(files, outputPath, banner) {
+    const parts = files.map((file) => {
+        if (!fs.existsSync(file)) {
+            throw new Error(`build-overlay: expected source file is missing: ${path.relative(root, file)}`);
+        }
+        const relative = path.relative(root, file);
+        return `/* ---- ${relative} ---- */\n${fs.readFileSync(file, 'utf8').replace(/\s+$/, '')}\n`;
+    });
+    fs.writeFileSync(outputPath, `${banner}\n\n${parts.join('\n')}`);
+    console.info(`Wrote ${path.relative(root, outputPath)} from ${files.length} source file(s)`);
+}
+
+concatenate(
+    JS_FILES,
+    path.join(root, 'jellyquest.js'),
+    '// GENERATED FILE -- do not edit directly.\n// Edit src/overlay/*.js and re-run `node scripts/build-overlay.mjs` (or `npm run build`).'
+);
+
+concatenate(
+    CSS_FILES,
+    path.join(root, 'jellyquest.css'),
+    '/* GENERATED FILE -- do not edit directly.\n   Edit src/overlay/*.css and re-run `node scripts/build-overlay.mjs` (or `npm run build`). */'
+);

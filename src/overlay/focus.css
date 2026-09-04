@@ -1,7 +1,3 @@
-/* GENERATED FILE -- do not edit directly.
-   Edit src/overlay/*.css and re-run `node scripts/build-overlay.mjs` (or `npm run build`). */
-
-/* ---- src/overlay/focus.css ---- */
 /* JellyQuest focus/navigation conventions.
  *
  * Pairs with src/overlay/focus.js. These custom properties are read by
