@@ -29,7 +29,7 @@ test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     assert.equal(metadata.household, 'farmhouse');
     assert.equal(metadata.requestsUrl, 'https://jellyseerr.starrgroup.io');
     assert.equal(metadata.requestsBridgeUrl, 'https://jelly-farmhouse.starrgroup.io/jellyquest-bridge/bridge.html');
-    assert.equal(metadata.requestsPageVersion, '1.0.1');
+    assert.equal(metadata.requestsPageVersion, '1.0.2');
     assert.match(metadata.jellyfinWebRef, /^[a-f0-9]{40}$/);
 });
 
