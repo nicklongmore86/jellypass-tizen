@@ -4,13 +4,19 @@
 // the whole point of this file is to keep them apart:
 //
 //   * src/overlay/**, tizen.js and dev/fixtures/** are hand-written ES5
-//     (var, IIFEs, no modules, no arrow functions). That is NOT legacy
-//     sloppiness -- the hardware floor is Tizen 4.6, whose Chromium is
-//     roughly M56-M63, and scripts/build-overlay.mjs concatenates these
-//     files into a single classic <script> because native ES modules
-//     only landed in Chromium 61. These are linted with ecmaVersion 5 so
-//     that accidentally typing `const`/`=>` fails the gate instead of
-//     shipping a bundle the oldest TVs cannot parse.
+//     (var, IIFEs, no modules, no arrow functions). The measured hardware
+//     floor is Tizen 5.0 / Chromium M63 (2019 UN55RU7100FXZA); the other
+//     target is measured Tizen 5.5 / Chromium M69 (2020 UN65TU7000FXZA).
+//     See the README's "Target hardware" section for the full matrix.
+//     scripts/build-overlay.mjs concatenates these files into a single
+//     classic <script>. ecmaVersion 5 is deliberately conservative, not
+//     strictly minimal: arrow functions, const and template literals are
+//     supported on both sets. Optional catch binding (`try{}catch{}`),
+//     however, requires M66: eval('try{}catch{}') measurably throws
+//     SyntaxError: Unexpected token { on M63. Parsing on M69 is expected
+//     (inferred, not probed), so this would crash on exactly the older TV.
+//     If the ES5 setting is ever relaxed, optional catch binding must
+//     remain banned.
 //
 //   * scripts/**.mjs, test/**.mjs and gulpfile.babel.js are modern Node
 //     ESM and only ever run on the build machine, so they get the
@@ -94,23 +100,23 @@ export default [
     {
         files: ['src/overlay/**/*.js', 'tizen.js', 'dev/fixtures/**/*.js'],
         languageOptions: {
-            // Hard floor: Tizen 4.6 / Chromium ~M56-M63. Do not raise.
+            // Conservative syntax policy for the measured Tizen 5.0 / M63
+            // floor; see above before considering any relaxation.
             ecmaVersion: 5,
             sourceType: 'script',
             // ecmaVersion 5 constrains the *syntax* we may write. It does
-            // not constrain which runtime builtins exist: Chromium M56
-            // has had Promise since M32 and typed arrays since M7, and
-            // the overlay uses both. Layering the es2015 globals back in
+            // not constrain which runtime builtins exist: Chromium M63
+            // supports Promise and typed arrays, and the overlay uses
+            // both. Layering the es2015 globals back in
             // keeps no-undef honest without letting ES6 syntax through.
             //
             // Known limitation, recorded rather than fixed here: this
             // gate therefore checks SYNTAX only, and cannot tell you that
             // a runtime API is too new for the whole supported range.
-            // Promise.prototype.finally, for instance, needs Chrome 63 --
-            // the top of the documented M56-M63 floor, so it would parse
-            // and lint clean while failing on the oldest TVs. Catching
-            // that needs a browser-compat rule set (eslint-plugin-compat
-            // or similar), which is out of scope for this gate.
+            // An API introduced after M63 could parse and lint clean
+            // while failing on the older TV. Catching that needs a
+            // browser-compat rule set (eslint-plugin-compat or similar),
+            // which is out of scope for this gate.
             globals: { ...globals.es2015, ...globals.browser, ...overlayGlobals },
         },
         rules: {
