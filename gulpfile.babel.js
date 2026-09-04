@@ -61,8 +61,11 @@ function copy() {
         .pipe(gulp.dest(paths.assets.dest));
 }
 
+// The Requests page is being rebuilt as part of the JellyQuest overlay
+// (see the blank-canvas rebuild plan); allowEmpty keeps this task a no-op
+// until it lands instead of failing the whole build.
 function copyJellyQuestRequests() {
-    return gulp.src('integration/jellyseerr-login.html')
+    return gulp.src('integration/jellyseerr-login.html', { allowEmpty: true })
         .pipe(gulp.dest(paths.assets.dest));
 }
 
