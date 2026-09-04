@@ -73,6 +73,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /requestsEligibilityCache\[userId\]/);
     assert.match(policy, /requestsEligibilityStatus !== 'ineligible'/);
     assert.match(policy, /jellyquestGlobalRequestsTab/);
+    assert.match(policy, /function activateRequestsWithRemote\(event\)/);
+    assert.match(policy, /event\.keyCode !== 13 && event\.keyCode !== 32/);
+    assert.match(policy, /addEventListener\('keydown', activateRequestsWithRemote, true\)/);
     assert.match(policy, /function runtimeRailTarget\(railItem, keyCode, rightFallback\)/);
     assert.match(policy, /data\.type === 'ready'\) finish\(true\)/);
     assert.match(policy, /rejected this Jellyfin profile/);
@@ -218,7 +221,9 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(policy, /books:/);
     assert.match(policy, /videos:/);
     assert.match(policy, /iconName === 'collections'/);
-    assert.match(policy, /getBoundingClientRect\(\)\.bottom/);
+    assert.match(policy, /libraryRail\.style\.top = '72px'/);
+    assert.match(policy, /data-rail-key/);
+    assert.match(policy, /match\.entry\.key \+ ':' \+ match\.entry\.icon/);
     assert.match(policy, /jellyquestProfileCard:not\(\[disabled\]\)/);
     assert.match(styles, /\.jellyquestProfileSwitcher/);
     assert.match(styles, /\.jellyquestProfileTrigger::after/);
@@ -233,7 +238,8 @@ test('injects app-owned household login policy before Jellyfin Web', () => {
     assert.match(styles, /\.jellyquestSettingsControl/);
     assert.match(styles, /width: 60px/);
     assert.match(styles, /width: 256px/);
-    assert.match(styles, /overflow-y: auto/);
+    assert.match(styles, /overflow-y: hidden/);
+    assert.match(styles, /box-sizing: border-box;[\s\S]*width: 256px/);
     assert.match(styles, /margin-top: auto/);
     assert.match(styles, /margin-bottom: auto/);
     assert.match(styles, /\.skinHeader \{/);

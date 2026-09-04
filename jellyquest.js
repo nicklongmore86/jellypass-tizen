@@ -478,7 +478,15 @@
         requests.className = 'jellyquestGlobalTab jellyquestGlobalRequestsTab';
         requests.textContent = 'Requests';
         requests.addEventListener('click', function () { openRequests(requestsUrl); });
+        requests.addEventListener('keydown', activateRequestsWithRemote, true);
         return requests;
+    }
+
+    function activateRequestsWithRemote(event) {
+        if (event.keyCode !== 13 && event.keyCode !== 32) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openRequests(requestsUrl);
     }
 
     function settingsLocalKey(name, userScoped) {
@@ -2324,6 +2332,7 @@
             event.stopImmediatePropagation();
             openRequests(requestsUrl);
         });
+        button.addEventListener('keydown', activateRequestsWithRemote, true);
         slider.appendChild(button);
         if (requestsTabFocusPending
                 && (document.activeElement === document.body || document.activeElement === document.documentElement)) {
@@ -3359,9 +3368,7 @@
         if (!libraryRail) {
             return;
         }
-        var header = document.querySelector('.skinHeader');
-        var headerBottom = header ? header.getBoundingClientRect().bottom : 0;
-        libraryRail.style.top = Math.max(0, Math.round(headerBottom)) + 'px';
+        libraryRail.style.top = '72px';
     }
 
     function refreshLibraryRailLinks() {
@@ -3375,32 +3382,39 @@
             var name = nameElement ? nameElement.textContent.trim() : '';
             var itemId = source.getAttribute('data-itemid') || '';
             var href = source.getAttribute('href') || '';
-            var key = itemId || href;
+            var key = itemId || name.toLowerCase();
             var iconName = libraryIconName(source, name);
             if (!name || !href || seen[key] || iconName === 'collections') {
                 return null;
             }
             seen[key] = true;
-            return { entry: { label: name, icon: iconName }, source: source };
+            return { entry: { key: key, label: name, icon: iconName }, source: source };
         }).filter(Boolean);
         var signature = matches.map(function (match) {
-            return match.entry.label + ':' + match.source.getAttribute('data-itemid') + ':' + match.source.getAttribute('href');
+            return match.entry.key + ':' + match.entry.icon;
         }).join('|');
-        if (signature === libraryRailSignature) {
-            updateLibraryRailSelection();
-            return;
-        }
         libraryRailSignature = signature;
+        var existing = {};
         libraryRail.querySelectorAll('.jellyquestRailLibrary').forEach(function (item) {
-            item.parentNode.removeChild(item);
+            existing[item.getAttribute('data-rail-key')] = item;
         });
         matches.forEach(function (match) {
-            var item = createRailItem('a', match.entry.label, match.entry.icon, match.source.getAttribute('href'));
-            item.classList.add('jellyquestRailLibrary');
+            var item = existing[match.entry.key];
+            if (!item) {
+                item = createRailItem('a', match.entry.label, match.entry.icon, match.source.getAttribute('href'));
+                item.classList.add('jellyquestRailLibrary');
+                item.setAttribute('data-rail-key', match.entry.key);
+            }
+            item.setAttribute('href', match.source.getAttribute('href'));
             item.setAttribute('data-itemid', match.source.getAttribute('data-itemid') || '');
             item.setAttribute('data-library-icon', match.entry.icon);
             match.source.classList.add('jellyquestRailSource');
             libraryRail.insertBefore(item, libraryRail.querySelector('.jellyquestRailSettings'));
+            delete existing[match.entry.key];
+        });
+        Object.keys(existing).forEach(function (key) {
+            var stale = existing[key];
+            if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
         });
         updateLibraryRailSelection();
     }
