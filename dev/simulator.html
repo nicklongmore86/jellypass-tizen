@@ -8,218 +8,29 @@
         margin: 0;
         padding: 0;
         background: #14161a;
-        color: #f2f2f2;
-        font-family: Arial, Helvetica, sans-serif;
-    }
-    /* Fixed Samsung-TV-sized viewport, matching the platform's target
-       resolution regardless of the host browser window size. */
-    #tv {
-        position: relative;
-        width: 1920px;
-        height: 1080px;
         overflow: hidden;
-        transform-origin: top left;
     }
+    /* JellyQuest renders into #jellyquest-root (see src/overlay/app.js)
+       as position:fixed, which fills the browser viewport the same way
+       it will fill a real jellyfin-web page -- open this at a
+       1920x1080 viewport to match the platform's target resolution. */
     #tv-scale-note {
         position: fixed;
         top: 8px;
         left: 8px;
         font-size: 12px;
         color: #888;
-        z-index: 1000;
-    }
-
-    .jq-shell {
-        display: flex;
-        height: 100%;
-    }
-    .jq-rail {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-        width: 220px;
-        flex: 0 0 auto;
-        padding: 48px 24px;
-        background: #1c1f24;
-    }
-    .jq-rail-item {
-        background: none;
-        border: none;
-        color: #cfd2d6;
-        font-size: 22px;
-        text-align: left;
-        padding: 10px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-    }
-    .jq-rail-item:focus {
-        background: #2a2f36;
-        color: #fff;
-    }
-
-    .jq-content {
-        flex: 1 1 auto;
-        padding: 48px;
-        overflow: hidden;
-    }
-    .jq-content h1 {
-        margin: 0 0 24px;
-        font-size: 32px;
-    }
-    .jq-row {
-        display: flex;
-        gap: 20px;
-        overflow: visible;
-    }
-    .jq-card {
-        width: 220px;
-        height: 130px;
-        flex: 0 0 auto;
-        background: #262b32;
-        border-radius: 8px;
-        border: none;
-        color: #f2f2f2;
-        font-size: 18px;
-        text-align: left;
-        padding: 16px;
-        cursor: pointer;
-    }
-    .jq-card small {
-        display: block;
-        margin-top: 8px;
-        color: #9aa0a8;
-        font-size: 14px;
-    }
-
-    .jq-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 220px);
-        gap: 20px;
-        margin-top: 32px;
-    }
-
-    /* Playback-options-style dialog, used to prove .jq-modal / contain
-       mode works before any real screen depends on it (see
-       DETAIL_ACTIONS.md's "dialogs contain focus" rule). */
-    .jq-modal-backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.75);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    /* The `hidden` attribute alone loses to the class rule above, since
-       author styles always beat the UA stylesheet's default [hidden]
-       rule regardless of selector specificity -- reassert it explicitly. */
-    .jq-modal-backdrop[hidden] {
-        display: none;
-    }
-    .jq-modal {
-        background: #1c1f24;
-        border-radius: 10px;
-        padding: 32px;
-        width: 420px;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-    .jq-modal h2 {
-        margin: 0;
-        font-size: 22px;
-    }
-    .jq-modal-option {
-        background: #262b32;
-        border: none;
-        color: #f2f2f2;
-        font-size: 18px;
-        padding: 12px 16px;
-        border-radius: 6px;
-        text-align: left;
-        cursor: pointer;
+        z-index: 2147483001;
     }
 </style>
 </head>
 <body>
-<div id="tv-scale-note">1920x1080 fixed viewport -- scroll or zoom out to see the whole thing</div>
-<div id="tv">
-    <div class="jq-shell">
-        <nav class="jq-rail" aria-label="Primary">
-            <button class="jq-rail-item jq-focusable" data-jq-autofocus>Home</button>
-            <button class="jq-rail-item jq-focusable" id="open-settings">Settings</button>
-            <button class="jq-rail-item jq-focusable">Requests</button>
-        </nav>
-        <main class="jq-content">
-            <h1>Recently Added</h1>
-            <div class="jq-row" id="card-row"></div>
-            <h1 style="margin-top: 32px;">Library</h1>
-            <div class="jq-grid" id="library-grid"></div>
-        </main>
-    </div>
-
-    <div class="jq-modal-backdrop" id="settings-backdrop" hidden>
-        <div class="jq-modal jq-focusable" id="settings-modal" role="dialog" aria-label="Settings">
-            <h2>Settings</h2>
-            <button class="jq-modal-option jq-focusable" data-jq-autofocus>Maximum audio channels</button>
-            <button class="jq-modal-option jq-focusable">Preferred subtitle language</button>
-            <button class="jq-modal-option jq-focusable" id="close-settings">Close</button>
-        </div>
-    </div>
-</div>
+<div id="tv-scale-note">Open at a 1920x1080 viewport to match the TV's target resolution</div>
 
 <script src="fixtures/tizen-stub.js"></script>
 <script src="fixtures/api-client-stub.js"></script>
 <script src="../tizen.js"></script>
 <link rel="stylesheet" href="../jellyquest.css">
 <script src="../jellyquest.js"></script>
-<script>
-(function () {
-    'use strict';
-
-    function renderCards(items, container, idPrefix) {
-        items.forEach(function (item) {
-            var card = document.createElement('button');
-            card.className = 'jq-card jq-focusable';
-            card.setAttribute('data-item-id', (idPrefix || '') + item.Id);
-            var title = document.createElement('span');
-            title.textContent = item.Name;
-            var meta = document.createElement('small');
-            meta.textContent = item.Type + ' · ' + item.ProductionYear;
-            card.appendChild(title);
-            card.appendChild(meta);
-            container.appendChild(card);
-        });
-    }
-
-    JellyQuestFocus.ready(function () {
-        window.ApiClient.getItems().then(function (result) {
-            renderCards(result.Items, document.getElementById('card-row'));
-            // Reuses the same fixture data under a distinct id prefix so
-            // this spike can prove .jq-grid's row-based Up/Down traversal
-            // independently of the .jq-row above it.
-            renderCards(result.Items, document.getElementById('library-grid'), 'grid-');
-            JellyQuestFocus.focusFirst(document.querySelector('.jq-rail'));
-        });
-
-        var settingsButton = document.getElementById('open-settings');
-        var backdrop = document.getElementById('settings-backdrop');
-        var modal = document.getElementById('settings-modal');
-        var closeButton = document.getElementById('close-settings');
-
-        settingsButton.addEventListener('click', function () {
-            backdrop.hidden = false;
-            JellyQuestFocus.openModal(modal);
-        });
-        closeButton.addEventListener('click', function () {
-            backdrop.hidden = true;
-            JellyQuestFocus.closeModal(modal, settingsButton);
-        });
-        // Note: no custom Enter-to-click bridge is needed here. Native
-        // <button> elements already fire a click on Enter by default in
-        // Chromium (verified directly) -- adding one double-fires the
-        // handler and produces confusing focus results.
-    });
-})();
-</script>
 </body>
 </html>

@@ -6,12 +6,21 @@
  * each container, per the CSS Spatial Navigation draft spec.
  */
 
-.jq-rail,
+/* Structural layout only -- colors, sizing, and spacing belong to each
+   screen's own stylesheet, not here. */
+.jq-rail {
+    display: flex;
+    flex-direction: column;
+    --spatial-navigation-contain: auto;
+}
+
 .jq-row {
+    display: flex;
     --spatial-navigation-contain: auto;
 }
 
 .jq-grid {
+    display: grid;
     --spatial-navigation-contain: auto;
     --spatial-navigation-function: grid;
 }

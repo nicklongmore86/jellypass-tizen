@@ -1,10 +1,19 @@
 # JellyQuest Tizen: blank-canvas rebuild of the overlay layer
 
-Status as of this doc: **Phase 0 and Phase 1 complete** (commits `bffa773`,
-`a5078ab` on `claude/code-audit-issues-rha2bz`). Phase 2 is next. This
-file is the handoff/plan doc for continuing the rebuild from a fresh
-session (local CLI or otherwise) without needing the original
-conversation history.
+Status as of this doc: **Phase 0, 1, and 2 complete** on
+`claude/code-audit-issues-rha2bz`. Phase 3 is next. This file is the
+handoff/plan doc for continuing the rebuild from a fresh session (local
+CLI or otherwise) without needing the original conversation history.
+
+Known environment gap: `npm run build:full` (the real jellyfin-web
+wrapper build) fails in some environments because the fetched
+jellyfin-web checkout ends up with no `dist/` directory -- confirmed
+independent of everything in this doc (present before Phase 0, and
+present in two different environments this rebuild has been tested in).
+The overlay build (`npm run build:overlay`), the simulator, and
+`node --test` all work regardless, since none of them need a real
+jellyfin-web build. Root-cause this separately before Phase 5 (real
+hardware needs a working `www/` tree); it's not this rebuild's doing.
 
 ## Context
 
@@ -116,13 +125,12 @@ gutted state** (all still true, not follow-ups):
    is compatible with this project's GPLv2 (unlike BBC's `lrud`,
    Apache-2.0, which the FSF considers GPLv2-incompatible), and its
    plain-IIFE ES2015 syntax runs unmodified on the Tizen 4.6 floor.
-3. **One passwordless session-switch primitive.** *(Phase 2, not yet
-   built.)* A single `switchProfile(userId)` function in a new
-   `src/overlay/session.js` performs the blank-password
-   `AuthenticateByName` call, swaps the active `ApiClient` token/user in
-   place, and re-issues data loads for the current screen — no full page
-   navigation, no visible login form. Every "profile" surface (picker,
-   in-app switcher) calls this one function.
+3. **One passwordless session-switch primitive.** *(Done in Phase 2 —
+   `src/overlay/session.js`.)* A single `switchProfile(user)` function
+   performs the blank-password `AuthenticateByName` call and swaps the
+   active `ApiClient` user in place — no full page navigation, no
+   visible login form. Every "profile" surface (picker, the shell's
+   profile button) calls this one function.
 4. **Requests/Jellyseerr as a real bounded module**, not an iframe bridge
    to a hand-duplicated standalone page. *(Phase 4, not yet built.)*
    Shares `src/overlay/focus.js` and the session/profile model instead of
@@ -175,7 +183,12 @@ them.
 - `test/e2e/focus.spec.mjs`: Playwright driving the simulator headlessly.
   3/3 passing, stable across repeated runs. Covers all three navigation
   shapes: rail/row crossing, grid row/column traversal, modal focus
-  containment.
+  containment. **Superseded in Phase 2** by `test/e2e/profile-shell.spec.mjs`
+  once a real screen existed to exercise the same conventions against —
+  removed rather than kept alongside it, to avoid maintaining a synthetic
+  demo and its real replacement in parallel. Its modal/`.jq-modal`
+  coverage lapsed with it; reintroduce an equivalent test in Phase 3 once
+  a real dialog (Settings, Playback Options) exists.
 - Two real bugs the harness caught immediately (both fixed, both in
   `dev/simulator.html`, not the polyfill): a `.jq-modal-backdrop {
   display: flex }` rule unconditionally beating the `hidden` attribute's
@@ -185,20 +198,62 @@ them.
   that was redundant with native `<button>` Enter-activation and
   double-fired click handlers (removed — native buttons already do this).
 
-**Phase 2 — Profile-centric shell. NOT STARTED. Do this next.**
-- `src/overlay/session.js`: the passwordless `switchProfile()` primitive
-  described in principle 3 above, backed by the household-scoped
-  `/Users/Public` + `AuthenticateByName` flow. Extend
-  `dev/fixtures/api-client-stub.js` as needed to develop this against the
-  simulator before touching real hardware.
-- Profile picker as the true landing screen (no login form, no
-  admin/manual-login chrome — matches the household gateway's
-  already-filtered public user list from the JellyPass side).
-- Top-level nav shell (Home / Requests), no visible account-management
-  surfaces.
-- Playwright coverage: profile picker navigation, instant switch (assert
-  the active user changes with no navigation/reload) — add
-  `test/e2e/session.spec.mjs` or extend the existing spec file.
+**Phase 2 — Profile-centric shell. DONE.**
+- `src/overlay/session.js`: `JellyQuestSession` — `listProfiles()` (thin
+  wrapper on `ApiClient.getPublicUsers()`), `switchProfile(user)` (the
+  blank-password `AuthenticateByName` call, swaps the in-memory current
+  user, notifies listeners — no navigation, no login form),
+  `getCurrentProfile()`, `clearProfile()` (used by "switch profile" in
+  the shell, below), `onProfileChange(listener)`.
+- `src/overlay/screens/profiles.js` + `profiles.css`: the profile picker
+  — landing screen, one `.jq-row` of profile cards from
+  `listProfiles()`, autofocus on the first, no login form/input/admin
+  chrome anywhere on it (asserted directly in the test suite).
+- `src/overlay/shell.js` + `shell.css`: the post-login shell — a
+  `.jq-rail` with the active profile's name (activating it calls
+  `clearProfile()` and returns to the picker), Home, and Requests. Home's
+  actual content is a placeholder (`"Home -- Phase 3"`); Requests has no
+  content yet (Phase 4).
+- `src/overlay/app.js`: the bootstrap. Creates `#jellyquest-root`
+  (`position: fixed`, full viewport, its own background/z-index) since
+  gulpfile.babel.js's injection never provides a container div — this is
+  also where the "JellyQuest owns the whole visible TV surface, doesn't
+  try to coexist visually with jellyfin-web's own rendered UI" decision
+  from Phase 1's research is actually implemented. Switches between the
+  picker and the shell based on `JellyQuestSession` state.
+- `dev/simulator.html` was simplified to just load the fixtures +
+  `tizen.js` + `jellyquest.js`/`.css` — no more hardcoded demo markup,
+  since `app.js` now builds the whole UI itself. This is more
+  representative of the real deployment (gulp injects the same two
+  tags into jellyfin-web's `index.html` with no container prepared for
+  them either).
+- `test/e2e/profile-shell.spec.mjs` (replaces `focus.spec.mjs`): 5/5
+  passing, stable across repeated runs. Landing screen has no login
+  chrome, arrow navigation across the profile row, selecting a profile
+  doesn't trigger page navigation (`framenavigated` listener) and updates
+  `JellyQuestSession` state, the round trip (switch → back to picker →
+  switch to a *different* profile) works repeatably with no re-auth
+  screen at any point, and rail↔content Up/Down navigation in the shell.
+
+Two more real bugs the harness caught (both fixed, both Phase-2-specific
+— the Phase 1 spike had already proven the library itself works):
+- **`.jq-grid`'s 'grid' navigation mode misbehaves when the CSS
+  `grid-template-columns` count exceeds the actual number of rendered
+  items** (a ragged row) — Right from the first of 3 profiles in a
+  4-column grid template jumped to the 3rd item, skipping the 2nd
+  entirely. This is the *normal* case for a profile picker (household
+  size varies and rarely fills a fixed column count), not an edge case.
+  Fixed by using `.jq-row` for the profile picker instead of `.jq-grid`
+  — a small, variable-length list of profiles is semantically a single
+  row, not a multi-row grid; reserve `.jq-grid` for genuinely uniform,
+  fully-populated layouts (a movie poster wall), which is what Phase 1's
+  spike actually tested. Worth remembering going into Phase 3's library
+  grid: keep `grid-template-columns` matched to how many items are
+  actually likely to fill a row, or expect this same failure mode.
+- The `npm run test:e2e` script itself was broken (`node --test test/e2e/`
+  with a bare directory path doesn't reliably discover `*.spec.mjs`
+  files on Node 22 — it needs an explicit glob). Fixed to
+  `node --test "test/e2e/**/*.spec.mjs"`.
 
 **Phase 3 — Core screens (Home, Library, Search, Detail/playback). NOT STARTED.**
 - Port screen behavior using `DETAIL_ACTIONS.md`'s action matrix as
@@ -224,16 +279,17 @@ them.
 
 ## Verification
 
-- `node --test test/configuration.test.mjs` — config/plumbing tests, 7/7
-  passing as of Phase 1.
-- `node --test test/e2e/focus.spec.mjs` (or `npm run test:e2e`) — the
-  Playwright navigation harness, 3/3 passing as of Phase 1. This is the
-  primary regression gate going forward; grow it alongside each phase's
-  screens rather than after.
+- `npm test` (= `node --test test/configuration.test.mjs`) —
+  config/plumbing tests, 7/7 passing as of Phase 2.
+- `npm run test:e2e` (= `node --test "test/e2e/**/*.spec.mjs"`) — the
+  Playwright navigation harness, 5/5 passing as of Phase 2, stable across
+  repeated runs. This is the primary regression gate going forward; grow
+  it alongside each phase's screens rather than after.
 - `npm run build:full` and `npm run package:wgt` must still produce a
-  valid WGT — **not verified in the environment this rebuild started in**
-  (no jellyfin-web clone, no Tizen Studio). Verify on a machine with both
-  before trusting them, ideally before or during Phase 2.
+  valid WGT — **still not verified end-to-end** as of Phase 2. The
+  `build:full` gap (missing jellyfin-web `dist/`) is a confirmed,
+  separate defect noted at the top of this doc; get it resolved before
+  Phase 5, since real hardware needs a working `www/` tree.
 - Final Phase 5 sideload to real hardware via
   `npm run install:tv -- TV_IP`.
 
@@ -246,3 +302,7 @@ them.
   CSS custom properties it already reads (`--spatial-navigation-contain`,
   `--spatial-navigation-function`), which `src/overlay/focus.css`
   exposes as the `.jq-rail`/`.jq-row`/`.jq-grid`/`.jq-modal` conventions.
+  **Caveat found in Phase 2**: `.jq-grid` only behaves predictably when
+  the CSS column count matches how many items actually render per row —
+  a ragged row (fewer items than columns) makes 'grid' mode skip items.
+  Use `.jq-row` for anything that isn't a genuinely full, uniform grid.

@@ -1831,3 +1831,231 @@
         closeModal: closeModal
     };
 })();
+
+/* ---- src/overlay/session.js ---- */
+// JellyQuest session/profile module.
+//
+// Stock jellyfin-web is account/login-centric: one signed-in user per
+// session, switching means signing out and back in through a full login
+// screen. JellyQuest's household accounts are passwordless by design
+// (see the JellyPass household-gateway hardening this depends on), so
+// "switching profiles" doesn't need a login screen at all -- it's one
+// AuthenticateByName call with a blank password, and an in-place swap of
+// the active ApiClient user. No navigation, no visible auth step.
+//
+// This is the ONE place that call happens. Every profile-switching
+// surface (the picker, an in-shell switcher) goes through switchProfile()
+// here rather than re-implementing the auth call itself.
+(function () {
+    'use strict';
+
+    var currentUser = null;
+    var listeners = [];
+
+    function notify() {
+        listeners.forEach(function (listener) { listener(currentUser); });
+    }
+
+    // The household's visible profiles -- already filtered server-side to
+    // just this household by the JellyPass household gateway, so there is
+    // no client-side filtering to get right (or wrong) here.
+    function listProfiles() {
+        return window.ApiClient.getPublicUsers();
+    }
+
+    // Switches the active profile. `user` is an entry from listProfiles()
+    // (needs .Name; Jellyfin's AuthenticateByName takes a username, not
+    // an id). Resolves with the authenticated user on success; rejects
+    // (e.g. the account unexpectedly has a real password, or the
+    // household gateway rejects it) without changing the current profile.
+    function switchProfile(user) {
+        return window.ApiClient.authenticateUserByName(user.Name, '').then(function (result) {
+            currentUser = result.User;
+            notify();
+            return currentUser;
+        });
+    }
+
+    function getCurrentProfile() {
+        return currentUser;
+    }
+
+    // Returns to no active profile (used when the shell's "switch
+    // profile" action sends the viewer back to the picker) without
+    // touching the ApiClient's own auth state -- the next switchProfile()
+    // call re-authenticates cleanly regardless.
+    function clearProfile() {
+        currentUser = null;
+        notify();
+    }
+
+    function onProfileChange(listener) {
+        listeners.push(listener);
+        return function unsubscribe() {
+            listeners = listeners.filter(function (entry) { return entry !== listener; });
+        };
+    }
+
+    window.JellyQuestSession = {
+        listProfiles: listProfiles,
+        switchProfile: switchProfile,
+        getCurrentProfile: getCurrentProfile,
+        clearProfile: clearProfile,
+        onProfileChange: onProfileChange
+    };
+})();
+
+/* ---- src/overlay/screens/profiles.js ---- */
+// Profile picker screen -- the true landing screen (see
+// docs/rebuild-plan.md, Phase 2). No login form, no manual-login/Quick
+// Connect/admin chrome: just the household's own visible profiles,
+// already filtered server-side by the JellyPass household gateway.
+// Selecting one is a single Enter/click away from being on Home.
+(function () {
+    'use strict';
+
+    // onSelected(user) is called after a successful switchProfile().
+    function renderProfiles(container, onSelected) {
+        container.innerHTML = '';
+        container.className = 'jq-profiles-screen';
+
+        var heading = document.createElement('h1');
+        heading.className = 'jq-profiles-heading';
+        heading.textContent = "Who's watching?";
+        container.appendChild(heading);
+
+        // A single row, not .jq-grid: grid mode's row/column snapping
+        // misbehaves once the CSS column template has more columns than
+        // there are actual items (a household smaller than the layout's
+        // column count is the normal case, not an edge case), and a
+        // profile picker is semantically one row anyway.
+        var row = document.createElement('div');
+        row.className = 'jq-row jq-profiles-row';
+        container.appendChild(row);
+
+        var error = document.createElement('p');
+        error.className = 'jq-profiles-error';
+        error.hidden = true;
+        container.appendChild(error);
+
+        window.JellyQuestSession.listProfiles().then(function (profiles) {
+            profiles.forEach(function (user, index) {
+                var card = document.createElement('button');
+                card.className = 'jq-card jq-focusable jq-profile-card';
+                card.setAttribute('data-profile-id', user.Id);
+                card.textContent = user.Name;
+                if (index === 0) card.setAttribute('data-jq-autofocus', '');
+                card.addEventListener('click', function () {
+                    error.hidden = true;
+                    card.disabled = true;
+                    window.JellyQuestSession.switchProfile(user).then(function (currentUser) {
+                        onSelected(currentUser);
+                    }, function () {
+                        card.disabled = false;
+                        error.textContent = 'Could not sign in as ' + user.Name + '. Try again.';
+                        error.hidden = false;
+                    });
+                });
+                row.appendChild(card);
+            });
+            window.JellyQuestFocus.focusFirst(container);
+        });
+    }
+
+    window.JellyQuestProfilesScreen = {
+        render: renderProfiles
+    };
+})();
+
+/* ---- src/overlay/shell.js ---- */
+// Top-level nav shell -- shown once a profile is active. Home/Requests
+// rail plus the current profile, with a way back to the picker. No
+// account-management, manual-login, or admin surfaces anywhere in it.
+//
+// Home's real content is Phase 3; Requests' real content (and its
+// eligibility gating) is Phase 4. This phase only owns the persistent
+// chrome around them.
+(function () {
+    'use strict';
+
+    // onSwitchProfile() is called when the viewer activates the profile
+    // button in the rail, to return to the picker.
+    function renderShell(container, onSwitchProfile) {
+        container.innerHTML = '';
+        container.className = 'jq-shell';
+
+        var rail = document.createElement('nav');
+        rail.className = 'jq-rail';
+        rail.setAttribute('aria-label', 'Primary');
+
+        var profileButton = document.createElement('button');
+        profileButton.className = 'jq-rail-item jq-focusable jq-profile-switch';
+        profileButton.setAttribute('data-jq-autofocus', '');
+        var user = window.JellyQuestSession.getCurrentProfile();
+        profileButton.textContent = user ? user.Name : 'Profile';
+        profileButton.addEventListener('click', function () {
+            window.JellyQuestSession.clearProfile();
+            onSwitchProfile();
+        });
+        rail.appendChild(profileButton);
+
+        var homeButton = document.createElement('button');
+        homeButton.className = 'jq-rail-item jq-focusable jq-nav-home';
+        homeButton.textContent = 'Home';
+        rail.appendChild(homeButton);
+
+        var requestsButton = document.createElement('button');
+        requestsButton.className = 'jq-rail-item jq-focusable jq-nav-requests';
+        requestsButton.textContent = 'Requests';
+        rail.appendChild(requestsButton);
+
+        container.appendChild(rail);
+
+        var content = document.createElement('main');
+        content.className = 'jq-content jq-shell-content';
+        content.textContent = 'Home -- Phase 3';
+        container.appendChild(content);
+
+        window.JellyQuestFocus.focusFirst(rail);
+    }
+
+    window.JellyQuestShell = {
+        render: renderShell
+    };
+})();
+
+/* ---- src/overlay/app.js ---- */
+// Bootstraps JellyQuest: creates its own root container (no host markup
+// required -- gulpfile.babel.js only injects <script>/<link> tags, never
+// a container div) and switches between the profile picker and the main
+// shell based on session state.
+(function () {
+    'use strict';
+
+    function showProfiles(root) {
+        window.JellyQuestProfilesScreen.render(root, function () {
+            showShell(root);
+        });
+    }
+
+    function showShell(root) {
+        window.JellyQuestShell.render(root, function () {
+            showProfiles(root);
+        });
+    }
+
+    window.JellyQuestFocus.ready(function () {
+        var root = document.getElementById('jellyquest-root');
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'jellyquest-root';
+            document.body.appendChild(root);
+        }
+
+        if (window.JellyQuestSession.getCurrentProfile()) {
+            showShell(root);
+        } else {
+            showProfiles(root);
+        }
+    });
+})();

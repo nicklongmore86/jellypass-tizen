@@ -20,10 +20,20 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const JS_FILES = [
     path.join(root, 'node_modules/spatial-navigation-polyfill/polyfill/spatial-navigation-polyfill.js'),
     path.join(root, 'src/overlay/focus.js'),
+    path.join(root, 'src/overlay/session.js'),
+    path.join(root, 'src/overlay/screens/profiles.js'),
+    path.join(root, 'src/overlay/shell.js'),
+    // app.js must come last: it's the one that actively calls into the
+    // other modules' globals (JellyQuestFocus.ready(), etc.) rather than
+    // just defining its own.
+    path.join(root, 'src/overlay/app.js'),
 ];
 
 const CSS_FILES = [
     path.join(root, 'src/overlay/focus.css'),
+    path.join(root, 'src/overlay/app.css'),
+    path.join(root, 'src/overlay/shell.css'),
+    path.join(root, 'src/overlay/screens/profiles.css'),
 ];
 
 function concatenate(files, outputPath, banner) {
