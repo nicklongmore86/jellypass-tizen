@@ -135,12 +135,18 @@ gutted state** (all still true, not follow-ups):
    concatenates them (explicit order, not glob order) into the committed
    `jellyquest.js`/`jellyquest.css`. **Decided in Phase 1: no native ES
    modules, no bundler** — the oldest Tizen this project targets (5.0,
-   per README) ships Chromium M63. Native `<script type=module>` support
-   landed in M61, so it is *nominally* present, but the Samsung TV web
-   runtime loads the app from `file:///www/index.html`, where module
-   loading is subject to additional origin restrictions. Plain
-   concatenated scripts avoid that risk entirely with zero build
-   complexity.
+   per README) ships Chromium M63. **The original justification for this
+   decision was wrong**: it claimed the engine predated `<script
+   type=module>`, but modules landed in M61, so both TVs can parse them.
+   The decision still stands, on weaker and explicitly *untested*
+   grounds: the packaged runtime loads the app from a `file://` origin
+   (measured — see the correction at the `file://` note below), module
+   fetches are CORS-governed, and nobody has tried loading a real module
+   graph from `file://` inside Samsung's runtime. Plain concatenated
+   scripts sidestep the question entirely at zero build complexity, so
+   there is no reason to run the experiment — but the risk is an
+   untested compatibility concern, **not** an established device
+   limitation, and should not be quoted as one.
 
    > Corrected after direct device measurement: the floor is **Tizen 5.0
    > / Chromium M63** (`UN55RU7100FXZA`, 2019), not "Tizen 4.6 / ~M56-M63".
@@ -467,8 +473,26 @@ in the Playwright harness — confirmed directly with an isolated
 `file://` test page before touching any real code. The old app's
 `fetch()`-based config loading had shipped and worked fine, so this was
 specifically a test-harness gap (the simulator was being opened via
-`file://`), not a production concern; Tizen's packaged-app runtime, and
-any other real embedding, is never `file://`. Fixed by adding
+`file://`), not a production concern.
+
+> **Correction (measured on hardware).** The claim originally made here
+> — that "Tizen's packaged-app runtime, and any other real embedding, is
+> never `file://`" — is **false**. Attaching to the running app's
+> DevTools inspector on both TVs reports the page URL as
+> `file:///www/index.html#/home` (and `faviconUrl`
+> `file:///www/favicon.…ico`), on the 2019 / Tizen 5.0 set and the 2020 /
+> Tizen 5.5 set alike. The packaged runtime **is** a `file://` origin.
+>
+> The surrounding conclusion survives anyway, for a different reason than
+> stated: the shipped app's `fetch()`-based config load demonstrably
+> worked on-device, so Samsung's web runtime evidently grants packaged
+> apps file-access privileges that desktop Chromium withholds. The
+> harness fix below is still correct and still worth having — it makes
+> the simulator load over `http://`, which is the *more* constrained
+> case. But do not reason from "production is not `file://`", because
+> production is.
+
+Fixed by adding
 `test/e2e/support/server.mjs` (a small static file server using Node's
 built-in `http`, no new dependency) and pointing all five spec files'
 `simulatorUrl` at it instead of `file://dev/simulator.html` — landed as
@@ -535,7 +559,7 @@ Two real, independent bugs found this way, both fixed and regression-tested:
    (reproduced the exact same `TypeError` from the TV) before confirming
    it passes with the fix, so it's a real regression test, not a
    false-positive.
-2. **`inset: 0` isn't honored on this TV's WebKit.** The diagnostic panel
+2. **`inset: 0` isn't honored on this TV's Chromium.** The diagnostic panel
    showed `#jellyquest-root` at `top=96.875px width=393.859px` instead of
    `0`/`1920` (the TV's actual viewport), while `height=1080px`,
    `background-color`, and `z-index` — from the same CSS rule — were all
@@ -553,9 +577,10 @@ Two real, independent bugs found this way, both fixed and regression-tested:
    (`#jellyquest-root`) and `src/overlay/focus.css`
    (`.jq-modal-backdrop`, same shorthand, same risk, not yet observed
    broken but no reason to leave it). No practical way to regression-test
-   old-WebKit-specific CSS parsing in a Chromium-based Playwright harness
+   old-Chromium-specific CSS parsing in a modern-Chromium Playwright harness
    — this one relies on the code comment and real-hardware verification
-   instead.
+   instead. (Originally written as "old-WebKit-specific"; the engine is
+   Chromium M63/M69, not WebKit.)
 
 A third hypothesis (jellyfin-web applying a CSS `transform` to
 `<html>`/`<body>` for its own page-transition animations, which would
