@@ -804,6 +804,19 @@ That is deliberate and must be removed before this branch ships.
    The drift check in `test/configuration.test.mjs` catches a forgotten
    rebuild.
 
+   **Diagnostic recovery (removed in 1.0.4).** The on-screen keydown panel
+   showed per-key records with capture/late `defaultPrevented` flags,
+   before/late/after focus positions, and a `DOUBLE MOVE` marker. It may help
+   investigate Home Return-key delivery or the open `cancelable:false`
+   dual-navigation issue. It was removed because it shipped to a production
+   TV at `z-index: 2147483647` and rendered over the real UI. The last commit
+   containing it before removal is `e5e286a428dd9712e1b579fc5d1ccf8506c7dec2`;
+   recover with `git show e5e286a428dd9712e1b579fc5d1ccf8506c7dec2:src/overlay/keydown-diagnostics.js`.
+   For a temporary hardware investigation, restore that file, re-add its
+   path to `JS_FILES` in `scripts/build-overlay.mjs`, rebuild with
+   `npm run build:overlay`, repackage, and install on an explicitly authorized
+   test TV. NEVER commit the diagnostic back into a release build.
+
 4. **Merge to `master`.** The whole rebuild has lived on this branch
    through all six phases and has never landed.
 
