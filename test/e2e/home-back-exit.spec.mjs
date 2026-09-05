@@ -190,3 +190,123 @@ test('a Back that JellyQuest handles never reaches a window-level listener', asy
         await browser.close();
     }
 });
+
+test('the exit confirmation still works after switching profiles, which rebuilds the root', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await openHomeAsAlice(page);
+
+        // Open and dismiss once so the dialog is built and cached.
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-exit-confirm', { state: 'visible' });
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => document.querySelector('.jq-exit-backdrop').hidden);
+
+        // The profile picker and the shell both clear #jellyquest-root's
+        // contents, detaching anything the router parked there.
+        await page.evaluate(() => document.querySelector('.jq-profile-switch').click());
+        await page.waitForSelector('.jq-profile-card');
+        await page.keyboard.press('Enter');
+        await page.waitForSelector('.jq-shell');
+        await page.waitForSelector('.jq-media-card');
+
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-exit-confirm', { state: 'visible' });
+        assert.equal(await page.evaluate(() => document.querySelectorAll('.jq-exit-backdrop').length), 1,
+            'exactly one exit dialog must be attached, not zero (detached) and not a duplicate per visit');
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-exit-no')), true);
+    } finally {
+        await browser.close();
+    }
+});
+
+test('a Home render that completes while the exit confirmation is open does not steal focus', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await openHomeAsAlice(page);
+
+        // Hold Home's row fetches open so the render finishes AFTER Back is
+        // pressed -- app.js installs the root Back handler before the screen
+        // has rendered, which is exactly the window this covers.
+        await page.evaluate(() => {
+            const getItems = window.ApiClient.getItems.bind(window.ApiClient);
+            window.__held = [];
+            window.ApiClient.getItems = function () {
+                const args = arguments;
+                return new Promise((resolve) => {
+                    window.__held.push(() => resolve(getItems.apply(null, args)));
+                });
+            };
+        });
+
+        // Leave Home and come back so it re-renders against the held fetches.
+        await page.evaluate(() => document.querySelector('.jq-nav-search').click());
+        await page.waitForSelector('.jq-search-input');
+        await page.evaluate(() => document.querySelector('.jq-nav-home').click());
+        await page.waitForFunction(() => window.__held.length > 0);
+
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-exit-confirm', { state: 'visible' });
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-exit-no')), true);
+
+        await page.evaluate(() => window.__held.splice(0).forEach((release) => release()));
+        await page.waitForSelector('.jq-media-card');
+
+        // The dialog is still up and still owns focus: a card behind it must
+        // not be focusable-by-surprise, or Enter opens Detail under the modal.
+        assert.equal(await page.evaluate(() => document.querySelector('.jq-exit-backdrop').hidden), false);
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-exit-no')), true);
+
+        // And once dismissed, focus lands on real content rather than nowhere.
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => document.querySelector('.jq-exit-backdrop').hidden);
+        assert.equal(await page.evaluate(() => document.activeElement.classList.contains('jq-focusable')), true);
+    } finally {
+        await browser.close();
+    }
+});
+
+test('the confirmation answers are operable from the remote: Enter on No dismisses', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await openHomeAsAlice(page);
+        await installExitSpy(page);
+
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-exit-confirm', { state: 'visible' });
+
+        // No pointer exists on a TV; the existing specs' .click() calls do not
+        // prove the buttons are reachable and activatable from the remote.
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('.jq-exit-backdrop').hidden);
+
+        assert.equal(await page.evaluate(() => document.activeElement.getAttribute('data-item-id')), 'movie-1');
+        assert.equal(await page.evaluate(() => window.__tizenExitCalls), 0);
+    } finally {
+        await browser.close();
+    }
+});
+
+test('the confirmation answers are operable from the remote: Right then Enter exits', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await openHomeAsAlice(page);
+        await installExitSpy(page);
+
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-exit-confirm', { state: 'visible' });
+
+        await page.keyboard.press('ArrowRight');
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-exit-yes')), true,
+            'Right must move from No to Yes inside the dialog');
+
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => window.__tizenExitCalls > 0);
+    } finally {
+        await browser.close();
+    }
+});

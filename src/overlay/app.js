@@ -179,15 +179,29 @@
         return { backdrop: backdrop, modal: modal, restoreTarget: null };
     }
 
-    // Built lazily, once, on the first root-level Back and reused after
-    // that: showHome() runs on every navigation back to Home, and the
-    // dialog lives on #jellyquest-root rather than inside the shell's
-    // content area, which each screen clears when it renders.
+    // Built lazily on the first root-level Back and reused after that:
+    // showHome() runs on every navigation back to Home, and the dialog
+    // lives on #jellyquest-root rather than inside the shell's content
+    // area, which each screen clears when it renders.
+    //
+    // Reuse is not unconditional, though. #jellyquest-root's own contents
+    // are cleared wholesale by both shell.js's renderShell() and
+    // profiles.js's renderProfiles() (`container.innerHTML = ''`), so a
+    // profile switch detaches this dialog while the cached reference
+    // survives. Opening a detached dialog shows nothing while still
+    // consuming the Back key -- strictly worse than having no handler at
+    // all, and dead until reload. Re-parenting is preferred over rebuilding
+    // because it is one comparison instead of a fresh DOM subtree and set
+    // of listeners on every Back press, and the same check covers both
+    // cases: the node was detached, or the root element itself was
+    // replaced.
     function confirmExit() {
+        var root = document.getElementById('jellyquest-root');
+        if (!root) return;
         if (!exitConfirm) {
-            var root = document.getElementById('jellyquest-root');
-            if (!root) return;
             exitConfirm = buildExitConfirm(root);
+        } else if (exitConfirm.backdrop.parentNode !== root) {
+            root.appendChild(exitConfirm.backdrop);
         }
         exitConfirm.restoreTarget = document.activeElement;
         exitConfirm.backdrop.hidden = false;
@@ -231,13 +245,19 @@
         }
     }
 
-    // Consuming Back means consuming it for everyone. preventDefault() alone
-    // is not enough: jellyfin-web installs its own Back handling
-    // (keyboardnavigation -> inputManager.handleCommand('back') ->
-    // appRouter.back() or appHost.exit()), and it acts on the press it
-    // receives whether or not the default was prevented. stopPropagation()
-    // keeps the event from reaching that listener at all, and -- unlike
-    // preventDefault() -- it does not depend on the event being cancelable.
+    // Consuming Back means consuming it for everyone. jellyfin-web installs
+    // its own Back handling (keyboardNavigation -> inputManager
+    // .handleCommand('back') -> appRouter.back() or appHost.exit()), and
+    // that listener does bail out on an already-prevented event -- its first
+    // line is `if (e.defaultPrevented) return;`.
+    //
+    // preventDefault() alone still is not enough to rely on, because it only
+    // marks the event prevented if the event is CANCELABLE, and whether
+    // these key presses are cancelable on this hardware is UNVERIFIED --
+    // neither confirmed nor refuted; it needs a TV. stopPropagation() does
+    // not depend on that at all: jellyfin-web's listener is on `window` in
+    // the bubble phase and this one is on `document`, so the press stops
+    // before it ever gets there. Both calls, deliberately.
     function consumeBack(event) {
         event.preventDefault();
         event.stopPropagation();
