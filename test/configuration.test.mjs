@@ -457,17 +457,16 @@ test('patches Jellyfin Web to handle generated detail playback actions', () => {
     assert.match(patcher, /itemShortcuts\.on\(view\.querySelector\('\.mainDetailButtons'\)\)/);
     assert.match(patcher, /itemShortcuts\.off\(view\.querySelector\('\.mainDetailButtons'\)\)/);
     assert.match(patcher, /mediaSourceId: card\.getAttribute\('data-mediasourceid'\)/);
+    assert.match(patcher, /window\.playbackManager = playbackManager;/);
 });
 
-test('patches Jellyfin playback shortcuts with per-item stream selections', () => {
-    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-patch-'));
-    const componentDirectory = path.join(webDirectory, 'src/components');
-    const itemDetailsDirectory = path.join(webDirectory, 'src/controllers/itemDetails');
-    fs.mkdirSync(componentDirectory, { recursive: true });
-    fs.mkdirSync(itemDetailsDirectory, { recursive: true });
-    const shortcutsPath = path.join(componentDirectory, 'shortcuts.js');
-    const itemDetailsPath = path.join(itemDetailsDirectory, 'index.js');
-    fs.writeFileSync(shortcutsPath, `function play() {
+// Mirrors the pinned Jellyfin Web sources the patcher rewrites. The playback
+// manager snippet is copied from .cache/jellyfin-web/src/components/playback/
+// playbackmanager.js:4290-4292 at .jellyfin-web-ref -- upstream exports the
+// singleton and never assigns it to a global.
+function writePinnedWebFixture(webDirectory, overrides = {}) {
+    const files = {
+        'src/components/shortcuts.js': `function play() {
             playbackManager.play({
                 ids: [playableItemId],
                 startPositionTicks: startPositionTicks,
@@ -476,11 +475,32 @@ test('patches Jellyfin playback shortcuts with per-item stream selections', () =
                     SortBy: 'SortName'
                 }
             });
-}`);
-    fs.writeFileSync(itemDetailsPath, `function bind(view) {
+}`,
+        'src/controllers/itemDetails/index.js': `function bind(view) {
             itemShortcuts.on(view.querySelector('.nameContainer'));
             itemShortcuts.off(view.querySelector('.nameContainer'));
-}`);
+}`,
+        'src/components/playback/playbackmanager.js': `export const playbackManager = new PlaybackManager();
+bindMediaSegmentManager(playbackManager);
+bindMediaSessionSubscriber(playbackManager);
+`,
+        ...overrides
+    };
+
+    for (const [relativePath, contents] of Object.entries(files)) {
+        const absolutePath = path.join(webDirectory, relativePath);
+        fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+        fs.writeFileSync(absolutePath, contents);
+    }
+
+    return files;
+}
+
+test('patches Jellyfin playback shortcuts with per-item stream selections', () => {
+    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-patch-'));
+    writePinnedWebFixture(webDirectory);
+    const shortcutsPath = path.join(webDirectory, 'src/components/shortcuts.js');
+    const itemDetailsPath = path.join(webDirectory, 'src/controllers/itemDetails/index.js');
 
     const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
     const first = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
@@ -497,6 +517,47 @@ test('patches Jellyfin playback shortcuts with per-item stream selections', () =
     assert.equal(second.status, 0, second.stderr);
     assert.equal(fs.readFileSync(shortcutsPath, 'utf8'), patched);
     assert.equal(fs.readFileSync(itemDetailsPath, 'utf8'), patchedItemDetails);
+});
+
+// The overlay's Play/Resume/Start Over and Trailer actions (src/overlay/app.js)
+// call window.playbackManager.play(); nothing in the pinned Jellyfin Web build
+// publishes that global, so the build-time patch has to. This exercises the
+// patch logic only -- it cannot prove playback works on a real TV.
+test('patches Jellyfin Web to publish the playback manager singleton as a global', () => {
+    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-global-'));
+    const originalPlaybackManager = writePinnedWebFixture(webDirectory)['src/components/playback/playbackmanager.js'];
+    const playbackManagerPath = path.join(webDirectory, 'src/components/playback/playbackmanager.js');
+    assert.doesNotMatch(originalPlaybackManager, /window\.playbackManager/);
+
+    const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
+    const first = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+    assert.equal(first.status, 0, first.stderr);
+    const patched = fs.readFileSync(playbackManagerPath, 'utf8');
+    assert.match(patched, /^window\.playbackManager = playbackManager;$/m);
+    // The global has to be the exported singleton, not a second manager.
+    assert.match(patched, /export const playbackManager = new PlaybackManager\(\);/);
+    assert.equal(patched.match(/new PlaybackManager\(\)/g).length, 1);
+    assert.match(patched, /bindMediaSessionSubscriber\(playbackManager\);/);
+
+    const second = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(fs.readFileSync(playbackManagerPath, 'utf8'), patched);
+});
+
+// A silent no-op on the next .jellyfin-web-ref bump would restore the runtime
+// crash, so drifted anchors must fail the build instead.
+test('fails loudly when the pinned playback manager singleton no longer matches', () => {
+    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-drift-'));
+    writePinnedWebFixture(webDirectory, {
+        'src/components/playback/playbackmanager.js': `export const playbackManager = new PlaybackManagerV2();
+`
+    });
+
+    const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
+    const result = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Pinned Jellyfin Web playback manager singleton no longer matches/);
+    assert.match(result.stderr, /update the JellyQuest patch/);
 });
 
 test('installs through the direct Samsung TV workflow', () => {
