@@ -82,3 +82,13 @@ button.jq-request-card-action:disabled {
     color: #ff6b6b;
     font-size: 15px;
 }
+
+.jq-requests-retry {
+    background: #262b32;
+    border: none;
+    color: #f2f2f2;
+    font-size: 18px;
+    padding: 14px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+}

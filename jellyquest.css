@@ -437,6 +437,10 @@ html, body {
     margin-top: 32px;
 }
 
+.jq-search-error {
+    color: #ff6b6b;
+}
+
 /* ---- src/overlay/screens/detail.css ---- */
 .jq-detail-screen {
     padding: 48px;
@@ -607,4 +611,14 @@ button.jq-request-card-action:disabled {
 .jq-request-card-error {
     color: #ff6b6b;
     font-size: 15px;
+}
+
+.jq-requests-retry {
+    background: #262b32;
+    border: none;
+    color: #f2f2f2;
+    font-size: 18px;
+    padding: 14px 24px;
+    border-radius: 6px;
+    cursor: pointer;
 }

@@ -35,7 +35,7 @@
         if (config.configurationFailed) {
             status.textContent = 'Could not load Requests configuration. Try again.';
             var retry = document.createElement('button');
-            retry.className = 'jq-detail-action jq-focusable';
+            retry.className = 'jq-requests-retry jq-focusable';
             retry.textContent = 'Retry';
             retry.addEventListener('click', config.onRetryConfiguration);
             container.appendChild(retry);

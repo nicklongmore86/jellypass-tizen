@@ -41,12 +41,14 @@
             resultsRow.innerHTML = '';
             empty.hidden = true;
             empty.textContent = 'No matches.';
+            empty.classList.remove('jq-search-error');
             if (!term.trim()) return;
             var userId = window.ApiClient.getCurrentUserId();
             window.ApiClient.getItems(userId, { SearchTerm: term }).then(function (result) {
                 if (currentSearchId !== searchId || input.value !== term) return; // a newer search superseded this one
                 empty.hidden = true;
                 empty.textContent = 'No matches.';
+                empty.classList.remove('jq-search-error');
                 if (!result.Items.length) {
                     empty.hidden = false;
                     return;
@@ -59,6 +61,7 @@
             }).catch(function (error) {
                 if (currentSearchId !== searchId || input.value !== term) return;
                 empty.textContent = 'Search failed. Try again.';
+                empty.classList.add('jq-search-error');
                 empty.hidden = false;
                 console.error('[JellyQuest] Library search failed:', error);
             });

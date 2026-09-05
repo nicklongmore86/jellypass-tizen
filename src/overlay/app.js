@@ -36,6 +36,8 @@
         }).then(function (config) {
             buildConfig = config || {};
         }).catch(function (error) {
+            // Loads only run without cached configuration today. If refresh is
+            // added, preserve the last good configuration on a failed refresh.
             buildConfig = null;
             console.error('[JellyQuest] Requests configuration unavailable:', error);
         }).then(function () {
@@ -126,6 +128,12 @@
                 userId: user.Id,
                 userName: user.Name
             });
+        }).catch(function (error) {
+            console.error('[JellyQuest] Requests render failed:', error);
+            container.innerHTML = '';
+            loading.textContent = 'Requests are unavailable right now.';
+            loading.hidden = false;
+            container.appendChild(loading);
         });
     }
 

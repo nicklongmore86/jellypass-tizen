@@ -190,7 +190,7 @@ for (const scenario of ['library search', 'library', 'home', 'profiles', 'favori
                     } else if (scenario === 'home') {
                         const getItems = window.ApiClient.getItems;
                         window.ApiClient.getItems = (userId, options) => options.Filters === 'IsResumable'
-                            ? reject() : getItems(userId, options);
+                            ? reject() : getItems.call(window.ApiClient, userId, options);
                         window.JellyQuestHomeScreen.render(container, {});
                     } else if (scenario === 'profiles') {
                         window.JellyQuestSession.listProfiles = reject;
@@ -214,7 +214,7 @@ for (const scenario of ['library search', 'library', 'home', 'profiles', 'favori
             const message = page.getByText(messages[scenario], { exact: true });
             await message.waitFor({ state: 'visible', timeout: 2000 });
             await assertPainted(message);
-            const colors = { favorite: 'rgb(255, 107, 107)', library: 'rgb(154, 160, 168)', request: 'rgb(255, 107, 107)', claim: 'rgb(255, 107, 107)' };
+            const colors = { 'library search': 'rgb(255, 107, 107)', favorite: 'rgb(255, 107, 107)', library: 'rgb(154, 160, 168)', request: 'rgb(255, 107, 107)', claim: 'rgb(255, 107, 107)' };
             if (colors[scenario]) assert.equal(await message.evaluate((el) => getComputedStyle(el).color), colors[scenario]);
             if (scenario === 'request' || scenario === 'claim') {
                 const button = page.locator('button.jq-request-card-action');
@@ -226,6 +226,15 @@ for (const scenario of ['library search', 'library', 'home', 'profiles', 'favori
                 await button.click();
                 await page.getByText(scenario === 'request' ? 'Requested' : 'In My Library', { exact: true }).waitFor();
                 assert.equal(await message.count(), 0);
+            }
+            if (scenario === 'library search') {
+                await page.evaluate(() => {
+                    window.ApiClient.getItems = () => Promise.resolve({ Items: [] });
+                });
+                await page.locator('.jq-search-input').fill('no matches');
+                const empty = page.getByText('No matches.', { exact: true });
+                await empty.waitFor({ state: 'visible' });
+                assert.equal(await empty.evaluate((el) => getComputedStyle(el).color), 'rgb(154, 160, 168)');
             }
             if (scenario === 'home') {
                 assert.ok(await page.locator('.jq-home-row .jq-media-card').count() > 0);
@@ -240,12 +249,18 @@ for (const scenario of ['library search', 'library', 'home', 'profiles', 'favori
 // Visibility alone accepts text beneath the opaque app root. Check its real
 // stacking context and the hit target at the message's center as well.
 async function assertPainted(locator) {
-    assert.equal(await locator.evaluate((element) => {
+    const paint = await locator.evaluate((element) => {
         const rect = element.getBoundingClientRect();
         const top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-        return document.getElementById('jellyquest-root').contains(element)
-            && (top === element || element.contains(top));
-    }), true, 'message must be inside the app root and unobscured');
+        return {
+            insideRoot: document.getElementById('jellyquest-root').contains(element),
+            hasHitTarget: top !== null,
+            unobscured: top === element || element.contains(top),
+        };
+    });
+    assert.equal(paint.insideRoot, true, 'message is not inside #jellyquest-root');
+    assert.equal(paint.hasHitTarget, true, 'message center is outside the viewport or has no hit target');
+    assert.equal(paint.unobscured, true, 'message is obscured by another painted element');
 }
 
 for (const screen of ['Requests', 'library']) {
@@ -337,13 +352,16 @@ test('paint checks reject the old occluded fixture and accept real screen conten
             const rect = el.getBoundingClientRect();
             return document.getElementById('jellyquest-root').contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
         }), true, 'opaque root is painted above the old fixture');
-        await assert.rejects(() => assertPainted(message), /inside the app root and unobscured/);
+        await assert.rejects(() => assertPainted(message), /not inside #jellyquest-root/);
         await page.evaluate(() => {
             const content = window.JellyQuestShell.getContent();
             content.innerHTML = '';
             content.appendChild(document.getElementById('failure-test'));
         });
         await assertPainted(message);
+        await message.evaluate((el) => { el.style.transform = 'translateX(3000px)'; });
+        await assert.rejects(() => assertPainted(message), /outside the viewport or has no hit target/);
+        await message.evaluate((el) => { el.style.transform = ''; });
         await page.evaluate(() => {
             const cover = document.createElement('div');
             cover.id = 'test-cover';
@@ -351,7 +369,7 @@ test('paint checks reject the old occluded fixture and accept real screen conten
             document.getElementById('jellyquest-root').appendChild(cover);
         });
         assert.equal(await message.isVisible(), true);
-        await assert.rejects(() => assertPainted(message), /inside the app root and unobscured/);
+        await assert.rejects(() => assertPainted(message), /obscured by another painted element/);
     } finally {
         await browser.close();
     }
@@ -385,3 +403,33 @@ for (const failure of ['HTTP 500', 'network', 'missing bridge URL']) {
         }
     });
 }
+
+test('Requests surfaces a synchronous renderer throw after configuration loads', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await page.goto(simulatorUrl);
+        await page.waitForSelector('.jq-profile-card');
+        await page.keyboard.press('Enter');
+        await page.waitForSelector('.jq-shell');
+        await page.evaluate(() => {
+            window.JellyQuestRequestsScreen.render = (container) => {
+                container.innerHTML = ''; // Also exercise throws after the loading status is removed.
+                throw new Error('Forced Requests render failure');
+            };
+        });
+        const loggedError = page.waitForEvent('console', {
+            predicate: (message) => message.type() === 'error' && message.text().includes('Requests render failed'),
+            timeout: 2000,
+        });
+        await page.locator('.jq-nav-requests').click();
+        const message = page.getByText('Requests are unavailable right now.', { exact: true });
+        await Promise.all([
+            message.waitFor({ state: 'visible', timeout: 2000 }),
+            loggedError,
+        ]);
+        await assertPainted(message);
+    } finally {
+        await browser.close();
+    }
+});
