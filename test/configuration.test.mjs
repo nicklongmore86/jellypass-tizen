@@ -145,7 +145,203 @@ test('overlay injection points still target the app-owned files', () => {
     assert.doesNotMatch(manifest, /AprZAARz4r\.Jellyfin/);
 });
 
+// scripts/package-wgt.sh hands `tizen build-web` a list of exclusion globs.
+// Reading those globs back as patterns -- rather than regex-matching the script's
+// own text -- lets the keep-side test below check runtime paths against every
+// parsed exclusion, including spellings nobody thought to pin literally. It
+// checks the representative paths listed there, not every file that ships, and
+// only the shell syntax the lexer below models (see that test for the limits).
+
+// Which characters are syntactically ACTIVE depends on the quoting context they
+// appear in, so the two sets below are applied per context, never to a word's raw
+// text. Unquoted, all of these do something. Inside double quotes only expansion
+// and escaping survive -- `;`, `&`, `|`, `<`, `>` and parens are already literal
+// there. Inside SINGLE quotes bash makes everything literal, so nothing is active
+// and nothing is refused.
+const ACTIVE_UNQUOTED = /[\\$`;&|<>()]/;
+const ACTIVE_IN_DOUBLE_QUOTES = /[\\$`]/g;
+
+// Enough shell lexing to read one command's words: quotes, backslash-newline
+// continuations between words, and comments. Comments matter because a
+// `# -e foo` note near the command otherwise reads as a real exclusion.
+//
+// Alongside the value, each word collects the active characters it passed
+// through. An exclusion whose value went through none can be trusted to be the
+// literal string bash would hand tizen; one that did not is refused rather than
+// guessed at, because this lexer does not expand or escape anything.
+function shellWords(command) {
+    const words = [];
+    let current = null;
+    let active = '';
+    let index = 0;
+
+    const flush = () => {
+        if (current === null) return;
+        words.push({ value: current, active });
+        current = null;
+        active = '';
+    };
+
+    while (index < command.length) {
+        const character = command[index];
+
+        if (current === null && character === '\\' && command[index + 1] === '\n') {
+            index += 2;
+        } else if (current === null && character === '#') {
+            const lineEnd = command.indexOf('\n', index);
+            index = lineEnd === -1 ? command.length : lineEnd;
+        } else if (/\s/.test(character)) {
+            flush();
+            index += 1;
+        } else if (character === '"' || character === '\'') {
+            const close = command.indexOf(character, index + 1);
+            assert.notEqual(close, -1, `unterminated ${character} quote in the tizen build-web command`);
+            const contents = command.slice(index + 1, close);
+            if (character === '"') active += contents.match(ACTIVE_IN_DOUBLE_QUOTES)?.join('') ?? '';
+            current = (current ?? '') + contents;
+            index = close + 1;
+        } else {
+            if (ACTIVE_UNQUOTED.test(character)) active += character;
+            current = (current ?? '') + character;
+            index += 1;
+        }
+    }
+
+    flush();
+
+    return words;
+}
+
+function packagerExclusions(packager) {
+    const [command] = packager.match(/tizen build-web[\s\S]*?(?=\ntizen package)/) ?? [];
+    assert.ok(command, 'scripts/package-wgt.sh no longer invokes tizen build-web');
+
+    const words = shellWords(command);
+    const exclusions = [];
+
+    // A parser that silently mis-reads an exclusion is worse than one that
+    // refuses: a value this lexer cannot model means the test compares the wrong
+    // string while still reporting green. Fail loudly instead.
+    const take = (flag, word) => {
+        assert.ok(
+            word !== undefined && word.value !== '' && !word.value.startsWith('-'),
+            `malformed exclusion after ${flag} in scripts/package-wgt.sh: `
+                + (word === undefined ? '(end of command)' : JSON.stringify(word.value))
+        );
+        assert.equal(
+            word.active,
+            '',
+            `unmodelled shell syntax ${JSON.stringify(word.active)} in the exclusion after ${flag}`
+                + ` in scripts/package-wgt.sh: ${JSON.stringify(word.value)}`
+        );
+
+        return word.value;
+    };
+
+    for (let index = 0; index < words.length; index += 1) {
+        const { value, active } = words[index];
+        // Tizen documents --exclude as the long form of -e, so both are read here;
+        // treating --exclude as an ordinary argument would silently hide it.
+        const inline = /^(?:-e|--exclude)=(.*)$/.exec(value);
+
+        if (inline) {
+            assert.notEqual(inline[1], '', `empty exclusion value in scripts/package-wgt.sh: ${value}`);
+            exclusions.push(take(value.split('=')[0], { value: inline[1], active }));
+            continue;
+        }
+
+        if (value !== '-e' && value !== '--exclude') continue;
+
+        exclusions.push(take(value, words[index + 1]));
+        index += 1;
+    }
+
+    return exclusions;
+}
+
+// Tizen reads an exclusion as a path glob relative to the project root, where
+// `dir/*` drops the whole subtree. `*` is widened to "any characters" so that a
+// broad pattern counts as excluding a path instead of slipping past the check.
+//
+// ONLY `*` is modelled. The available Tizen documentation does not establish the
+// rest of the wildcard grammar -- `?`, bracket expressions, and whatever default
+// exclusions the tool applies on its own are all unverified, so they are left
+// unimplemented rather than guessed at.
+function excludesPath(pattern, filePath) {
+    const source = pattern
+        .split('*')
+        .map((literal) => literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('.*');
+
+    return new RegExp(`^${source}(?:/.*)?$`).test(filePath);
+}
+
+test('parses the packager exclusion flags without silently mis-reading them', () => {
+    const command = (body) => `tizen build-web ${body}\ntizen package -t wgt -o out -- .buildResult\n`;
+
+    assert.deepEqual(packagerExclusions(command('-e "a/*" -e b.md')), ['a/*', 'b.md']);
+    // --exclude is the documented long form; reading it as a plain argument would
+    // let `--exclude jellyquest.js` drop a required file with the tests still green.
+    assert.deepEqual(packagerExclusions(command('--exclude "a/*" --exclude=b.md')), ['a/*', 'b.md']);
+    // A backslash-newline is a line continuation, not the exclusion's value.
+    assert.deepEqual(packagerExclusions(command('-e \\\n  jellyquest.js')), ['jellyquest.js']);
+    // A comment is not an exclusion, and must not read as one.
+    assert.deepEqual(packagerExclusions(command('-e a.md\n# -e jellyquest.js')), ['a.md']);
+    assert.deepEqual(packagerExclusions(command('-e a.md # -e jellyquest.js')), ['a.md']);
+
+    // A quoted value may contain spaces; that much is modelled.
+    assert.deepEqual(packagerExclusions(command('-e "some dir/*"')), ['some dir/*']);
+
+    // ACCEPTED: characters that are inert where they appear. Refusing these would
+    // fail the suite on a perfectly valid script, which is worse than the false
+    // acceptance the refusals were added to stop -- a maintainer excluding a path
+    // with parens, a literal $ or a ; would be told their script is malformed.
+    // Single quotes make everything literal, so nothing in them is refused.
+    assert.deepEqual(packagerExclusions(command('-e \'docs/notes (old)/*\'')), ['docs/notes (old)/*']);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/$notes.md\'')), ['docs/$notes.md']);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/a;b`c\\d/*\'')), ['docs/a;b`c\\d/*']);
+    // Inside double quotes `;`, `&`, `|`, `<`, `>` and parens are already literal.
+    assert.deepEqual(packagerExclusions(command('-e "docs/notes;old/*"')), ['docs/notes;old/*']);
+    assert.deepEqual(packagerExclusions(command('-e "docs/notes (old)|x&y/*"')), ['docs/notes (old)|x&y/*']);
+    // Glob characters are never refused: modelling them is out of scope, not unsafe.
+    assert.deepEqual(packagerExclusions(command('-e "docs/?/*" -e "docs/[ab]/*"')), ['docs/?/*', 'docs/[ab]/*']);
+
+    // Missing or malformed values fail loudly rather than being guessed at.
+    assert.throws(() => packagerExclusions(command('-e')), /malformed exclusion after -e/);
+    assert.throws(() => packagerExclusions(command('-e -t wgt')), /malformed exclusion after -e/);
+    assert.throws(() => packagerExclusions(command('--exclude= -e a.md')), /empty exclusion value/);
+    assert.throws(() => packagerExclusions(command('-e "unterminated')), /unterminated " quote/);
+    assert.throws(() => packagerExclusions('tizen package -t wgt\n'), /no longer invokes tizen build-web/);
+
+    // Refused: syntax that is ACTIVE where it appears, so bash would pass a
+    // different string than the one lexed here. Each of these excludes
+    // www/config.json in bash while a naive lexer reads some other literal.
+    assert.throws(() => packagerExclusions(command('-e www/\\config.json')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e "www/confi\\\ng.json"')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e "$DROP"')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e www/config.json;')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e `printf x`')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('--exclude=www/config.json;')), /unmodelled shell syntax/);
+    // The same character refused unquoted is accepted single-quoted, and the same
+    // character accepted in double quotes is refused unquoted. The distinction is
+    // the quoting context, not the character.
+    assert.throws(() => packagerExclusions(command('-e docs/notes;old')), /unmodelled shell syntax/);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/notes;old\'')), ['docs/notes;old']);
+    assert.throws(() => packagerExclusions(command('-e docs/\\$notes.md')), /unmodelled shell syntax/);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/notes (old)\'')), ['docs/notes (old)']);
+    assert.throws(() => packagerExclusions(command('-e docs/notes(old)')), /unmodelled shell syntax/);
+
+    // What is NOT detected, and so limits what a green run here means: brace and
+    // tilde expansion, an exclusion assembled across several words, and any command
+    // built dynamically rather than written out literally. This test refuses the
+    // constructs above; it does not certify that every value it accepts is what
+    // bash would pass to tizen.
+});
+
 test('keeps development configuration and notes out of the TV package', () => {
+    // Format pins only: these prove the flags are still spelled this way. The
+    // parsed-path checks live in their own tests so that a failure here cannot
+    // abort them -- the two failure modes are independently diagnosable.
     const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
 
     assert.match(packager, /-e DETAIL_ACTIONS\.md/);
@@ -154,9 +350,100 @@ test('keeps development configuration and notes out of the TV package', () => {
     assert.match(packager, /-e "dev\/\*"/);
     assert.match(packager, /-e "docs\/\*"/);
     assert.match(packager, /-e "integration\/\*"/);
+    assert.match(packager, /-e "scripts\/\*"/);
     assert.match(packager, /-e "src\/\*"/);
+    assert.match(packager, /-e "test\/\*"/);
     assert.doesNotMatch(packager, /bridge\/\*/);
+    // The Requests page copy is conditional (its integration/ source does not
+    // exist at this commit); this pins that the copy step is still there, not
+    // that the file ships.
     assert.match(packager, /www\/jellyseerr-login\.html/);
+});
+
+test('drops known internal paths from the TV package', () => {
+    const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
+    const exclusions = packagerExclusions(packager);
+    const internal = [
+        'DETAIL_ACTIONS.md',
+        'README.md',
+        'gulpfile.babel.js',
+        'jellyquest.config.json',
+        'package.json',
+        'package-lock.json',
+        '.jellyfin-web-ref',
+        'artifacts/JellyQuest.wgt',
+        'dev/notes.md',
+        'docs/rebuild-plan.md',
+        'integration/jellyseerr-login.html',
+        'node_modules/jellyfin-web/dist/index.html',
+        'scripts/package-wgt.sh',
+        'src/overlay/app.css',
+        'test/configuration.test.mjs'
+    ];
+
+    for (const filePath of internal) {
+        assert.ok(
+            exclusions.some((pattern) => excludesPath(pattern, filePath)),
+            `${filePath} is internal but no packager exclusion drops it`
+        );
+    }
+});
+
+test('keeps representative known runtime paths out of the packager exclusions', () => {
+    // The outage this guards is the opposite of shipping an extra file: excluding
+    // something the app needs still produces a signable WGT that installs and then
+    // fails on the TV. config.xml names index.html as the widget content and
+    // icon.png as the launcher icon; index.html redirects into www/, the gulp-built
+    // Jellyfin Web tree, whose index.html loads ../tizen.js, ../jellyquest.js and
+    // ../jellyquest.css from the package root (see gulpfile.babel.js modifyIndex).
+    // jellyquest.js is also the only copy of the vendored spatial-navigation
+    // polyfill in the package, because -e "node_modules/*" drops the installed one.
+    //
+    // www/jellyseerr-login.html is deliberately absent: its integration/ source
+    // does not exist at this commit and both the packager and gulp copy it only
+    // if present, so it is not required today.
+    const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
+    const exclusions = packagerExclusions(packager);
+    const required = [
+        'config.xml',
+        'index.html',
+        'icon.png',
+        'tizen.js',
+        'jellyquest.js',
+        'jellyquest.css',
+        'www/index.html',
+        'www/main.jellyfin.bundle.js',
+        'www/assets/img/devices/tv.svg',
+        // Written into www/ by scripts/configure-jellyquest.mjs. jellyquest-build.json
+        // is fetched by src/overlay/app.js and supplies the Requests bridge URL --
+        // without it Requests dead-ends on "Requests are not configured for this
+        // server." config.json carries the configured server settings.
+        'www/jellyquest-build.json',
+        'www/config.json'
+    ];
+
+    // Positive controls: a floor, not a completeness proof. A negative result
+    // only means something if the parser produced working patterns at all, so if
+    // these stop matching, the checks below are passing vacuously. They do NOT
+    // prove the parser read every exclusion -- a parser returning just these three
+    // satisfies this test, and one that drops an additional dangerous exclusion
+    // leaves every check here green. The internal-path test catches some, not all,
+    // of that truncation.
+    for (const sentinel of ['src/overlay/app.js', 'test/configuration.test.mjs', 'node_modules/jellyfin-web/dist/index.html']) {
+        assert.ok(
+            exclusions.some((pattern) => excludesPath(pattern, sentinel)),
+            `positive control ${sentinel} is no longer excluded; the checks below cannot be trusted`
+        );
+    }
+
+    for (const filePath of required) {
+        const matched = exclusions.filter((pattern) => excludesPath(pattern, filePath));
+        assert.deepEqual(
+            matched,
+            [],
+            `${filePath} is needed on the TV but is excluded by ${matched.join(', ')}`
+        );
+    }
 });
 
 test('patches Jellyfin Web to handle generated detail playback actions', () => {
