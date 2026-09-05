@@ -7,6 +7,9 @@ const webDirectory = path.resolve(process.env.JELLYFIN_WEB_DIR || 'node_modules/
 
 if (!fs.existsSync(webDirectory)) {
     console.info(`Skipping the jellyfin-web-dependent build: ${webDirectory} is missing. Run npm run build:full to build Jellyfin Web and prepare the app.`);
+} else if (!process.env.npm_execpath) {
+    console.error('Cannot run the postinstall build: npm_execpath is unset. Run npm run postinstall instead of invoking this script directly.');
+    process.exitCode = 1;
 } else {
     const result = spawnSync(process.execPath, [process.env.npm_execpath, 'run', 'build'], { stdio: 'inherit' });
     if (result.error) console.error(result.error);

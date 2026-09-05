@@ -23,6 +23,25 @@ test('postinstall skips a missing Jellyfin Web build with actionable instruction
     }
 });
 
+test('postinstall reports actionable instructions when invoked without npm', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-install-'));
+    try {
+        const env = { ...process.env, JELLYFIN_WEB_DIR: directory };
+        delete env.npm_execpath;
+        const result = spawnSync(process.execPath, [path.join(root, 'scripts/postinstall.mjs')], {
+            cwd: directory,
+            encoding: 'utf8',
+            env
+        });
+        assert.equal(result.status, 1);
+        assert.match(result.stderr, /npm_execpath is unset/);
+        assert.match(result.stderr, /Run npm run postinstall/);
+        assert.doesNotMatch(result.stderr, /MODULE_NOT_FOUND/);
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test('postinstall delegates to npm run build and preserves failures for default and overridden Web paths', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-install-'));
     try {
@@ -32,8 +51,8 @@ assert.deepEqual(process.argv.slice(2), ['run', 'build']);
 console.log('fixture build invoked');
 process.exitCode = Number(process.env.FIXTURE_BUILD_STATUS);
 `);
-        for (const webPath of ['', 'custom-web/dist']) {
-            const dist = path.join(directory, webPath || 'node_modules/jellyfin-web/dist');
+        for (const webPath of ['', 'custom-web/dist', path.join(directory, 'absolute-web/dist')]) {
+            const dist = path.resolve(directory, webPath || 'node_modules/jellyfin-web/dist');
             fs.mkdirSync(dist, { recursive: true });
             for (const status of [0, 7]) {
                 const result = spawnSync(process.execPath, [path.join(root, 'scripts/postinstall.mjs')], {
