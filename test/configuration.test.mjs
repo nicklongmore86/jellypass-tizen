@@ -136,6 +136,30 @@ test('overlay injection points still target the app-owned files', () => {
     assert.doesNotMatch(manifest, /AprZAARz4r\.Jellyfin/);
 });
 
+// scripts/package-wgt.sh hands `tizen build-web` a list of -e exclusion globs.
+// Reading those globs back as patterns -- rather than regex-matching the script's
+// own text -- lets the keep-side test below catch ANY exclusion that would drop a
+// runtime file, including spellings nobody thought to write an assertion for.
+function packagerExclusions(packager) {
+    const [command] = packager.match(/tizen build-web[\s\S]*?(?=\ntizen package)/) ?? [];
+    assert.ok(command, 'scripts/package-wgt.sh no longer invokes tizen build-web');
+
+    return [...command.matchAll(/-e\s+(?:"([^"]*)"|'([^']*)'|(\S+))/g)]
+        .map(([, doubleQuoted, singleQuoted, bare]) => doubleQuoted ?? singleQuoted ?? bare);
+}
+
+// Tizen reads an exclusion as a path glob relative to the project root, where
+// `dir/*` drops the whole subtree. `*` is widened to "any characters" so that a
+// broad pattern counts as excluding a path instead of slipping past the check.
+function excludesPath(pattern, filePath) {
+    const source = pattern
+        .split('*')
+        .map((literal) => literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('.*');
+
+    return new RegExp(`^${source}(?:/.*)?$`).test(filePath);
+}
+
 test('keeps development configuration and notes out of the TV package', () => {
     const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
 
@@ -145,9 +169,76 @@ test('keeps development configuration and notes out of the TV package', () => {
     assert.match(packager, /-e "dev\/\*"/);
     assert.match(packager, /-e "docs\/\*"/);
     assert.match(packager, /-e "integration\/\*"/);
+    assert.match(packager, /-e "scripts\/\*"/);
     assert.match(packager, /-e "src\/\*"/);
+    assert.match(packager, /-e "test\/\*"/);
     assert.doesNotMatch(packager, /bridge\/\*/);
     assert.match(packager, /www\/jellyseerr-login\.html/);
+
+    // The literal pins above only prove the flags are still spelled that way.
+    // Checking the parsed globs as well proves each of these actually lands on
+    // the internal material it is there to drop.
+    const exclusions = packagerExclusions(packager);
+    const internal = [
+        'DETAIL_ACTIONS.md',
+        'README.md',
+        'gulpfile.babel.js',
+        'jellyquest.config.json',
+        'package.json',
+        'package-lock.json',
+        '.jellyfin-web-ref',
+        'artifacts/JellyQuest.wgt',
+        'dev/notes.md',
+        'docs/rebuild-plan.md',
+        'integration/jellyseerr-login.html',
+        'node_modules/jellyfin-web/dist/index.html',
+        'scripts/package-wgt.sh',
+        'src/overlay/app.css',
+        'test/configuration.test.mjs'
+    ];
+
+    for (const filePath of internal) {
+        assert.ok(
+            exclusions.some((pattern) => excludesPath(pattern, filePath)),
+            `${filePath} is internal but no packager exclusion drops it`
+        );
+    }
+});
+
+test('keeps everything the TV app needs at runtime inside the package', () => {
+    // The outage this guards is the opposite of shipping an extra file: excluding
+    // something the app needs still produces a signable WGT that installs and then
+    // fails on the TV. config.xml names index.html as the widget content and
+    // icon.png as the launcher icon; index.html redirects into www/, the gulp-built
+    // Jellyfin Web tree, whose index.html loads ../tizen.js, ../jellyquest.js and
+    // ../jellyquest.css from the package root (see gulpfile.babel.js modifyIndex).
+    // jellyquest.js is also the only copy of the vendored spatial-navigation
+    // polyfill in the package, because -e "node_modules/*" drops the installed one.
+    const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
+    const exclusions = packagerExclusions(packager);
+    const required = [
+        'config.xml',
+        'index.html',
+        'icon.png',
+        'tizen.js',
+        'jellyquest.js',
+        'jellyquest.css',
+        'www/index.html',
+        'www/jellyseerr-login.html',
+        'www/main.jellyfin.bundle.js',
+        'www/assets/img/devices/tv.svg'
+    ];
+
+    assert.ok(exclusions.length > 0, 'no -e exclusions were parsed out of the packager');
+
+    for (const filePath of required) {
+        const matched = exclusions.filter((pattern) => excludesPath(pattern, filePath));
+        assert.deepEqual(
+            matched,
+            [],
+            `${filePath} is needed on the TV but is excluded by ${matched.join(', ')}`
+        );
+    }
 });
 
 test('patches Jellyfin Web to handle generated detail playback actions', () => {
