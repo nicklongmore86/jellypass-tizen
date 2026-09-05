@@ -71,12 +71,7 @@ for (const [selector, screen, axis, containers = 1] of [
 // guard the source spelling explicitly and measure the unmodified grid.
 test('library grid retains legacy grid-gap and positive spacing on both axes', async () => {
     const css = await readFile(new URL('../../src/overlay/screens/library.css', import.meta.url), 'utf8');
-    const rules = Array.from(css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\.jq-library-grid\s*\{([^}]+)\}/g));
-    assert.ok(rules.length > 0, 'Library spacing rule must exist');
-    const declarations = rules.map((rule) => rule[1]).join(';');
-    assert.match(declarations, /(?:^|;)\s*grid-gap\s*:/, 'Library must retain the M63-compatible grid-gap spelling');
-    assert.doesNotMatch(declarations, /(?:^|;)\s*(?:gap|row-gap|column-gap)\s*:/,
-        'Library spacing must not depend on modern gap spellings');
+    assertLegacyGridSpacing(css);
 
     const browser = await chromium.launch();
     try {
@@ -103,5 +98,32 @@ test('library grid retains legacy grid-gap and positive spacing on both axes', a
         }
     } finally {
         await browser.close();
+    }
+});
+
+function assertLegacyGridSpacing(css) {
+    const rules = Array.from(css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\.jq-library-grid\s*\{([^}]+)\}/g));
+    assert.ok(rules.length > 0, 'Library spacing rule must exist');
+    const declarations = rules.map((rule) => rule[1]).join(';');
+    assert.match(declarations, /(?:^|;)\s*grid-(?:row-|column-)?gap\s*:/, 'Library must retain M63-compatible legacy grid gap declarations');
+    assert.doesNotMatch(declarations, /(?:^|;)\s*(?:gap|row-gap|column-gap)\s*:/,
+        'Library spacing must not depend on modern gap spellings');
+}
+
+test('library spelling guard accepts legacy longhands and rejects incompatible rules', () => {
+    const rule = (declarations) => `.jq-library-grid { ${declarations} }`;
+    assert.doesNotThrow(() => assertLegacyGridSpacing(rule('grid-gap: 20px;')));
+    assert.doesNotThrow(() => assertLegacyGridSpacing(rule('grid-row-gap: 20px; grid-column-gap: 20px;')));
+    assert.throws(() => assertLegacyGridSpacing(rule('gap: 20px;')),
+        /Library must retain M63-compatible/);
+    assert.throws(() => assertLegacyGridSpacing(rule('-webkit-grid-gap: 20px;')),
+        /Library must retain M63-compatible/);
+    assert.throws(() => assertLegacyGridSpacing('.jq-library-grid, .other { grid-gap: 20px; }'),
+        /Library spacing rule must exist/);
+    // Legacy declarations must not trigger the modern-property rejection, but
+    // a separate modern declaration must still be rejected alongside them.
+    for (const property of ['gap', 'row-gap', 'column-gap']) {
+        assert.throws(() => assertLegacyGridSpacing(rule(`grid-gap: 20px; ${property}: 20px;`)),
+            /Library spacing must not depend on modern gap spellings/);
     }
 });
