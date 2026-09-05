@@ -13,6 +13,7 @@
     margin: 0 0 16px;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-home-row > * + * {
     margin-left: 20px;
 }

@@ -10,6 +10,7 @@
     background: #1c1f24;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-rail > * + * {
     margin-top: 24px;
 }

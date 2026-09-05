@@ -10,6 +10,35 @@
  * each container, per the CSS Spatial Navigation draft spec.
  */
 
+/* SPACING CONVENTION -- read before changing flex spacing anywhere in
+ * the overlay. Space between flex children comes from margins on the
+ * children, in each screen's stylesheet, in one of two shapes:
+ * `> * + *` sibling margins for a row or column that does not wrap, and
+ * for a wrapped layout `> *` margins on every child plus a compensating
+ * negative margin on the container, so both axes are spaced and the
+ * leading edge stays aligned (src/overlay/screens/requests.css is the
+ * wrapped case). Do NOT convert either shape back to flex `gap`.
+ *
+ * Flex `gap` shipped in Chromium 84 and both target TVs are below it:
+ * UN55RU7100FXZA (Tizen 5.0, M63) and UN65TU7000FXZA (Tizen 5.5, M69).
+ * Measured on hardware, `gap: 20px` on a flex container gives 0px of
+ * real spacing on BOTH.
+ *
+ * Feature detection is a trap. On M69 `gap` parses and computes
+ * (`CSS.supports('gap', '20px')` -> true, computed style `20px 20px`)
+ * but measured spacing remains 0px. `CSS.supports('gap', ...)` and
+ * `@supports (gap: ...)` are therefore UNSAFE here: they say false on
+ * the 2019 set and true on the 2020 set while layout is broken on both,
+ * so a gap-when-supported guard keeps the working margins on the older
+ * TV and silently regresses on the newer one.
+ *
+ * Neither a support query nor the computed value can tell you, so
+ * verify flex-gap support with a controlled layout measurement: known
+ * children, no other spacing and no distributed alignment, then compare
+ * their measured edges. Grid behaves differently -- see
+ * src/overlay/screens/library.css.
+ */
+
 /* Structural layout only -- colors, sizing, and spacing belong to each
    screen's own stylesheet, not here. */
 .jq-rail {
@@ -134,6 +163,7 @@ html, body {
     background: #1c1f24;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-rail > * + * {
     margin-top: 24px;
 }
@@ -223,8 +253,9 @@ html, body {
     margin: 0 0 32px;
 }
 
-/* Flex gap is unsupported on older Tizen Chromium. Keep positive space
-   between cards: the spatial-navigation polyfill excludes touching edges. */
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css.
+   Keep positive space between cards: the spatial-navigation polyfill
+   excludes touching edges. */
 .jq-profiles-row > * + * {
     margin-left: 20px;
 }
@@ -270,6 +301,7 @@ html, body {
     margin: 0 0 16px;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-home-row > * + * {
     margin-left: 20px;
 }
@@ -308,7 +340,14 @@ html, body {
 }
 
 .jq-library-grid {
-    /* Legacy spelling supported by early Chromium Grid implementations. */
+    /* Legacy alias, required. This is the same `gap` property grid and flex
+       share -- `grid-gap` is merely its older spelling. What differs is the
+       layout mode: grid honours the gap (measured 20px on M69), and only the
+       unprefixed spelling is too new, landing in M66, so on the 2019 / M63 set
+       `gap: 20px` measures 0px here while `grid-gap` works. That is a spelling
+       compatibility requirement; the flex case is different -- flex gap
+       produces no spacing on either set, even though M69 accepts and computes
+       the value -- see focus.css. Do not conflate them. */
     grid-gap: 20px;
 }
 
@@ -337,6 +376,7 @@ html, body {
     margin-top: 32px;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-search-results > * + * {
     margin-left: 20px;
 }
@@ -367,6 +407,7 @@ html, body {
     max-width: 800px;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-detail-actions > * + * {
     margin-left: 16px;
 }
@@ -390,6 +431,7 @@ html, body {
     flex-direction: column;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-playback-options > * + * {
     margin-top: 16px;
 }
@@ -410,6 +452,7 @@ html, body {
     flex-direction: column;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-playback-option-group > * + * {
     margin-top: 8px;
 }
@@ -444,6 +487,8 @@ html, body {
     flex-wrap: wrap;
 }
 
+/* Child margins, not flex `gap` -- this is the wrapped case, so every child
+   is margined and the container above compensates; see focus.css. */
 .jq-requests-results > * {
     margin-top: 20px;
     margin-left: 20px;
@@ -464,6 +509,7 @@ html, body {
     flex-direction: column;
 }
 
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
 .jq-request-card > * + * {
     margin-top: 4px;
 }

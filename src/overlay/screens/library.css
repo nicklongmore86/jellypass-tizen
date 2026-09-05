@@ -19,6 +19,13 @@
 }
 
 .jq-library-grid {
-    /* Legacy spelling supported by early Chromium Grid implementations. */
+    /* Legacy alias, required. This is the same `gap` property grid and flex
+       share -- `grid-gap` is merely its older spelling. What differs is the
+       layout mode: grid honours the gap (measured 20px on M69), and only the
+       unprefixed spelling is too new, landing in M66, so on the 2019 / M63 set
+       `gap: 20px` measures 0px here while `grid-gap` works. That is a spelling
+       compatibility requirement; the flex case is different -- flex gap
+       produces no spacing on either set, even though M69 accepts and computes
+       the value -- see focus.css. Do not conflate them. */
     grid-gap: 20px;
 }
