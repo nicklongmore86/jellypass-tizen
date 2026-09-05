@@ -75,7 +75,10 @@
 
     var apiClient = {
         getImageUrl: function (itemId, options) {
-            var index = (parseInt(itemId.replace('movie-', ''), 10) - 1) % 3 + 1;
+            // Unknown/parent IDs reuse a real placeholder instead of a NaN path.
+            var match = /^movie-([1-9][0-9]*)$/.exec(String(itemId || ''));
+            var number = match ? Number(match[1]) : 1;
+            var index = isFinite(number) ? (number - 1) % 3 + 1 : 1;
             var query = Object.keys(options).map(function (key) {
                 return encodeURIComponent(key) + '=' + encodeURIComponent(options[key]);
             }).join('&');

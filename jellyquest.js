@@ -2031,6 +2031,12 @@
         }
     }
 
+    function failImage(card) {
+        card._jqArtwork.failures += 1;
+        card.setAttribute('data-artwork-state', 'error');
+        releaseImage(card);
+    }
+
     function loadImage(card) {
         if (card.querySelector('img') || card.getAttribute('data-artwork-state') === 'error') return;
         var source = card._jqArtwork;
@@ -2043,7 +2049,7 @@
                 maxHeight: source.height, quality: 80, format: 'webp'
             });
         } catch (_error) {
-            card.setAttribute('data-artwork-state', 'error');
+            failImage(card);
             return;
         }
         if (!url) return;
@@ -2052,8 +2058,7 @@
         image.alt = '';
         image.onload = function () { image.style.visibility = 'visible'; };
         image.onerror = function () {
-            card.setAttribute('data-artwork-state', 'error');
-            releaseImage(card);
+            failImage(card);
         };
         card.insertBefore(image, card.firstChild);
         image.src = url;
@@ -2064,14 +2069,26 @@
         // Safely retain text-only cards on hosts without the supported API.
         if (!source || !window.IntersectionObserver) return;
         source.height = item.Type === 'Movie' || item.Type === 'Series' ? 330 : 124;
+        source.failures = 0;
+        source.visible = false;
         card._jqArtwork = source;
         if (!observer) {
             observer = new window.IntersectionObserver(function (entries) {
                 entries.forEach(function (entry) {
-                    if (entry.intersectionRatio > 0 && document.documentElement.contains(entry.target)) {
-                        loadImage(entry.target);
+                    var card = entry.target;
+                    var artwork = card._jqArtwork;
+                    if (entry.intersectionRatio > 0 && document.documentElement.contains(card)) {
+                        if (!artwork.visible) {
+                            artwork.visible = true;
+                            // Retry only on a fresh visit, never on a timer or
+                            // another positive threshold. Three failures per
+                            // screen render cap persistent Wi-Fi/server errors.
+                            if (artwork.failures < 3) card.removeAttribute('data-artwork-state');
+                            loadImage(card);
+                        }
                     } else {
-                        releaseImage(entry.target);
+                        artwork.visible = false;
+                        releaseImage(card);
                     }
                 });
             }, { rootMargin: '0px', threshold: [0, 0.001] });

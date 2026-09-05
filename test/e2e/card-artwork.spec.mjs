@@ -40,6 +40,11 @@ for (const [type, extra, id, height] of [
         assert.deepEqual(call, { id, options: { type: 'Primary', tag: extra.ImageTags?.Primary || extra.SeriesPrimaryImageTag, maxWidth: 220, maxHeight: height, quality: 80, format: 'webp' } });
         await page.waitForFunction(() => document.querySelector('.jq-card img')?.naturalWidth > 0);
         assert.equal(await page.locator('.jq-card img').getAttribute('alt'), '');
+        const imageBounds = await page.locator('.jq-card img').boundingBox();
+        assert.equal(imageBounds.width, 220);
+        assert.equal(imageBounds.height, height);
+        const cardBounds = await page.locator('.jq-card').boundingBox();
+        assert.equal(cardBounds.height, height + 80);
     }));
 }
 
@@ -105,3 +110,77 @@ test('simulator serves real local posters with stable poster geometry', async ()
         await page.screenshot({ path: '.cache/artwork-preview.png' });
     } finally { await browser.close(); }
 });
+
+for (const recovers of [true, false]) {
+    test(`failed artwork retries only on re-entry with a bounded budget: recovery=${recovers}`, () => setup(async (page) => {
+        let requests = 0;
+        await page.route('**/retry-artwork.webp', async (route) => {
+            requests++;
+            if (recovers && requests > 1) {
+                await route.fulfill({ path: 'dev/fixtures/artwork/poster-1.webp', contentType: 'image/webp' });
+            } else {
+                await route.fulfill({ status: 503, body: 'Temporary failure' });
+            }
+        });
+        await page.evaluate(() => {
+            window.ApiClient.getImageUrl = function () { return '/retry-artwork.webp'; };
+            const card = JellyQuestCards.createCard({ Id: 'retry', Name: 'Retry', Type: 'Movie', ImageTags: { Primary: 'tag' } });
+            card.style.position = 'absolute';
+            card.style.left = '0px';
+            document.body.appendChild(card);
+        });
+        await page.waitForFunction(() => document.querySelector('.jq-card').getAttribute('data-artwork-state') === 'error');
+        await page.waitForTimeout(250);
+        assert.equal(requests, 1, 'Failure must not initiate a timer or immediate retry loop');
+        for (let visit = 0; visit < 5; visit++) {
+            await page.locator('.jq-card').evaluate(card => { card.style.left = '900px'; });
+            await page.waitForTimeout(100);
+            await page.locator('.jq-card').evaluate(card => { card.style.left = '0px'; });
+            await page.waitForTimeout(100);
+            if (recovers) {
+                await page.waitForFunction(() => document.querySelector('.jq-card img')?.naturalWidth === 220);
+                assert.equal(await page.locator('.jq-card').getAttribute('data-artwork-state'), null);
+            }
+        }
+        if (!recovers) {
+            assert.equal(requests, 3, 'Initial attempt plus two re-entry retries, even after five visits');
+            assert.equal(await page.locator('.jq-card img').count(), 0);
+        }
+    }));
+}
+
+test('long titles truncate to one line without changing artwork or fallback geometry', () => setup(async (page) => {
+    const title = 'The Extremely Long Movie Title With Enough Words To Overflow Every Card In This Library';
+    await page.evaluate((title) => {
+        document.body.style.display = 'flex';
+        for (const [id, name, imageTags] of [['short', 'Short', {}], ['fallback', title, {}], ['poster', title, { Primary: 'tag' }]]) {
+            document.body.appendChild(JellyQuestCards.createCard({ Id: id, Name: name, Type: 'Movie', ImageTags: imageTags }));
+        }
+    }, title);
+    const titles = await page.locator('.jq-media-card-title').evaluateAll(nodes => nodes.map(node => {
+        const style = getComputedStyle(node);
+        return { text: node.textContent, width: node.clientWidth, scrollWidth: node.scrollWidth,
+            height: node.getBoundingClientRect().height, whiteSpace: style.whiteSpace,
+            overflow: style.overflow, ellipsis: style.textOverflow, cardHeight: node.parentElement.getBoundingClientRect().height };
+    }));
+    for (const measured of titles.slice(1)) {
+        assert.equal(measured.text, title, 'Full title remains in the DOM');
+        assert.ok(measured.scrollWidth > measured.width, 'Fixture must actually overflow');
+        assert.equal(measured.height, titles[0].height, 'Long title remains one line');
+        assert.equal(measured.cardHeight, 410);
+        assert.equal(measured.whiteSpace, 'nowrap');
+        assert.equal(measured.overflow, 'hidden');
+        assert.equal(measured.ellipsis, 'ellipsis');
+    }
+}));
+
+test('fixture image URLs resolve for non-movie and malformed IDs', () => setup(async (page) => {
+    await page.addScriptTag({ url: server.baseUrl + '/dev/fixtures/api-client-stub.js' });
+    const urls = await page.evaluate(() => ['series-1', 'episode-2', 'movie-0', 'movie-nope', undefined].map(id => ApiClient.getImageUrl(id, { type: 'Primary' })));
+    for (const url of urls) {
+        assert.equal(url, '/dev/fixtures/artwork/poster-1.webp?type=Primary');
+        const response = await page.request.get(server.baseUrl + url);
+        assert.equal(response.status(), 200);
+        assert.ok((await response.body()).length > 0);
+    }
+}));

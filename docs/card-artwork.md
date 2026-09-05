@@ -132,3 +132,38 @@ checks passed. Also started `JELLYQUEST_PREVIEW_PORT=8093 npm run preview:tv`
 and fetched a poster through its loopback HTTP server, byte-identical to the
 committed file. Executing the pinned npm client bundle's real `getImageUrl`
 in a local VM produced the example URL above without making a server request.
+
+## PR review follow-up
+
+Artwork errors now recover on a fresh viewport visit: leaving view and re-entering
+permits another attempt, until that card has accumulated three failures in the
+current screen render (initial failure plus two retries). Successful loads do not
+reset the failure budget. There are no retry timers, and additional positive
+intersection callbacks while the card remains visible do not trigger retries.
+This lets ordinary transient failures recover without repeatedly hammering a
+persistently missing image or an unavailable Wi-Fi/server connection. Exhausted
+cards remain text-only until the screen is rendered again.
+
+Overscan remains zero. Four extra 220×330 RGBA posters cost 1,161,600 bytes =
+1.11 MiB, about 29% above the 14-poster estimate. The reviewer reports that a
+20-step return scroll caused zero new network requests and no aborted requests;
+that removes network churn as a reason to preload. Earlier decode might still
+reduce visible pop-in, but we have no on-TV evidence that the improvement is
+worth the additional decoded surfaces on the 2019 set. Preserve the original
+visible-only requirement and revisit only with actual TV scroll/decode evidence.
+
+Coverage now measures both episode image boxes at 220×124 and their card height
+at 204px, and checks that overflowing poster/fallback titles stay one line with
+ellipsis while retaining their full DOM text and fixed card geometry. Unknown,
+malformed, and absent fixture IDs now reuse poster-1.webp; tests fetch the actual
+local files. The N1 scrolling limitation and N4 item-type sizing were not changed.
+
+Before these fixes, `node --test --test-name-pattern='failed artwork retries|fixture image URLs' test/e2e/card-artwork.spec.mjs`
+failed all three selected cases (two retry scenarios and fixture fallback).
+Afterward, `node --test test/e2e/card-artwork.spec.mjs` passed all 12 collected
+cases. Red/green logs: `.cache/review-red.log`, `.cache/review-green.log`.
+
+Follow-up gates: `npx eslint .` exited 0; `npm test` passed 17 collected cases in
+`test/configuration.test.mjs`; `npm run test:e2e` passed 94 collected cases across
+`test/e2e/**/*.spec.mjs`, including the unchanged 42 spacing cases. Both bundles
+were regenerated; the CSS output is byte-identical because no styles changed.
