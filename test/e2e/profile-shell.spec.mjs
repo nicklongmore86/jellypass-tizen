@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import { startServer } from './support/server.mjs';
+import { assertSiblingSpacing } from './support/spacing.mjs';
 
 const server = await startServer();
 const simulatorUrl = `${server.baseUrl}/dev/simulator.html`;
@@ -67,8 +68,7 @@ for (const [key, expected] of [
             const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
             await page.goto(simulatorUrl);
             await page.waitForSelector('.jq-profile-card');
-            await page.addStyleTag({ content: '.jq-profiles-row { gap: 0 !important; }' });
-            assert.equal(await page.$eval('.jq-profiles-row', (row) => getComputedStyle(row).gap), '0px');
+            await assertSiblingSpacing(page, '.jq-profiles-row', 'x');
             await page.locator('.jq-profile-card').nth(expected[0]).focus();
             const focusedIndex = () => page.evaluate(() =>
                 Array.from(document.querySelectorAll('.jq-profile-card')).indexOf(document.activeElement)
