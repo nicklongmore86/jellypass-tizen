@@ -14,7 +14,8 @@
 //     supported on both sets. Optional catch binding (`try{}catch{}`),
 //     however, requires M66: eval('try{}catch{}') measurably throws
 //     SyntaxError: Unexpected token { on M63. Parsing on M69 is expected
-//     (inferred, not probed), so this would crash on exactly the older TV.
+//     (inferred, not probed), so this would crash on the older TV and is
+//     expected to be fine on the newer one.
 //     If the ES5 setting is ever relaxed, optional catch binding must
 //     remain banned.
 //
@@ -107,8 +108,8 @@ export default [
             // ecmaVersion 5 constrains the *syntax* we may write. It does
             // not constrain which runtime builtins exist: Chromium M63
             // supports Promise and typed arrays, and the overlay uses
-            // both. Layering the es2015 globals back in
-            // keeps no-undef honest without letting ES6 syntax through.
+            // both. Layering the es2015 globals back in keeps no-undef
+            // honest without letting ES6 syntax through.
             //
             // Known limitation, recorded rather than fixed here: this
             // gate therefore checks SYNTAX only, and cannot tell you that
