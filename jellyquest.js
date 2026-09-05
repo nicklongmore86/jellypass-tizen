@@ -1998,7 +1998,25 @@
     // else), rather than in each screen that might ever render late.
     function focusFirst(container) {
         if (!container) return false;
-        if (activeModal && !activeModal.contains(container)) return false;
+        if (activeModal) return activeModal.contains(container) ? focusInto(container) : false;
+        if (focusInto(container)) return true;
+        // Nothing in the screen could take focus. That is a real state, not a
+        // bug: an empty Jellyfin library gives Home no cards at all, only a
+        // "Nothing here yet." paragraph. If the element that had focus was
+        // inside the content the screen just replaced, it is gone too and
+        // document.activeElement has fallen back to <body> -- no focus ring,
+        // no cursor, and on a TV that reads as the app having died until the
+        // user happens to press an arrow. The rail is always mounted and
+        // always focusable, so it is the last resort.
+        if (fallbackContainer
+            && fallbackContainer !== container
+            && document.body.contains(fallbackContainer)) {
+            return focusInto(fallbackContainer);
+        }
+        return false;
+    }
+
+    function focusInto(container) {
         var target = container.querySelector('[data-jq-autofocus]') || firstFocusable(container);
         if (target && typeof target.focus === 'function') {
             target.focus();
@@ -2024,6 +2042,15 @@
     // just finished rendering underneath the dialog" from "the dialog itself
     // is asking for focus".
     var activeModal = null;
+
+    // Where focus goes when a screen has nowhere to put it -- shell.js
+    // registers its rail. Checked for being attached before use, because the
+    // profile picker clears the shell (and with it the rail) out of the root.
+    var fallbackContainer = null;
+
+    function setFallbackContainer(container) {
+        fallbackContainer = container || null;
+    }
 
     // Opens a modal-style container: marks it contained (see .jq-modal
     // above) and focuses its first element. Screens call this instead of
@@ -2065,6 +2092,7 @@
     window.JellyQuestFocus = {
         ready: ready,
         focusFirst: focusFirst,
+        setFallbackContainer: setFallbackContainer,
         openModal: openModal,
         closeModal: closeModal,
         closeOnBack: closeOnBack
@@ -3065,6 +3093,10 @@
         contentEl.className = 'jq-content jq-shell-content';
         container.appendChild(contentEl);
 
+        // The rail outlives every content screen, so it is the one thing
+        // that can always take focus when a screen has nothing focusable of
+        // its own (an empty library's Home, for one) -- see focusFirst().
+        window.JellyQuestFocus.setFallbackContainer(rail);
         window.JellyQuestFocus.focusFirst(rail);
     }
 
