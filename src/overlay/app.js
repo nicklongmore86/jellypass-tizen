@@ -112,11 +112,17 @@
     // the `items` path reads firstItem.ServerId anyway
     // (playbackmanager.js:1810).
     function serverIdFor(item) {
-        // Every BaseItemDto a real server returns carries ServerId. Falling
-        // back to the connected client's own id for one that does not is
-        // jellyfin-web's own pattern -- see
-        // components/remotecontrol/remotecontrol.js:667. serverId() is the
-        // documented ApiClient accessor (src/apiclient.d.ts:270).
+        // Every BaseItemDto a real Jellyfin server returns carries ServerId
+        // (the server populates it from _appHost.SystemId), so the first
+        // branch is the one that runs in the field. The fallback is for items
+        // JellyQuest did not get straight from the API -- and it is
+        // jellyfin-web's own shape for exactly that: an individual item's
+        // ServerId, or the connected client's, at
+        // apps/stable/features/playback/utils/mediaSegmentManager.ts:91 --
+        // `state.NowPlayingItem?.ServerId ||
+        // ServerConnections.currentApiClient()?.serverId()`.
+        // serverId() is the documented ApiClient accessor
+        // (src/apiclient.d.ts:270).
         if (item && item.ServerId) return item.ServerId;
         var apiClient = window.ApiClient;
         if (apiClient && typeof apiClient.serverId === 'function') return apiClient.serverId();

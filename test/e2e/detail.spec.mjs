@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import { startServer } from './support/server.mjs';
+import { assertPainted } from './support/paint.mjs';
 
 const server = await startServer();
 const simulatorUrl = `${server.baseUrl}/dev/simulator.html`;
@@ -93,8 +94,8 @@ test('every play request names the server the ids belong to', async () => {
         assert.equal(call.serverId, 'dev-server-1');
 
         // And the fallback for an item that carries no ServerId of its own:
-        // ApiClient.serverId(), the accessor jellyfin-web uses for the same
-        // case (components/remotecontrol/remotecontrol.js:667).
+        // ApiClient.serverId(), the accessor jellyfin-web reaches for in the
+        // same situation (mediaSegmentManager.ts:91).
         await page.evaluate(() => {
             const getItems = window.ApiClient.getItems;
             window.ApiClient.getItems = (userId, options) => getItems(userId, options).then((result) => ({
@@ -136,6 +137,13 @@ test('a play request the player refuses is visible on screen', async () => {
 
         const message = page.getByText('Could not start playback. Try again.', { exact: true });
         await message.waitFor({ state: 'visible', timeout: 2000 });
+        // Playwright visibility alone would still pass with this message
+        // painted underneath the opaque #jellyquest-root, or under any other
+        // layer above it -- which is how two earlier assertions in this repo
+        // came to be checking something nobody could actually see. The shared
+        // paint check (PR #18, test/e2e/support/paint.mjs) tests the real
+        // stacking context instead.
+        await assertPainted(message);
 
         // A retry that succeeds must clear it rather than leave a stale error.
         await page.evaluate(() => {

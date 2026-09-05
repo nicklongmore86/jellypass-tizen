@@ -27,6 +27,26 @@
         // suite while being dead on a real build. play() is declared `async`
         // upstream, so the throw surfaces to callers as a REJECTION; the
         // shapes match deliberately.
+        //
+        // That one check is the whole of the contract modelled here -- this
+        // is NOT a complete player, and it diverges in both directions:
+        //
+        //   MORE PERMISSIVE than the real player. `{ serverId }` with no
+        //   `ids`, and an empty `items: []`, both resolve here and mark
+        //   playback started. Upstream, the first dies on
+        //   `options.ids.join(',')` (playbackmanager.js:2111) and the second
+        //   reaches playWithIntros with nothing to play, which rejects with
+        //   NO_MEDIA_ERROR (playbackmanager.js:2300-2302).
+        //
+        //   STRICTER than the real player. Upstream delegates to an ACTIVE
+        //   REMOTE PLAYER before it ever reaches the serverId check --
+        //   `if (!self._currentPlayer.isLocalPlayer) { return
+        //   self._currentPlayer.play(options); }`
+        //   (playbackmanager.js:2094-2095) -- so an ids-only request can
+        //   legitimately succeed when casting to another device. This stub
+        //   rejects it. Remote-player delegation is deliberately not modelled:
+        //   JellyQuest has no cast UI, and inventing one here would repeat the
+        //   mistake this stub was tightened to prevent.
         play: function (options) {
             options = options || {};
             if (!options.items && !options.serverId) {

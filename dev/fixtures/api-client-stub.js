@@ -102,8 +102,8 @@
         },
         // Real ApiClient's documented accessor for the connected server's id
         // (see .cache/jellyfin-web/src/apiclient.d.ts:270); jellyfin-web
-        // itself falls back to it when an item has no ServerId of its own
-        // (components/remotecontrol/remotecontrol.js:667).
+        // itself falls back to it for an item with no ServerId of its own
+        // (apps/stable/features/playback/utils/mediaSegmentManager.ts:91).
         serverId: function () {
             return SERVER_ID;
         },
