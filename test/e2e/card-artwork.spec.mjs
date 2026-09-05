@@ -165,8 +165,8 @@ test('long titles truncate to one line without changing artwork or fallback geom
     }));
     for (const measured of titles.slice(1)) {
         assert.equal(measured.text, title, 'Full title remains in the DOM');
-        assert.ok(measured.scrollWidth > measured.width, 'Fixture must actually overflow');
         assert.equal(measured.height, titles[0].height, 'Long title remains one line');
+        assert.ok(measured.scrollWidth > measured.width, 'Fixture must actually overflow');
         assert.equal(measured.cardHeight, 410);
         assert.equal(measured.whiteSpace, 'nowrap');
         assert.equal(measured.overflow, 'hidden');
@@ -183,4 +183,41 @@ test('fixture image URLs resolve for non-movie and malformed IDs', () => setup(a
         assert.equal(response.status(), 200);
         assert.ok((await response.body()).length > 0);
     }
+}));
+
+
+test('positive intersection crossings without an exit do not consume an artwork retry', () => setup(async (page) => {
+    await page.route('**/latch-artwork.webp', route => route.fulfill({ status: 503, body: 'Temporary failure' }));
+    await page.evaluate(() => {
+        // Deliver the exact edge-crossing sequence deterministically, without
+        // relying on subpixel layout or browser callback coalescing. The real
+        // observer/scroll path is exercised separately by the 300-card test.
+        window.IntersectionObserver = function (callback) {
+            this.observe = function (target) {
+                window.deliverArtworkIntersection = ratio => callback([{ target, intersectionRatio: ratio }]);
+            };
+            this.unobserve = function () {};
+        };
+        window.ApiClient.getImageUrl = function (id, options) {
+            window.imageCalls.push({ id, options });
+            return '/latch-artwork.webp';
+        };
+        document.body.appendChild(JellyQuestCards.createCard({ Id: 'latch', Name: 'Latch', Type: 'Movie', ImageTags: { Primary: 'tag' } }));
+        window.deliverArtworkIntersection(0.0005);
+    });
+    await page.waitForFunction(() => document.querySelector('.jq-card').getAttribute('data-artwork-state') === 'error');
+    assert.equal(await page.evaluate(() => window.imageCalls.length), 1);
+    await page.evaluate(() => window.deliverArtworkIntersection(0.01));
+    assert.equal(await page.evaluate(() => window.imageCalls.length), 1,
+        'Another positive threshold crossing without an exit must not request a retry');
+    assert.equal(await page.locator('.jq-card img').count(), 0);
+    assert.equal(await page.locator('.jq-card').getAttribute('data-artwork-state'), 'error');
+
+    await page.evaluate(() => {
+        window.deliverArtworkIntersection(0);
+        window.deliverArtworkIntersection(0.01);
+    });
+    assert.equal(await page.evaluate(() => window.imageCalls.length), 2,
+        'A true exit and re-entry must still permit the first retry');
+    await page.waitForFunction(() => document.querySelector('.jq-card').getAttribute('data-artwork-state') === 'error');
 }));
