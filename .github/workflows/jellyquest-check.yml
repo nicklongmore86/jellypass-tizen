@@ -18,7 +18,7 @@ jobs:
           # also now deprecated on GitHub-hosted runners.
           node-version: 22
           cache: npm
-      - run: npm ci --ignore-scripts
+      - run: npm ci
       - run: npm run lint
       - run: npm test
       # The `playwright` package ships only the driver; browser binaries
