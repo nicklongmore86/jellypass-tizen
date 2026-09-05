@@ -7,14 +7,25 @@
     'use strict';
 
     var calls = [];
+    var playingVideo = false;
 
     window.playbackManager = {
         play: function (options) {
             calls.push(options);
+            playingVideo = true;
             return Promise.resolve();
         },
-        // Test-only inspection hook -- not part of the real playbackManager
-        // API, so screens must never call this themselves.
+        // Real: playbackmanager.js's self.isPlayingVideo (via
+        // isPlayingMediaType('Video')). app.js's Back handler asks this
+        // before deciding whether to consume the key or leave it to
+        // jellyfin-web, whose video view stops playback when it is
+        // navigated away from.
+        isPlayingVideo: function () {
+            return playingVideo;
+        },
+        // Test-only inspection hooks -- not part of the real playbackManager
+        // API, so screens must never call these themselves.
         __calls: calls,
+        __endPlayback: function () { playingVideo = false; },
     };
 })();

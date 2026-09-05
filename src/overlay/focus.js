@@ -35,8 +35,20 @@
         }
     }
 
+    // Screens call this when they finish rendering. A screen's render can
+    // finish WHILE a modal is open -- Home's rows arrive over the network,
+    // and app.js installs Home's Back handler before that render completes,
+    // so a slow response lands after the exit confirmation is already up.
+    // `--spatial-navigation-contain: contain` only constrains arrow-key
+    // movement; it does nothing about a programmatic .focus() call, which
+    // would silently move the cursor to a card behind the dialog and make
+    // Enter act on it. The guard lives here, in the one helper every screen
+    // routes focus through (shell.js, home.js, search.js, library.js,
+    // requests.js, profiles.js, detail.js all call focusFirst and nothing
+    // else), rather than in each screen that might ever render late.
     function focusFirst(container) {
         if (!container) return false;
+        if (activeModal && !activeModal.contains(container)) return false;
         var target = container.querySelector('[data-jq-autofocus]') || firstFocusable(container);
         if (target && typeof target.focus === 'function') {
             target.focus();
@@ -58,6 +70,10 @@
     // closing" rule) -- without every screen having to coordinate this
     // itself.
     var activeModalClose = null;
+    // The open modal's own container, so focusFirst() can tell "this screen
+    // just finished rendering underneath the dialog" from "the dialog itself
+    // is asking for focus".
+    var activeModal = null;
 
     // Opens a modal-style container: marks it contained (see .jq-modal
     // above) and focuses its first element. Screens call this instead of
@@ -68,6 +84,9 @@
         if (!container) return;
         container.classList.add('jq-modal');
         container.hidden = false;
+        // Set before focusFirst() so the guard there sees the dialog as the
+        // active modal and lets it focus itself.
+        activeModal = container;
         focusFirst(container);
         activeModalClose = onClose || null;
     }
@@ -76,6 +95,7 @@
         if (!container) return;
         container.hidden = true;
         activeModalClose = null;
+        if (activeModal === container) activeModal = null;
         if (restoreTarget && typeof restoreTarget.focus === 'function') {
             restoreTarget.focus();
         }

@@ -153,6 +153,48 @@ html, body {
     z-index: 2147483000;
 }
 
+/* Root-level exit confirmation (see app.js). The backdrop, containment and
+   focus ring come from the shared .jq-modal / .jq-modal-backdrop rules in
+   focus.css and the .jq-modal-option button style in detail.css -- only the
+   dialog box and its button row are new here. */
+.jq-exit-confirm {
+    background: #1c2026;
+    border-radius: 8px;
+    padding: 32px 40px;
+    min-width: 480px;
+    max-width: 720px;
+    text-align: center;
+}
+
+.jq-exit-title {
+    margin: 0;
+    font-size: 28px;
+}
+
+.jq-exit-message {
+    margin: 16px 0 0;
+    font-size: 18px;
+    color: #9aa0a8;
+}
+
+.jq-exit-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 32px;
+}
+
+/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
+.jq-exit-actions > * + * {
+    margin-left: 16px;
+}
+
+/* .jq-modal-option is left-aligned for Detail's stacked option list; this
+   dialog's two side-by-side answers read better centred. */
+.jq-exit-actions > .jq-modal-option {
+    text-align: center;
+    min-width: 160px;
+}
+
 /* ---- src/overlay/shell.css ---- */
 .jq-shell {
     display: flex;

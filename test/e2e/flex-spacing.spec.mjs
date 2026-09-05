@@ -17,6 +17,12 @@ async function openScreen(page, screen) {
     await page.keyboard.press('Enter'); // Alice
     await page.waitForSelector('.jq-media-card');
     if (screen === 'home') return;
+    if (screen === 'exit') {
+        // Escape doubles as Back in the simulator (see app.js's BACK_KEY_CODES).
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-exit-confirm');
+        return;
+    }
     if (screen === 'library') {
         await page.locator('.jq-see-all').click();
         await page.waitForSelector('.jq-library-grid .jq-media-card');
@@ -46,6 +52,7 @@ for (const [selector, screen, axis, containers = 1] of [
     ['.jq-detail-actions', 'detail', 'x'],
     ['.jq-playback-options', 'playback', 'y'],
     ['.jq-playback-option-group', 'playback', 'y', 2],
+    ['.jq-exit-actions', 'exit', 'x'],
     ['.jq-request-card', 'requests', 'y', 3],
     ['.jq-requests-results', 'requests', 'wrapped'],
 ]) {
