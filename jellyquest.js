@@ -3339,6 +3339,26 @@
     // not depend on that at all: jellyfin-web's listener is on `window` in
     // the bubble phase and this one is on `document`, so the press stops
     // before it ever gets there. Both calls, deliberately.
+    // True only while jellyfin-web is actually playing video -- not merely
+    // "Detail is the current screen". playbackManager is jellyfin-web's own
+    // global (the same one Detail's Play button already calls through, see
+    // showDetail above) and isPlayingVideo() is its public accessor.
+    //
+    // Guarded rather than called directly: JellyQuest also runs in the
+    // simulator, and this must never throw inside a keydown handler -- if
+    // the API is not there, the answer is "no video is playing", which
+    // leaves every existing Back behaviour exactly as it was.
+    function isVideoPlaying() {
+        var manager = window.playbackManager;
+        if (!manager || typeof manager.isPlayingVideo !== 'function') return false;
+        try {
+            return !!manager.isPlayingVideo();
+        } catch (err) {
+            console.error('[JellyQuest] playbackManager.isPlayingVideo() failed:', err);
+            return false;
+        }
+    }
+
     function consumeBack(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -3354,6 +3374,23 @@
             consumeBack(event);
             return;
         }
+        // While a video is playing, Back belongs to jellyfin-web. JellyQuest
+        // has no player screen of its own -- playback is delegated whole to
+        // playbackManager and Detail stays the current JellyQuest screen --
+        // and it is jellyfin-web that owns getting the user out of the
+        // video. Crucially that exit is NAVIGATION-driven and runs from the
+        // WINDOW-level listener: keyboardNavigation ->
+        // inputManager.handleCommand('back') -> appRouter.back(), which
+        // hides the video view, whose own 'viewbeforehide' handler
+        // (onViewHideStopPlayback) calls playbackManager.stop().
+        //
+        // The video controller's own document-level keydown handler does
+        // NOT stop playback; its Escape/Back case only calls hideOsd(). So
+        // consuming the press here -- stopPropagation() in particular, which
+        // is what keeps the window listener from ever running -- would leave
+        // the video playing with no way out. Deferring costs nothing: with
+        // no video playing this branch never fires.
+        if (isVideoPlaying()) return;
         if (!currentBackHandler) return;
         consumeBack(event);
         currentBackHandler();

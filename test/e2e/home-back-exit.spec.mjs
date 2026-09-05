@@ -310,3 +310,66 @@ test('the confirmation answers are operable from the remote: Right then Enter ex
         await browser.close();
     }
 });
+
+test('Back is left to jellyfin-web while video playback is active', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await openHomeAsAlice(page);
+
+        await page.keyboard.press('Enter'); // movie-1, autofocused
+        await page.waitForSelector('.jq-detail-screen');
+        // movie-1 has saved progress, so its first action is Resume, not Play.
+        await page.evaluate(() => Array.from(document.querySelectorAll('.jq-detail-action'))
+            .find((button) => /^(Play|Resume)$/.test(button.textContent)).click());
+        await page.waitForFunction(() => window.playbackManager.isPlayingVideo());
+
+        // Stands in for jellyfin-web's window-level keyboardNavigation
+        // listener, which is what actually exits a playing video: it runs
+        // inputManager.handleCommand('back') -> appRouter.back(), and the
+        // video view's own 'viewbeforehide' handler then calls
+        // playbackManager.stop(). The video controller's document-level
+        // listener only hides the OSD, so JellyQuest must NOT swallow this
+        // press -- doing so leaves the video playing with no way out.
+        await page.evaluate(() => {
+            window.__backSeenByHost = 0;
+            window.addEventListener('keydown', (event) => {
+                if ([10009, 461, 27].indexOf(event.keyCode) !== -1) window.__backSeenByHost++;
+            });
+        });
+
+        await page.keyboard.press('Escape');
+
+        assert.equal(await page.evaluate(() => window.__backSeenByHost), 1,
+            'Back must reach jellyfin-web while a video is playing');
+        // JellyQuest must also not run its own screen-level navigation for
+        // that press: the host is exiting the video, not moving JellyQuest.
+        assert.ok(await page.evaluate(() => Boolean(document.querySelector('.jq-detail-screen'))),
+            'JellyQuest must not navigate away from Detail on that press');
+        assert.equal(await page.evaluate(() => Boolean(document.querySelector('.jq-exit-backdrop'))), false,
+            'and must not open its exit confirmation');
+    } finally {
+        await browser.close();
+    }
+});
+
+test('once playback ends, Back belongs to JellyQuest again', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await openHomeAsAlice(page);
+
+        await page.keyboard.press('Enter');
+        await page.waitForSelector('.jq-detail-screen');
+        // movie-1 has saved progress, so its first action is Resume, not Play.
+        await page.evaluate(() => Array.from(document.querySelectorAll('.jq-detail-action'))
+            .find((button) => /^(Play|Resume)$/.test(button.textContent)).click());
+        await page.waitForFunction(() => window.playbackManager.isPlayingVideo());
+        await page.evaluate(() => window.playbackManager.__endPlayback());
+
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-home-screen');
+    } finally {
+        await browser.close();
+    }
+});
