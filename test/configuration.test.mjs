@@ -136,21 +136,94 @@ test('overlay injection points still target the app-owned files', () => {
     assert.doesNotMatch(manifest, /AprZAARz4r\.Jellyfin/);
 });
 
-// scripts/package-wgt.sh hands `tizen build-web` a list of -e exclusion globs.
+// scripts/package-wgt.sh hands `tizen build-web` a list of exclusion globs.
 // Reading those globs back as patterns -- rather than regex-matching the script's
-// own text -- lets the keep-side test below catch ANY exclusion that would drop a
-// runtime file, including spellings nobody thought to write an assertion for.
+// own text -- lets the keep-side test below check runtime paths against every
+// parsed exclusion, including spellings nobody thought to pin literally. It
+// checks the representative paths listed there, not every file that ships.
+
+// Enough shell lexing to read one command's words: quotes, backslash-newline
+// continuations, and comments. Comments matter because a `# -e foo` note near
+// the command otherwise reads as a real exclusion.
+function shellWords(command) {
+    const words = [];
+    let current = null;
+    let index = 0;
+
+    while (index < command.length) {
+        const character = command[index];
+
+        if (character === '\\' && command[index + 1] === '\n') {
+            index += 2;
+        } else if (character === '#' && current === null) {
+            const lineEnd = command.indexOf('\n', index);
+            index = lineEnd === -1 ? command.length : lineEnd;
+        } else if (/\s/.test(character)) {
+            if (current !== null) {
+                words.push(current);
+                current = null;
+            }
+            index += 1;
+        } else if (character === '"' || character === '\'') {
+            const close = command.indexOf(character, index + 1);
+            assert.notEqual(close, -1, `unterminated ${character} quote in the tizen build-web command`);
+            current = (current ?? '') + command.slice(index + 1, close);
+            index = close + 1;
+        } else {
+            current = (current ?? '') + character;
+            index += 1;
+        }
+    }
+
+    if (current !== null) words.push(current);
+
+    return words;
+}
+
 function packagerExclusions(packager) {
     const [command] = packager.match(/tizen build-web[\s\S]*?(?=\ntizen package)/) ?? [];
     assert.ok(command, 'scripts/package-wgt.sh no longer invokes tizen build-web');
 
-    return [...command.matchAll(/-e\s+(?:"([^"]*)"|'([^']*)'|(\S+))/g)]
-        .map(([, doubleQuoted, singleQuoted, bare]) => doubleQuoted ?? singleQuoted ?? bare);
+    const words = shellWords(command);
+    const exclusions = [];
+
+    for (let index = 0; index < words.length; index += 1) {
+        // Tizen documents --exclude as the long form of -e, so both are read here;
+        // treating --exclude as an ordinary argument would silently hide it.
+        const inline = /^(?:-e|--exclude)=(.*)$/.exec(words[index]);
+
+        if (inline) {
+            assert.notEqual(inline[1], '', `empty exclusion value in scripts/package-wgt.sh: ${words[index]}`);
+            exclusions.push(inline[1]);
+            continue;
+        }
+
+        if (words[index] !== '-e' && words[index] !== '--exclude') continue;
+
+        // A parser that silently mis-reads an exclusion is worse than one that
+        // refuses: a garbage value means this test no longer knows what ships,
+        // while still reporting green. Fail loudly instead.
+        const value = words[index + 1];
+        assert.ok(
+            value !== undefined && value !== '' && !value.startsWith('-'),
+            `malformed exclusion after ${words[index]} in scripts/package-wgt.sh: `
+                + (value === undefined ? '(end of command)' : JSON.stringify(value))
+        );
+        exclusions.push(value);
+        index += 1;
+    }
+
+    return exclusions;
 }
 
 // Tizen reads an exclusion as a path glob relative to the project root, where
 // `dir/*` drops the whole subtree. `*` is widened to "any characters" so that a
 // broad pattern counts as excluding a path instead of slipping past the check.
+//
+// ONLY `*` is modelled. The available Tizen documentation does not establish the
+// rest of the wildcard grammar -- `?`, bracket expressions, and whatever default
+// exclusions the tool applies on its own are all unverified, so they are left
+// unimplemented rather than guessed at.
 function excludesPath(pattern, filePath) {
     const source = pattern
         .split('*')
@@ -160,7 +233,31 @@ function excludesPath(pattern, filePath) {
     return new RegExp(`^${source}(?:/.*)?$`).test(filePath);
 }
 
+test('parses the packager exclusion flags without silently mis-reading them', () => {
+    const command = (body) => `tizen build-web ${body}\ntizen package -t wgt -o out -- .buildResult\n`;
+
+    assert.deepEqual(packagerExclusions(command('-e "a/*" -e b.md')), ['a/*', 'b.md']);
+    // --exclude is the documented long form; reading it as a plain argument would
+    // let `--exclude jellyquest.js` drop a required file with the tests still green.
+    assert.deepEqual(packagerExclusions(command('--exclude "a/*" --exclude=b.md')), ['a/*', 'b.md']);
+    // A backslash-newline is a line continuation, not the exclusion's value.
+    assert.deepEqual(packagerExclusions(command('-e \\\n  jellyquest.js')), ['jellyquest.js']);
+    // A comment is not an exclusion, and must not read as one.
+    assert.deepEqual(packagerExclusions(command('-e a.md\n# -e jellyquest.js')), ['a.md']);
+    assert.deepEqual(packagerExclusions(command('-e a.md # -e jellyquest.js')), ['a.md']);
+
+    // Unsupported or malformed syntax is rejected loudly rather than guessed at.
+    assert.throws(() => packagerExclusions(command('-e')), /malformed exclusion after -e/);
+    assert.throws(() => packagerExclusions(command('-e -t wgt')), /malformed exclusion after -e/);
+    assert.throws(() => packagerExclusions(command('--exclude= -e a.md')), /empty exclusion value/);
+    assert.throws(() => packagerExclusions(command('-e "unterminated')), /unterminated " quote/);
+    assert.throws(() => packagerExclusions('tizen package -t wgt\n'), /no longer invokes tizen build-web/);
+});
+
 test('keeps development configuration and notes out of the TV package', () => {
+    // Format pins only: these prove the flags are still spelled this way. The
+    // parsed-path checks live in their own tests so that a failure here cannot
+    // abort them -- the two failure modes are independently diagnosable.
     const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
 
     assert.match(packager, /-e DETAIL_ACTIONS\.md/);
@@ -173,11 +270,14 @@ test('keeps development configuration and notes out of the TV package', () => {
     assert.match(packager, /-e "src\/\*"/);
     assert.match(packager, /-e "test\/\*"/);
     assert.doesNotMatch(packager, /bridge\/\*/);
+    // The Requests page copy is conditional (its integration/ source does not
+    // exist at this commit); this pins that the copy step is still there, not
+    // that the file ships.
     assert.match(packager, /www\/jellyseerr-login\.html/);
+});
 
-    // The literal pins above only prove the flags are still spelled that way.
-    // Checking the parsed globs as well proves each of these actually lands on
-    // the internal material it is there to drop.
+test('drops known internal paths from the TV package', () => {
+    const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
     const exclusions = packagerExclusions(packager);
     const internal = [
         'DETAIL_ACTIONS.md',
@@ -205,7 +305,7 @@ test('keeps development configuration and notes out of the TV package', () => {
     }
 });
 
-test('keeps everything the TV app needs at runtime inside the package', () => {
+test('keeps representative known runtime paths out of the packager exclusions', () => {
     // The outage this guards is the opposite of shipping an extra file: excluding
     // something the app needs still produces a signable WGT that installs and then
     // fails on the TV. config.xml names index.html as the widget content and
@@ -214,6 +314,10 @@ test('keeps everything the TV app needs at runtime inside the package', () => {
     // ../jellyquest.css from the package root (see gulpfile.babel.js modifyIndex).
     // jellyquest.js is also the only copy of the vendored spatial-navigation
     // polyfill in the package, because -e "node_modules/*" drops the installed one.
+    //
+    // www/jellyseerr-login.html is deliberately absent: its integration/ source
+    // does not exist at this commit and both the packager and gulp copy it only
+    // if present, so it is not required today.
     const packager = fs.readFileSync(path.join(root, 'scripts/package-wgt.sh'), 'utf8');
     const exclusions = packagerExclusions(packager);
     const required = [
@@ -224,12 +328,25 @@ test('keeps everything the TV app needs at runtime inside the package', () => {
         'jellyquest.js',
         'jellyquest.css',
         'www/index.html',
-        'www/jellyseerr-login.html',
         'www/main.jellyfin.bundle.js',
-        'www/assets/img/devices/tv.svg'
+        'www/assets/img/devices/tv.svg',
+        // Written into www/ by scripts/configure-jellyquest.mjs. jellyquest-build.json
+        // is fetched by src/overlay/app.js and supplies the Requests bridge URL --
+        // without it Requests dead-ends on "Requests are not configured for this
+        // server." config.json carries the configured server settings.
+        'www/jellyquest-build.json',
+        'www/config.json'
     ];
 
-    assert.ok(exclusions.length > 0, 'no -e exclusions were parsed out of the packager');
+    // Positive controls. A negative result only means something if the parser
+    // actually produced working patterns; if these stop matching, the checks
+    // below are passing vacuously rather than because nothing is excluded.
+    for (const sentinel of ['src/overlay/app.js', 'test/configuration.test.mjs', 'node_modules/jellyfin-web/dist/index.html']) {
+        assert.ok(
+            exclusions.some((pattern) => excludesPath(pattern, sentinel)),
+            `positive control ${sentinel} is no longer excluded; the checks below cannot be trusted`
+        );
+    }
 
     for (const filePath of required) {
         const matched = exclusions.filter((pattern) => excludesPath(pattern, filePath));
