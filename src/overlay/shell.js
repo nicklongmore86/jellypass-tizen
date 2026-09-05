@@ -56,6 +56,10 @@
         contentEl.className = 'jq-content jq-shell-content';
         container.appendChild(contentEl);
 
+        // The rail outlives every content screen, so it is the one thing
+        // that can always take focus when a screen has nothing focusable of
+        // its own (an empty library's Home, for one) -- see focusFirst().
+        window.JellyQuestFocus.setFallbackContainer(rail);
         window.JellyQuestFocus.focusFirst(rail);
     }
 
