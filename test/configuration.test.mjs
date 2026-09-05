@@ -143,22 +143,34 @@ test('overlay injection points still target the app-owned files', () => {
 // checks the representative paths listed there, not every file that ships, and
 // only the shell syntax the lexer below models (see that test for the limits).
 
+// Which characters are syntactically ACTIVE depends on the quoting context they
+// appear in, so the two sets below are applied per context, never to a word's raw
+// text. Unquoted, all of these do something. Inside double quotes only expansion
+// and escaping survive -- `;`, `&`, `|`, `<`, `>` and parens are already literal
+// there. Inside SINGLE quotes bash makes everything literal, so nothing is active
+// and nothing is refused.
+const ACTIVE_UNQUOTED = /[\\$`;&|<>()]/;
+const ACTIVE_IN_DOUBLE_QUOTES = /[\\$`]/g;
+
 // Enough shell lexing to read one command's words: quotes, backslash-newline
 // continuations between words, and comments. Comments matter because a
 // `# -e foo` note near the command otherwise reads as a real exclusion.
 //
-// Each word keeps the raw source text it came from, so an exclusion value can be
-// checked for shell syntax this lexer does not model before it is trusted.
+// Alongside the value, each word collects the active characters it passed
+// through. An exclusion whose value went through none can be trusted to be the
+// literal string bash would hand tizen; one that did not is refused rather than
+// guessed at, because this lexer does not expand or escape anything.
 function shellWords(command) {
     const words = [];
     let current = null;
-    let start = 0;
+    let active = '';
     let index = 0;
 
-    const flush = (end) => {
+    const flush = () => {
         if (current === null) return;
-        words.push({ value: current, raw: command.slice(start, end) });
+        words.push({ value: current, active });
         current = null;
+        active = '';
     };
 
     while (index < command.length) {
@@ -170,31 +182,26 @@ function shellWords(command) {
             const lineEnd = command.indexOf('\n', index);
             index = lineEnd === -1 ? command.length : lineEnd;
         } else if (/\s/.test(character)) {
-            flush(index);
+            flush();
             index += 1;
         } else if (character === '"' || character === '\'') {
-            if (current === null) start = index;
             const close = command.indexOf(character, index + 1);
             assert.notEqual(close, -1, `unterminated ${character} quote in the tizen build-web command`);
-            current = (current ?? '') + command.slice(index + 1, close);
+            const contents = command.slice(index + 1, close);
+            if (character === '"') active += contents.match(ACTIVE_IN_DOUBLE_QUOTES)?.join('') ?? '';
+            current = (current ?? '') + contents;
             index = close + 1;
         } else {
-            if (current === null) start = index;
+            if (ACTIVE_UNQUOTED.test(character)) active += character;
             current = (current ?? '') + character;
             index += 1;
         }
     }
 
-    flush(index);
+    flush();
 
     return words;
 }
-
-// Shell syntax bash would act on and this lexer does not model. Refusing these
-// is the point: keeping a literal `$DROP`, a stray backslash or a trailing `;`
-// as if it were the filename means the test compares the wrong string and
-// reports green. What is NOT detected here is listed at the parser test.
-const UNMODELLED_SHELL_SYNTAX = /[\\$`;&|<>\n()]/;
 
 function packagerExclusions(packager) {
     const [command] = packager.match(/tizen build-web[\s\S]*?(?=\ntizen package)/) ?? [];
@@ -212,24 +219,25 @@ function packagerExclusions(packager) {
             `malformed exclusion after ${flag} in scripts/package-wgt.sh: `
                 + (word === undefined ? '(end of command)' : JSON.stringify(word.value))
         );
-        assert.doesNotMatch(
-            word.raw,
-            UNMODELLED_SHELL_SYNTAX,
-            `unmodelled shell syntax in the exclusion after ${flag} in scripts/package-wgt.sh: ${JSON.stringify(word.raw)}`
+        assert.equal(
+            word.active,
+            '',
+            `unmodelled shell syntax ${JSON.stringify(word.active)} in the exclusion after ${flag}`
+                + ` in scripts/package-wgt.sh: ${JSON.stringify(word.value)}`
         );
 
         return word.value;
     };
 
     for (let index = 0; index < words.length; index += 1) {
-        const { value, raw } = words[index];
+        const { value, active } = words[index];
         // Tizen documents --exclude as the long form of -e, so both are read here;
         // treating --exclude as an ordinary argument would silently hide it.
         const inline = /^(?:-e|--exclude)=(.*)$/.exec(value);
 
         if (inline) {
             assert.notEqual(inline[1], '', `empty exclusion value in scripts/package-wgt.sh: ${value}`);
-            exclusions.push(take(value.split('=')[0], { value: inline[1], raw: raw.slice(raw.indexOf('=') + 1) }));
+            exclusions.push(take(value.split('=')[0], { value: inline[1], active }));
             continue;
         }
 
@@ -275,6 +283,20 @@ test('parses the packager exclusion flags without silently mis-reading them', ()
     // A quoted value may contain spaces; that much is modelled.
     assert.deepEqual(packagerExclusions(command('-e "some dir/*"')), ['some dir/*']);
 
+    // ACCEPTED: characters that are inert where they appear. Refusing these would
+    // fail the suite on a perfectly valid script, which is worse than the false
+    // acceptance the refusals were added to stop -- a maintainer excluding a path
+    // with parens, a literal $ or a ; would be told their script is malformed.
+    // Single quotes make everything literal, so nothing in them is refused.
+    assert.deepEqual(packagerExclusions(command('-e \'docs/notes (old)/*\'')), ['docs/notes (old)/*']);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/$notes.md\'')), ['docs/$notes.md']);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/a;b`c\\d/*\'')), ['docs/a;b`c\\d/*']);
+    // Inside double quotes `;`, `&`, `|`, `<`, `>` and parens are already literal.
+    assert.deepEqual(packagerExclusions(command('-e "docs/notes;old/*"')), ['docs/notes;old/*']);
+    assert.deepEqual(packagerExclusions(command('-e "docs/notes (old)|x&y/*"')), ['docs/notes (old)|x&y/*']);
+    // Glob characters are never refused: modelling them is out of scope, not unsafe.
+    assert.deepEqual(packagerExclusions(command('-e "docs/?/*" -e "docs/[ab]/*"')), ['docs/?/*', 'docs/[ab]/*']);
+
     // Missing or malformed values fail loudly rather than being guessed at.
     assert.throws(() => packagerExclusions(command('-e')), /malformed exclusion after -e/);
     assert.throws(() => packagerExclusions(command('-e -t wgt')), /malformed exclusion after -e/);
@@ -282,21 +304,29 @@ test('parses the packager exclusion flags without silently mis-reading them', ()
     assert.throws(() => packagerExclusions(command('-e "unterminated')), /unterminated " quote/);
     assert.throws(() => packagerExclusions('tizen package -t wgt\n'), /no longer invokes tizen build-web/);
 
-    // Shell syntax bash would act on but this lexer does not model. Each of these
-    // means bash excludes www/config.json while a naive lexer reads some other
-    // string and reports green, so they are refused instead of accepted.
+    // Refused: syntax that is ACTIVE where it appears, so bash would pass a
+    // different string than the one lexed here. Each of these excludes
+    // www/config.json in bash while a naive lexer reads some other literal.
     assert.throws(() => packagerExclusions(command('-e www/\\config.json')), /unmodelled shell syntax/);
     assert.throws(() => packagerExclusions(command('-e "www/confi\\\ng.json"')), /unmodelled shell syntax/);
     assert.throws(() => packagerExclusions(command('-e "$DROP"')), /unmodelled shell syntax/);
     assert.throws(() => packagerExclusions(command('-e www/config.json;')), /unmodelled shell syntax/);
     assert.throws(() => packagerExclusions(command('-e `printf x`')), /unmodelled shell syntax/);
     assert.throws(() => packagerExclusions(command('--exclude=www/config.json;')), /unmodelled shell syntax/);
+    // The same character refused unquoted is accepted single-quoted, and the same
+    // character accepted in double quotes is refused unquoted. The distinction is
+    // the quoting context, not the character.
+    assert.throws(() => packagerExclusions(command('-e docs/notes;old')), /unmodelled shell syntax/);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/notes;old\'')), ['docs/notes;old']);
+    assert.throws(() => packagerExclusions(command('-e docs/\\$notes.md')), /unmodelled shell syntax/);
+    assert.deepEqual(packagerExclusions(command('-e \'docs/notes (old)\'')), ['docs/notes (old)']);
+    assert.throws(() => packagerExclusions(command('-e docs/notes(old)')), /unmodelled shell syntax/);
 
     // What is NOT detected, and so limits what a green run here means: brace and
-    // tilde expansion, single- versus double-quote nuances, an exclusion assembled
-    // across several words, and any command built dynamically rather than written
-    // out literally. This test refuses the constructs above; it does not certify
-    // that every value it accepts is what bash would pass to tizen.
+    // tilde expansion, an exclusion assembled across several words, and any command
+    // built dynamically rather than written out literally. This test refuses the
+    // constructs above; it does not certify that every value it accepts is what
+    // bash would pass to tizen.
 });
 
 test('keeps development configuration and notes out of the TV package', () => {
