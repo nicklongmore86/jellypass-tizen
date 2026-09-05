@@ -2231,6 +2231,10 @@
                 row.appendChild(card);
             });
             window.JellyQuestFocus.focusFirst(container);
+        }).catch(function (failure) {
+            error.textContent = 'Profiles are unavailable right now. Try again.';
+            error.hidden = false;
+            console.error('[JellyQuest] Profiles failed:', failure);
         });
     }
 
@@ -2272,6 +2276,12 @@
                 var section = renderRow(row, result.Items, callbacks);
                 container.appendChild(section);
                 if (!firstCard) firstCard = section.querySelector('.jq-focusable');
+            }).catch(function (error) {
+                var status = document.createElement('p');
+                status.className = 'jq-home-empty';
+                status.textContent = row.title + ' is unavailable right now.';
+                container.appendChild(status);
+                console.error('[JellyQuest] Home row failed:', error);
             });
         });
 
@@ -2364,6 +2374,12 @@
                 grid.appendChild(card);
             });
             window.JellyQuestFocus.focusFirst(container);
+        }).catch(function (error) {
+            var status = document.createElement('p');
+            status.textContent = 'Library is unavailable right now. Try again.';
+            container.appendChild(status);
+            window.JellyQuestFocus.focusFirst(container);
+            console.error('[JellyQuest] Library failed:', error);
         });
     }
 
@@ -2412,6 +2428,7 @@
         function runSearch(term) {
             resultsRow.innerHTML = '';
             empty.hidden = true;
+            empty.textContent = 'No matches.';
             if (!term.trim()) return;
             var userId = window.ApiClient.getCurrentUserId();
             window.ApiClient.getItems(userId, { SearchTerm: term }).then(function (result) {
@@ -2425,6 +2442,11 @@
                         onSelect: function () { callbacks.onSelectItem(item); },
                     }));
                 });
+            }).catch(function (error) {
+                if (input.value !== term) return;
+                empty.textContent = 'Search failed. Try again.';
+                empty.hidden = false;
+                console.error('[JellyQuest] Library search failed:', error);
             });
         }
 
@@ -2502,12 +2524,21 @@
         favoriteButton.className = 'jq-detail-action jq-focusable jq-my-list-action';
         var isFavorite = Boolean(item.UserData && item.UserData.IsFavorite);
         favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+        var favoriteError = document.createElement('p');
+        favoriteError.className = 'jq-detail-overview';
+        favoriteError.hidden = true;
+        container.appendChild(favoriteError);
         favoriteButton.addEventListener('click', function () {
+            favoriteError.hidden = true;
             var userId = window.ApiClient.getCurrentUserId();
             var next = !isFavorite;
             window.ApiClient.updateFavoriteStatus(userId, item.Id, next).then(function () {
                 isFavorite = next;
                 favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+            }).catch(function (error) {
+                favoriteError.textContent = 'Could not update My List. Try again.';
+                favoriteError.hidden = false;
+                console.error('[JellyQuest] My List update failed:', error);
             });
         });
         actions.appendChild(favoriteButton);
@@ -2681,6 +2712,7 @@
         function runSearch(term) {
             results.innerHTML = '';
             empty.hidden = true;
+            status.hidden = true;
             if (!term.trim()) return;
             window.JellyQuestRequestsBridge.call('/api/v1/search?query=' + encodeURIComponent(term)).then(function (data) {
                 if (input.value !== term) return; // a newer search superseded this one
@@ -2691,6 +2723,9 @@
                 }
                 movies.forEach(function (movie) { results.appendChild(createRequestCard(movie)); });
             }).catch(function (error) {
+                if (input.value !== term) return;
+                status.textContent = 'Search failed. Try again.';
+                status.hidden = false;
                 console.error('[JellyQuest] Requests search failed:', error);
             });
         }
@@ -2748,6 +2783,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    button.textContent = 'Request failed. Try again.';
                     console.error('[JellyQuest] Request failed:', error);
                 });
             });
@@ -2780,6 +2816,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    button.textContent = 'Could not add to My Library. Try again.';
                     console.error('[JellyQuest] Claim failed:', error);
                 });
             });

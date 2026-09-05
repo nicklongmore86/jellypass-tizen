@@ -83,6 +83,7 @@
         function runSearch(term) {
             results.innerHTML = '';
             empty.hidden = true;
+            status.hidden = true;
             if (!term.trim()) return;
             window.JellyQuestRequestsBridge.call('/api/v1/search?query=' + encodeURIComponent(term)).then(function (data) {
                 if (input.value !== term) return; // a newer search superseded this one
@@ -93,6 +94,9 @@
                 }
                 movies.forEach(function (movie) { results.appendChild(createRequestCard(movie)); });
             }).catch(function (error) {
+                if (input.value !== term) return;
+                status.textContent = 'Search failed. Try again.';
+                status.hidden = false;
                 console.error('[JellyQuest] Requests search failed:', error);
             });
         }
@@ -150,6 +154,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    button.textContent = 'Request failed. Try again.';
                     console.error('[JellyQuest] Request failed:', error);
                 });
             });
@@ -182,6 +187,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    button.textContent = 'Could not add to My Library. Try again.';
                     console.error('[JellyQuest] Claim failed:', error);
                 });
             });

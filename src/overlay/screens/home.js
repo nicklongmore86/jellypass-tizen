@@ -30,6 +30,12 @@
                 var section = renderRow(row, result.Items, callbacks);
                 container.appendChild(section);
                 if (!firstCard) firstCard = section.querySelector('.jq-focusable');
+            }).catch(function (error) {
+                var status = document.createElement('p');
+                status.className = 'jq-home-empty';
+                status.textContent = row.title + ' is unavailable right now.';
+                container.appendChild(status);
+                console.error('[JellyQuest] Home row failed:', error);
             });
         });
 

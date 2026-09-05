@@ -37,6 +37,7 @@
         function runSearch(term) {
             resultsRow.innerHTML = '';
             empty.hidden = true;
+            empty.textContent = 'No matches.';
             if (!term.trim()) return;
             var userId = window.ApiClient.getCurrentUserId();
             window.ApiClient.getItems(userId, { SearchTerm: term }).then(function (result) {
@@ -50,6 +51,11 @@
                         onSelect: function () { callbacks.onSelectItem(item); },
                     }));
                 });
+            }).catch(function (error) {
+                if (input.value !== term) return;
+                empty.textContent = 'Search failed. Try again.';
+                empty.hidden = false;
+                console.error('[JellyQuest] Library search failed:', error);
             });
         }
 

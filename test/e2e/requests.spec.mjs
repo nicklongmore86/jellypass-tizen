@@ -121,3 +121,99 @@ test('the hardware Back button returns from Requests to Home', async () => {
         await browser.close();
     }
 });
+
+for (const recovery of ['failure', 'empty', 'success']) {
+    test(`a rejected Requests search is visible and recovers to ${recovery}`, async () => {
+        const browser = await chromium.launch();
+        try {
+            const page = await browser.newPage();
+            await openRequestsAs(page, 'Alice');
+            await page.waitForSelector('.jq-requests-input');
+            await page.evaluate(() => {
+                const call = window.JellyQuestRequestsBridge.call;
+                window.JellyQuestRequestsBridge.call = function (path, options) {
+                    if (path.includes('query=fail')) return Promise.reject(new Error('Proxy unavailable'));
+                    return call(path, options);
+                };
+            });
+            await page.locator('.jq-requests-input').fill('fail');
+            await page.waitForFunction(() => {
+                const status = document.querySelector('.jq-requests-status');
+                return !status.hidden && status.textContent === 'Search failed. Try again.';
+            }, null, { timeout: 2000 });
+            assert.equal(await page.locator('.jq-requests-status').isVisible(), true);
+            assert.equal(await page.locator('.jq-requests-empty').isVisible(), false);
+            assert.equal(await page.locator('.jq-request-card').count(), 0);
+            if (recovery === 'failure') return;
+            await page.locator('.jq-requests-input').fill(recovery === 'empty' ? 'zzzz-no-movie' : 'Nebula Drift');
+            await page.waitForSelector(recovery === 'empty' ? '.jq-requests-empty' : '.jq-request-card');
+            assert.equal(await page.locator('.jq-requests-status').isVisible(), false);
+            if (recovery === 'empty') {
+                assert.equal(await page.locator('.jq-requests-empty').textContent(), 'No matches.');
+                assert.equal(await page.locator('.jq-request-card').count(), 0);
+            } else {
+                assert.equal(await page.locator('.jq-request-card-title').textContent(), 'Nebula Drift');
+                assert.equal(await page.locator('.jq-requests-empty').isVisible(), false);
+            }
+        } finally {
+            await browser.close();
+        }
+    });
+}
+
+for (const scenario of ['library search', 'library', 'home', 'profiles', 'favorite', 'request', 'claim']) {
+    test(`a failed ${scenario} operation shows a message`, async () => {
+        const browser = await chromium.launch();
+        try {
+            const page = await browser.newPage();
+            await openRequestsAs(page, 'Alice');
+            await page.waitForSelector('.jq-requests-input');
+            if (scenario === 'request' || scenario === 'claim') {
+                await searchFor(page, scenario === 'request' ? 'Nebula Drift' : 'Harbor Lights');
+                await page.waitForFunction(() => document.querySelector('.jq-request-card-action').tagName === 'BUTTON');
+                await page.evaluate(() => {
+                    window.JellyQuestRequestsBridge.call = () => Promise.reject(new Error('Offline'));
+                    document.querySelector('.jq-request-card-action').click();
+                });
+            } else {
+                await page.evaluate((scenario) => {
+                    const container = document.createElement('div');
+                    container.id = 'failure-test';
+                    document.body.appendChild(container);
+                    const reject = () => Promise.reject(new Error('Offline'));
+                    if (scenario === 'library search') {
+                        window.ApiClient.getItems = reject;
+                        window.JellyQuestSearchScreen.render(container, {});
+                        const input = container.querySelector('input');
+                        input.value = 'movie';
+                        input.dispatchEvent(new Event('input'));
+                    } else if (scenario === 'library') {
+                        window.JellyQuestLibraryScreen.render(container, { title: 'Movies', fetch: reject }, { onBack() {} });
+                    } else if (scenario === 'home') {
+                        window.ApiClient.getItems = reject;
+                        window.JellyQuestHomeScreen.render(container, {});
+                    } else if (scenario === 'profiles') {
+                        window.JellyQuestSession.listProfiles = reject;
+                        window.JellyQuestProfilesScreen.render(container, () => {});
+                    } else {
+                        window.ApiClient.updateFavoriteStatus = reject;
+                        window.JellyQuestDetailScreen.render(container, { Id: 'movie', Name: 'Movie' }, {});
+                        container.querySelector('.jq-my-list-action').click();
+                    }
+                }, scenario);
+            }
+            const messages = {
+                'library search': 'Search failed. Try again.',
+                library: 'Library is unavailable right now. Try again.',
+                home: 'Continue Watching is unavailable right now.',
+                profiles: 'Profiles are unavailable right now. Try again.',
+                favorite: 'Could not update My List. Try again.',
+                request: 'Request failed. Try again.',
+                claim: 'Could not add to My Library. Try again.',
+            };
+            await page.getByText(messages[scenario], { exact: true }).waitFor({ state: 'visible', timeout: 2000 });
+        } finally {
+            await browser.close();
+        }
+    });
+}

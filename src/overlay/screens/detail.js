@@ -63,12 +63,21 @@
         favoriteButton.className = 'jq-detail-action jq-focusable jq-my-list-action';
         var isFavorite = Boolean(item.UserData && item.UserData.IsFavorite);
         favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+        var favoriteError = document.createElement('p');
+        favoriteError.className = 'jq-detail-overview';
+        favoriteError.hidden = true;
+        container.appendChild(favoriteError);
         favoriteButton.addEventListener('click', function () {
+            favoriteError.hidden = true;
             var userId = window.ApiClient.getCurrentUserId();
             var next = !isFavorite;
             window.ApiClient.updateFavoriteStatus(userId, item.Id, next).then(function () {
                 isFavorite = next;
                 favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+            }).catch(function (error) {
+                favoriteError.textContent = 'Could not update My List. Try again.';
+                favoriteError.hidden = false;
+                console.error('[JellyQuest] My List update failed:', error);
             });
         });
         actions.appendChild(favoriteButton);
