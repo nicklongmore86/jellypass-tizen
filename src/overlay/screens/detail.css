@@ -77,3 +77,8 @@
     text-align: left;
     cursor: pointer;
 }
+
+.jq-detail-error {
+    margin-top: 24px;
+    color: #ff6b6b;
+}

@@ -42,6 +42,13 @@
                 grid.appendChild(card);
             });
             window.JellyQuestFocus.focusFirst(container);
+        }).catch(function (error) {
+            var status = document.createElement('p');
+            status.className = 'jq-library-status';
+            status.textContent = 'Library is unavailable right now. Try again.';
+            container.appendChild(status);
+            window.JellyQuestFocus.focusFirst(container);
+            console.error('[JellyQuest] Library failed:', error);
         });
     }
 

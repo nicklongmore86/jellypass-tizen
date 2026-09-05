@@ -22,7 +22,7 @@
     var STATUS_REQUESTED = [2, 3];
     var STATUS_AVAILABLE = [4, 5];
 
-    // config: { bridgeUrl, userId, userName }
+    // config: { bridgeUrl, userId, userName, configurationFailed, onRetryConfiguration }
     function renderRequests(container, config) {
         container.innerHTML = '';
         container.className = 'jq-requests-screen';
@@ -31,6 +31,17 @@
         status.className = 'jq-requests-status';
         container.appendChild(status);
         window.JellyQuestFocus.focusFirst(container);
+
+        if (config.configurationFailed) {
+            status.textContent = 'Could not load Requests configuration. Try again.';
+            var retry = document.createElement('button');
+            retry.className = 'jq-requests-retry jq-focusable';
+            retry.textContent = 'Retry';
+            retry.addEventListener('click', config.onRetryConfiguration);
+            container.appendChild(retry);
+            window.JellyQuestFocus.focusFirst(container);
+            return;
+        }
 
         if (!config.bridgeUrl) {
             status.textContent = 'Requests are not configured for this server.';
@@ -75,17 +86,23 @@
         container.appendChild(empty);
 
         var timer = null;
+        var searchId = 0;
         input.addEventListener('input', function () {
+            searchId += 1;
             window.clearTimeout(timer);
             timer = window.setTimeout(function () { runSearch(input.value); }, DEBOUNCE_MS);
         });
 
         function runSearch(term) {
+            var currentSearchId = searchId;
             results.innerHTML = '';
             empty.hidden = true;
+            status.hidden = true;
             if (!term.trim()) return;
             window.JellyQuestRequestsBridge.call('/api/v1/search?query=' + encodeURIComponent(term)).then(function (data) {
-                if (input.value !== term) return; // a newer search superseded this one
+                if (currentSearchId !== searchId || input.value !== term) return; // a newer search superseded this one
+                status.hidden = true;
+                empty.hidden = true;
                 var movies = (data.results || []).filter(function (item) { return item.mediaType === 'movie'; });
                 if (!movies.length) {
                     empty.hidden = false;
@@ -93,6 +110,9 @@
                 }
                 movies.forEach(function (movie) { results.appendChild(createRequestCard(movie)); });
             }).catch(function (error) {
+                if (currentSearchId !== searchId || input.value !== term) return;
+                status.textContent = 'Search failed. Try again.';
+                status.hidden = false;
                 console.error('[JellyQuest] Requests search failed:', error);
             });
         }
@@ -150,6 +170,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    showActionError(card, 'Request failed. Try again.');
                     console.error('[JellyQuest] Request failed:', error);
                 });
             });
@@ -182,6 +203,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    showActionError(card, 'Could not add to My Library. Try again.');
                     console.error('[JellyQuest] Claim failed:', error);
                 });
             });
@@ -189,6 +211,13 @@
             checking.textContent = 'Unavailable';
             console.error('[JellyQuest] Access check failed:', error);
         });
+    }
+
+    function showActionError(card, text) {
+        var error = document.createElement('p');
+        error.className = 'jq-request-card-error';
+        error.textContent = text;
+        card.appendChild(error);
     }
 
     function appendLabel(card, text) {
@@ -203,7 +232,11 @@
         var button = document.createElement('button');
         button.className = 'jq-request-card-action jq-focusable';
         button.textContent = text;
-        button.addEventListener('click', function () { onClick(button); });
+        button.addEventListener('click', function () {
+            var error = card.querySelector('.jq-request-card-error');
+            if (error) error.remove();
+            onClick(button);
+        });
         card.appendChild(button);
         return button;
     }

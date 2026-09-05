@@ -396,6 +396,11 @@ html, body {
     grid-gap: 20px;
 }
 
+.jq-library-status {
+    color: #9aa0a8;
+    font-size: 22px;
+}
+
 /* ---- src/overlay/screens/search.css ---- */
 .jq-search-screen {
     padding: 48px;
@@ -430,6 +435,10 @@ html, body {
     color: #9aa0a8;
     font-size: 20px;
     margin-top: 32px;
+}
+
+.jq-search-error {
+    color: #ff6b6b;
 }
 
 /* ---- src/overlay/screens/detail.css ---- */
@@ -513,6 +522,11 @@ html, body {
     cursor: pointer;
 }
 
+.jq-detail-error {
+    margin-top: 24px;
+    color: #ff6b6b;
+}
+
 /* ---- src/overlay/screens/requests.css ---- */
 .jq-requests-screen {
     padding: 48px;
@@ -592,4 +606,19 @@ button.jq-request-card-action:disabled {
 .jq-request-card-label {
     color: #9aa0a8;
     font-size: 15px;
+}
+
+.jq-request-card-error {
+    color: #ff6b6b;
+    font-size: 15px;
+}
+
+.jq-requests-retry {
+    background: #262b32;
+    border: none;
+    color: #f2f2f2;
+    font-size: 18px;
+    padding: 14px 24px;
+    border-radius: 6px;
+    cursor: pointer;
 }

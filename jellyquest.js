@@ -2282,6 +2282,10 @@
                 row.appendChild(card);
             });
             window.JellyQuestFocus.focusFirst(container);
+        }).catch(function (failure) {
+            error.textContent = 'Profiles are unavailable right now. Try again.';
+            error.hidden = false;
+            console.error('[JellyQuest] Profiles failed:', failure);
         });
     }
 
@@ -2323,6 +2327,12 @@
                 var section = renderRow(row, result.Items, callbacks);
                 container.appendChild(section);
                 if (!firstCard) firstCard = section.querySelector('.jq-focusable');
+            }).catch(function (error) {
+                var status = document.createElement('p');
+                status.className = 'jq-home-empty';
+                status.textContent = row.title + ' is unavailable right now.';
+                container.appendChild(status);
+                console.error('[JellyQuest] Home row failed:', error);
             });
         });
 
@@ -2415,6 +2425,13 @@
                 grid.appendChild(card);
             });
             window.JellyQuestFocus.focusFirst(container);
+        }).catch(function (error) {
+            var status = document.createElement('p');
+            status.className = 'jq-library-status';
+            status.textContent = 'Library is unavailable right now. Try again.';
+            container.appendChild(status);
+            window.JellyQuestFocus.focusFirst(container);
+            console.error('[JellyQuest] Library failed:', error);
         });
     }
 
@@ -2455,18 +2472,26 @@
         container.appendChild(empty);
 
         var timer = null;
+        var searchId = 0;
         input.addEventListener('input', function () {
+            searchId += 1;
             window.clearTimeout(timer);
             timer = window.setTimeout(function () { runSearch(input.value); }, DEBOUNCE_MS);
         });
 
         function runSearch(term) {
+            var currentSearchId = searchId;
             resultsRow.innerHTML = '';
             empty.hidden = true;
+            empty.textContent = 'No matches.';
+            empty.classList.remove('jq-search-error');
             if (!term.trim()) return;
             var userId = window.ApiClient.getCurrentUserId();
             window.ApiClient.getItems(userId, { SearchTerm: term }).then(function (result) {
-                if (input.value !== term) return; // a newer search superseded this one
+                if (currentSearchId !== searchId || input.value !== term) return; // a newer search superseded this one
+                empty.hidden = true;
+                empty.textContent = 'No matches.';
+                empty.classList.remove('jq-search-error');
                 if (!result.Items.length) {
                     empty.hidden = false;
                     return;
@@ -2476,6 +2501,12 @@
                         onSelect: function () { callbacks.onSelectItem(item); },
                     }));
                 });
+            }).catch(function (error) {
+                if (currentSearchId !== searchId || input.value !== term) return;
+                empty.textContent = 'Search failed. Try again.';
+                empty.classList.add('jq-search-error');
+                empty.hidden = false;
+                console.error('[JellyQuest] Library search failed:', error);
             });
         }
 
@@ -2502,7 +2533,8 @@
 (function () {
     'use strict';
 
-    // callbacks: { onPlay(item, startTicks), onPlayTrailer(item) }
+    // callbacks: { onPlay(item, startTicks), onPlayTrailer(item) -> Promise<boolean> }
+    // Trailer lookup resolves false when no trailer exists, and rejects on failure.
     function renderDetail(container, item, callbacks) {
         container.innerHTML = '';
         container.className = 'jq-detail-screen';
@@ -2542,10 +2574,25 @@
         }
 
         if (item.LocalTrailerCount) {
+            var trailerStatus = document.createElement('p');
+            trailerStatus.className = 'jq-detail-error';
+            trailerStatus.hidden = true;
+            container.appendChild(trailerStatus);
             var trailerButton = document.createElement('button');
             trailerButton.className = 'jq-detail-action jq-focusable';
             trailerButton.textContent = 'Trailer';
-            trailerButton.addEventListener('click', function () { callbacks.onPlayTrailer(item); });
+            trailerButton.addEventListener('click', function () {
+                trailerStatus.hidden = true;
+                callbacks.onPlayTrailer(item).then(function (played) {
+                    if (played) return;
+                    trailerStatus.textContent = 'No trailer available.';
+                    trailerStatus.hidden = false;
+                }).catch(function (error) {
+                    trailerStatus.textContent = 'Could not load trailer. Try again.';
+                    trailerStatus.hidden = false;
+                    console.error('[JellyQuest] Trailer lookup failed:', error);
+                });
+            });
             actions.appendChild(trailerButton);
         }
 
@@ -2553,12 +2600,21 @@
         favoriteButton.className = 'jq-detail-action jq-focusable jq-my-list-action';
         var isFavorite = Boolean(item.UserData && item.UserData.IsFavorite);
         favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+        var favoriteError = document.createElement('p');
+        favoriteError.className = 'jq-detail-error';
+        favoriteError.hidden = true;
+        container.appendChild(favoriteError);
         favoriteButton.addEventListener('click', function () {
+            favoriteError.hidden = true;
             var userId = window.ApiClient.getCurrentUserId();
             var next = !isFavorite;
             window.ApiClient.updateFavoriteStatus(userId, item.Id, next).then(function () {
                 isFavorite = next;
                 favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
+            }).catch(function (error) {
+                favoriteError.textContent = 'Could not update My List. Try again.';
+                favoriteError.hidden = false;
+                console.error('[JellyQuest] My List update failed:', error);
             });
         });
         actions.appendChild(favoriteButton);
@@ -2671,7 +2727,7 @@
     var STATUS_REQUESTED = [2, 3];
     var STATUS_AVAILABLE = [4, 5];
 
-    // config: { bridgeUrl, userId, userName }
+    // config: { bridgeUrl, userId, userName, configurationFailed, onRetryConfiguration }
     function renderRequests(container, config) {
         container.innerHTML = '';
         container.className = 'jq-requests-screen';
@@ -2680,6 +2736,17 @@
         status.className = 'jq-requests-status';
         container.appendChild(status);
         window.JellyQuestFocus.focusFirst(container);
+
+        if (config.configurationFailed) {
+            status.textContent = 'Could not load Requests configuration. Try again.';
+            var retry = document.createElement('button');
+            retry.className = 'jq-requests-retry jq-focusable';
+            retry.textContent = 'Retry';
+            retry.addEventListener('click', config.onRetryConfiguration);
+            container.appendChild(retry);
+            window.JellyQuestFocus.focusFirst(container);
+            return;
+        }
 
         if (!config.bridgeUrl) {
             status.textContent = 'Requests are not configured for this server.';
@@ -2724,17 +2791,23 @@
         container.appendChild(empty);
 
         var timer = null;
+        var searchId = 0;
         input.addEventListener('input', function () {
+            searchId += 1;
             window.clearTimeout(timer);
             timer = window.setTimeout(function () { runSearch(input.value); }, DEBOUNCE_MS);
         });
 
         function runSearch(term) {
+            var currentSearchId = searchId;
             results.innerHTML = '';
             empty.hidden = true;
+            status.hidden = true;
             if (!term.trim()) return;
             window.JellyQuestRequestsBridge.call('/api/v1/search?query=' + encodeURIComponent(term)).then(function (data) {
-                if (input.value !== term) return; // a newer search superseded this one
+                if (currentSearchId !== searchId || input.value !== term) return; // a newer search superseded this one
+                status.hidden = true;
+                empty.hidden = true;
                 var movies = (data.results || []).filter(function (item) { return item.mediaType === 'movie'; });
                 if (!movies.length) {
                     empty.hidden = false;
@@ -2742,6 +2815,9 @@
                 }
                 movies.forEach(function (movie) { results.appendChild(createRequestCard(movie)); });
             }).catch(function (error) {
+                if (currentSearchId !== searchId || input.value !== term) return;
+                status.textContent = 'Search failed. Try again.';
+                status.hidden = false;
                 console.error('[JellyQuest] Requests search failed:', error);
             });
         }
@@ -2799,6 +2875,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    showActionError(card, 'Request failed. Try again.');
                     console.error('[JellyQuest] Request failed:', error);
                 });
             });
@@ -2831,6 +2908,7 @@
                     renderAction(card, movie);
                 }).catch(function (error) {
                     button.disabled = false;
+                    showActionError(card, 'Could not add to My Library. Try again.');
                     console.error('[JellyQuest] Claim failed:', error);
                 });
             });
@@ -2838,6 +2916,13 @@
             checking.textContent = 'Unavailable';
             console.error('[JellyQuest] Access check failed:', error);
         });
+    }
+
+    function showActionError(card, text) {
+        var error = document.createElement('p');
+        error.className = 'jq-request-card-error';
+        error.textContent = text;
+        card.appendChild(error);
     }
 
     function appendLabel(card, text) {
@@ -2852,7 +2937,11 @@
         var button = document.createElement('button');
         button.className = 'jq-request-card-action jq-focusable';
         button.textContent = text;
-        button.addEventListener('click', function () { onClick(button); });
+        button.addEventListener('click', function () {
+            var error = card.querySelector('.jq-request-card-error');
+            if (error) error.remove();
+            onClick(button);
+        });
         card.appendChild(button);
         return button;
     }
@@ -2963,20 +3052,28 @@
     var BACK_KEY_CODES = [10009, 461, 27];
     var currentBackHandler = null;
     var buildConfig = null;
+    var configurationPromise = null;
 
     // jellyquest-build.json is written by scripts/configure-jellyquest.mjs
     // next to index.html at packaging time (fetched here the same way the
     // old app's loadConfiguration() did); Requests is the only thing that
     // needs it; every other screen works with no configuration at all.
     function loadConfiguration() {
-        return fetch('jellyquest-build.json', { cache: 'no-store' }).then(function (response) {
+        if (configurationPromise) return configurationPromise;
+        configurationPromise = fetch('jellyquest-build.json', { cache: 'no-store' }).then(function (response) {
             if (!response.ok) throw new Error('configuration returned ' + response.status);
             return response.json();
         }).then(function (config) {
-            buildConfig = config;
+            buildConfig = config || {};
         }).catch(function (error) {
+            // Loads only run without cached configuration today. If refresh is
+            // added, preserve the last good configuration on a failed refresh.
+            buildConfig = null;
             console.error('[JellyQuest] Requests configuration unavailable:', error);
+        }).then(function () {
+            configurationPromise = null;
         });
+        return configurationPromise;
     }
 
     function showProfiles(root) {
@@ -3032,8 +3129,10 @@
             },
             onPlayTrailer: function (playItem) {
                 var userId = window.ApiClient.getCurrentUserId();
-                window.ApiClient.getLocalTrailers(userId, playItem.Id).then(function (trailers) {
-                    if (trailers.length) window.playbackManager.play({ ids: [trailers[0].Id] });
+                return window.ApiClient.getLocalTrailers(userId, playItem.Id).then(function (trailers) {
+                    if (!trailers.length) return false;
+                    window.playbackManager.play({ ids: [trailers[0].Id] });
+                    return true;
                 });
             },
         });
@@ -3041,11 +3140,30 @@
 
     function showRequests() {
         currentBackHandler = showHome;
+        var container = window.JellyQuestShell.getContent();
         var user = window.JellyQuestSession.getCurrentProfile();
-        window.JellyQuestRequestsScreen.render(window.JellyQuestShell.getContent(), {
-            bridgeUrl: buildConfig && buildConfig.requestsBridgeUrl,
-            userId: user.Id,
-            userName: user.Name
+        container.innerHTML = '';
+        container.className = 'jq-requests-screen';
+        var loading = document.createElement('p');
+        loading.className = 'jq-requests-status';
+        loading.textContent = 'Loading Requests configuration…';
+        container.appendChild(loading);
+        var ready = buildConfig ? Promise.resolve() : loadConfiguration();
+        ready.then(function () {
+            if (loading.parentNode !== container) return; // navigated away while loading
+            window.JellyQuestRequestsScreen.render(container, {
+                bridgeUrl: buildConfig && buildConfig.requestsBridgeUrl,
+                configurationFailed: !buildConfig,
+                onRetryConfiguration: showRequests,
+                userId: user.Id,
+                userName: user.Name
+            });
+        }).catch(function (error) {
+            console.error('[JellyQuest] Requests render failed:', error);
+            container.innerHTML = '';
+            loading.textContent = 'Requests are unavailable right now.';
+            loading.hidden = false;
+            container.appendChild(loading);
         });
     }
 

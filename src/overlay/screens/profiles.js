@@ -51,6 +51,10 @@
                 row.appendChild(card);
             });
             window.JellyQuestFocus.focusFirst(container);
+        }).catch(function (failure) {
+            error.textContent = 'Profiles are unavailable right now. Try again.';
+            error.hidden = false;
+            console.error('[JellyQuest] Profiles failed:', failure);
         });
     }
 

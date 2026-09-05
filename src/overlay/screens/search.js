@@ -29,18 +29,26 @@
         container.appendChild(empty);
 
         var timer = null;
+        var searchId = 0;
         input.addEventListener('input', function () {
+            searchId += 1;
             window.clearTimeout(timer);
             timer = window.setTimeout(function () { runSearch(input.value); }, DEBOUNCE_MS);
         });
 
         function runSearch(term) {
+            var currentSearchId = searchId;
             resultsRow.innerHTML = '';
             empty.hidden = true;
+            empty.textContent = 'No matches.';
+            empty.classList.remove('jq-search-error');
             if (!term.trim()) return;
             var userId = window.ApiClient.getCurrentUserId();
             window.ApiClient.getItems(userId, { SearchTerm: term }).then(function (result) {
-                if (input.value !== term) return; // a newer search superseded this one
+                if (currentSearchId !== searchId || input.value !== term) return; // a newer search superseded this one
+                empty.hidden = true;
+                empty.textContent = 'No matches.';
+                empty.classList.remove('jq-search-error');
                 if (!result.Items.length) {
                     empty.hidden = false;
                     return;
@@ -50,6 +58,12 @@
                         onSelect: function () { callbacks.onSelectItem(item); },
                     }));
                 });
+            }).catch(function (error) {
+                if (currentSearchId !== searchId || input.value !== term) return;
+                empty.textContent = 'Search failed. Try again.';
+                empty.classList.add('jq-search-error');
+                empty.hidden = false;
+                console.error('[JellyQuest] Library search failed:', error);
             });
         }
 

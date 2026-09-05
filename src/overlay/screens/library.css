@@ -29,3 +29,8 @@
        the value -- see focus.css. Do not conflate them. */
     grid-gap: 20px;
 }
+
+.jq-library-status {
+    color: #9aa0a8;
+    font-size: 22px;
+}
