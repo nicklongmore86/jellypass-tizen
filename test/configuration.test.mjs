@@ -457,17 +457,16 @@ test('patches Jellyfin Web to handle generated detail playback actions', () => {
     assert.match(patcher, /itemShortcuts\.on\(view\.querySelector\('\.mainDetailButtons'\)\)/);
     assert.match(patcher, /itemShortcuts\.off\(view\.querySelector\('\.mainDetailButtons'\)\)/);
     assert.match(patcher, /mediaSourceId: card\.getAttribute\('data-mediasourceid'\)/);
+    assert.match(patcher, /window\.playbackManager = playbackManager;/);
 });
 
-test('patches Jellyfin playback shortcuts with per-item stream selections', () => {
-    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-patch-'));
-    const componentDirectory = path.join(webDirectory, 'src/components');
-    const itemDetailsDirectory = path.join(webDirectory, 'src/controllers/itemDetails');
-    fs.mkdirSync(componentDirectory, { recursive: true });
-    fs.mkdirSync(itemDetailsDirectory, { recursive: true });
-    const shortcutsPath = path.join(componentDirectory, 'shortcuts.js');
-    const itemDetailsPath = path.join(itemDetailsDirectory, 'index.js');
-    fs.writeFileSync(shortcutsPath, `function play() {
+// Mirrors the pinned Jellyfin Web sources the patcher rewrites. The playback
+// manager snippet is copied from .cache/jellyfin-web/src/components/playback/
+// playbackmanager.js:4290-4292 at .jellyfin-web-ref -- upstream exports the
+// singleton and never assigns it to a global.
+function writePinnedWebFixture(webDirectory, overrides = {}) {
+    const files = {
+        'src/components/shortcuts.js': `function play() {
             playbackManager.play({
                 ids: [playableItemId],
                 startPositionTicks: startPositionTicks,
@@ -476,11 +475,32 @@ test('patches Jellyfin playback shortcuts with per-item stream selections', () =
                     SortBy: 'SortName'
                 }
             });
-}`);
-    fs.writeFileSync(itemDetailsPath, `function bind(view) {
+}`,
+        'src/controllers/itemDetails/index.js': `function bind(view) {
             itemShortcuts.on(view.querySelector('.nameContainer'));
             itemShortcuts.off(view.querySelector('.nameContainer'));
-}`);
+}`,
+        'src/components/playback/playbackmanager.js': `export const playbackManager = new PlaybackManager();
+bindMediaSegmentManager(playbackManager);
+bindMediaSessionSubscriber(playbackManager);
+`,
+        ...overrides
+    };
+
+    for (const [relativePath, contents] of Object.entries(files)) {
+        const absolutePath = path.join(webDirectory, relativePath);
+        fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+        fs.writeFileSync(absolutePath, contents);
+    }
+
+    return files;
+}
+
+test('patches Jellyfin playback shortcuts with per-item stream selections', () => {
+    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-patch-'));
+    writePinnedWebFixture(webDirectory);
+    const shortcutsPath = path.join(webDirectory, 'src/components/shortcuts.js');
+    const itemDetailsPath = path.join(webDirectory, 'src/controllers/itemDetails/index.js');
 
     const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
     const first = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
@@ -497,6 +517,110 @@ test('patches Jellyfin playback shortcuts with per-item stream selections', () =
     assert.equal(second.status, 0, second.stderr);
     assert.equal(fs.readFileSync(shortcutsPath, 'utf8'), patched);
     assert.equal(fs.readFileSync(itemDetailsPath, 'utf8'), patchedItemDetails);
+});
+
+// Presence of the assignment is not enough: a future patch that inserted it
+// above the constructor call would read playbackManager in its temporal dead
+// zone, which is exactly the failure mode that yields an undefined global.
+// Ordering is therefore asserted, and the assertion itself is exercised against
+// fabricated bad placements below.
+function assertGlobalFollowsConstruction(source) {
+    const construction = source.indexOf('export const playbackManager = new PlaybackManager();');
+    const assignment = source.indexOf('window.playbackManager = playbackManager;');
+    const segmentBinding = source.indexOf('bindMediaSegmentManager(playbackManager);');
+    const sessionBinding = source.indexOf('bindMediaSessionSubscriber(playbackManager);');
+
+    assert.notEqual(construction, -1, 'the singleton construction is missing');
+    assert.notEqual(assignment, -1, 'the window.playbackManager assignment is missing');
+    assert.notEqual(segmentBinding, -1, 'bindMediaSegmentManager is missing');
+    assert.notEqual(sessionBinding, -1, 'bindMediaSessionSubscriber is missing');
+    assert.ok(construction < assignment, 'the global must be assigned after the singleton is constructed');
+    assert.ok(assignment < segmentBinding, 'the global must be assigned before the upstream binding calls');
+    assert.ok(segmentBinding < sessionBinding, 'the upstream binding order must be preserved');
+}
+
+// The overlay's Play/Resume/Start Over and Trailer actions (src/overlay/app.js)
+// call window.playbackManager.play(); nothing in the pinned Jellyfin Web build
+// publishes that global, so the build-time patch has to. This exercises the
+// patch logic only -- it cannot prove playback works on a real TV.
+test('patches Jellyfin Web to publish the playback manager singleton as a global', () => {
+    const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-global-'));
+    const originalPlaybackManager = writePinnedWebFixture(webDirectory)['src/components/playback/playbackmanager.js'];
+    const playbackManagerPath = path.join(webDirectory, 'src/components/playback/playbackmanager.js');
+    assert.doesNotMatch(originalPlaybackManager, /window\.playbackManager/);
+
+    const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
+    const first = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+    assert.equal(first.status, 0, first.stderr);
+    const patched = fs.readFileSync(playbackManagerPath, 'utf8');
+    assert.match(patched, /^window\.playbackManager = playbackManager;$/m);
+    // The global has to be the exported singleton, not a second manager.
+    assert.match(patched, /export const playbackManager = new PlaybackManager\(\);/);
+    assert.equal(patched.match(/new PlaybackManager\(\)/g).length, 1);
+    assertGlobalFollowsConstruction(patched);
+
+    const second = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(fs.readFileSync(playbackManagerPath, 'utf8'), patched);
+});
+
+// Fabricated bad patches: the ordering assertion above is only worth having if
+// it rejects these, so prove it does rather than only checking the good state.
+test('rejects a playback manager global assigned outside its patched position', () => {
+    const beforeConstruction = `window.playbackManager = playbackManager;
+export const playbackManager = new PlaybackManager();
+bindMediaSegmentManager(playbackManager);
+bindMediaSessionSubscriber(playbackManager);
+`;
+    assert.throws(
+        () => assertGlobalFollowsConstruction(beforeConstruction),
+        /the global must be assigned after the singleton is constructed/
+    );
+
+    const afterBindings = `export const playbackManager = new PlaybackManager();
+bindMediaSegmentManager(playbackManager);
+bindMediaSessionSubscriber(playbackManager);
+window.playbackManager = playbackManager;
+`;
+    assert.throws(
+        () => assertGlobalFollowsConstruction(afterBindings),
+        /the global must be assigned before the upstream binding calls/
+    );
+
+    // Unpatched pinned source: no assignment at all.
+    assert.throws(
+        () => assertGlobalFollowsConstruction(`export const playbackManager = new PlaybackManager();
+bindMediaSegmentManager(playbackManager);
+bindMediaSessionSubscriber(playbackManager);
+`),
+        /the window\.playbackManager assignment is missing/
+    );
+});
+
+// A silent no-op on the next .jellyfin-web-ref bump would restore the runtime
+// crash, so drifted anchors must fail the build instead. Each variant is a way
+// the pinned declaration could plausibly be rewritten upstream.
+test('fails loudly when the pinned playback manager singleton no longer matches', () => {
+    const driftVariants = {
+        'a renamed constructor': 'export const playbackManager = new PlaybackManagerV2();\n',
+        'a dropped semicolon': 'export const playbackManager = new PlaybackManager()\n',
+        'doubled internal whitespace': 'export  const  playbackManager  =  new  PlaybackManager();\n',
+        'a multiline declaration': 'export const playbackManager =\n    new PlaybackManager();\n'
+    };
+    const patcher = path.join(root, 'scripts/patch-jellyfin-web.mjs');
+
+    for (const [label, drifted] of Object.entries(driftVariants)) {
+        const webDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-web-drift-'));
+        const playbackManagerPath = path.join(webDirectory, 'src/components/playback/playbackmanager.js');
+        writePinnedWebFixture(webDirectory, { 'src/components/playback/playbackmanager.js': drifted });
+
+        const result = spawnSync(process.execPath, [patcher, webDirectory], { encoding: 'utf8' });
+        assert.equal(result.status, 1, `${label} should fail the build, got status ${result.status}`);
+        assert.match(result.stderr, /Pinned Jellyfin Web playback manager singleton no longer matches/, label);
+        assert.match(result.stderr, /update the JellyQuest patch/, label);
+        // A failed run must not leave a half-patched file behind.
+        assert.equal(fs.readFileSync(playbackManagerPath, 'utf8'), drifted, label);
+    }
 });
 
 test('installs through the direct Samsung TV workflow', () => {

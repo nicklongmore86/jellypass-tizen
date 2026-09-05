@@ -5,6 +5,7 @@ import process from 'node:process';
 const webDirectory = path.resolve(process.argv[2] || '');
 const shortcutsPath = path.join(webDirectory, 'src/components/shortcuts.js');
 const itemDetailsPath = path.join(webDirectory, 'src/controllers/itemDetails/index.js');
+const playbackManagerPath = path.join(webDirectory, 'src/components/playback/playbackmanager.js');
 const shortcutsSource = fs.readFileSync(shortcutsPath, 'utf8');
 const originalPlaybackOptions = `            playbackManager.play({
                 ids: [playableItemId],
@@ -50,4 +51,21 @@ if (itemDetailsSource.includes(patchedPlaybackBinding) && itemDetailsSource.incl
     console.info('Applied JellyQuest generated detail-action binding patch');
 } else {
     throw new Error('Pinned Jellyfin Web detail-action binding block no longer matches; update the JellyQuest patch');
+}
+
+const playbackManagerSource = fs.readFileSync(playbackManagerPath, 'utf8');
+const originalPlaybackManagerSingleton = `export const playbackManager = new PlaybackManager();`;
+const patchedPlaybackManagerSingleton = `export const playbackManager = new PlaybackManager();
+// JellyQuest's overlay is a plain script loaded beside the Jellyfin Web bundle,
+// so it cannot import this module. Publish the singleton -- never a second
+// manager -- as the global the overlay's playback actions call.
+window.playbackManager = playbackManager;`;
+
+if (playbackManagerSource.includes(patchedPlaybackManagerSingleton)) {
+    console.info('JellyQuest playback-manager global patch already applied');
+} else if (playbackManagerSource.includes(originalPlaybackManagerSingleton)) {
+    fs.writeFileSync(playbackManagerPath, playbackManagerSource.replace(originalPlaybackManagerSingleton, patchedPlaybackManagerSingleton));
+    console.info('Applied JellyQuest playback-manager global patch');
+} else {
+    throw new Error('Pinned Jellyfin Web playback manager singleton no longer matches; update the JellyQuest patch');
 }
