@@ -60,9 +60,10 @@
 
 .jq-modal-backdrop {
     position: fixed;
-    /* `inset` shorthand only landed in Chromium 87 (2020); this project's
-       documented floor is Tizen 4.6 (Chromium ~M56-63) -- an old WebKit
-       silently drops the unsupported declaration, which falls this back
+    /* `inset` shorthand only landed in Chromium 87; measured on both sets,
+       `CSS.supports('inset', '0')` is false (the floor is Tizen 5.0 /
+       Chromium M63 -- see the README's "Target hardware" section). That
+       Chromium silently drops the unsupported declaration, which falls back
        to its static in-flow position/size instead of covering the
        screen (found via docs/rebuild-plan.md's Phase 5 on-screen
        diagnostics on real hardware -- z-index/background still apply

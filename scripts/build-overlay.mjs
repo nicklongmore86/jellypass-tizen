@@ -1,12 +1,20 @@
 // Builds the shipped jellyquest.js / jellyquest.css from src/overlay/*.
 //
-// JellyQuest deliberately avoids native ES modules (<script type="module">)
-// because the oldest Tizen hardware this project targets (Tizen 4.6, per
-// README.md) ships Chromium ~M56-M63, and native module support only
-// landed in Chromium 61. Instead, source lives as separate, named files
-// under src/overlay/ for maintainability, and this script concatenates
-// them -- in an explicit order, not directory/glob order -- into the
-// single jellyquest.js/jellyquest.css files gulpfile.babel.js injects.
+// JellyQuest deliberately avoids native ES modules (<script type="module">).
+// The reason once given here -- that the oldest TV's Chromium predates them
+// -- was wrong: modules landed in Chromium 61, and the measured floor is
+// Tizen 5.0 / Chromium M63, so both sets can parse them. See the README's
+// "Target hardware" section. What actually remains is weaker and explicitly
+// UNTESTED: the packaged app is loaded from a `file://` URL (observed on
+// both sets, though how the runtime treats that origin is not established)
+// and module fetches are CORS-governed. Nobody has tried a real module graph
+// inside Samsung's runtime, and concatenation avoids the question at no
+// cost -- an untested compatibility concern, not a proven device limitation.
+//
+// So source lives as separate, named files under src/overlay/ for
+// maintainability, and this script concatenates them -- in an explicit
+// order, not directory/glob order -- into the single
+// jellyquest.js/jellyquest.css files gulpfile.babel.js injects.
 //
 // The vendored spatial-navigation-polyfill is prepended first so every
 // overlay module can rely on window.navigate() / window.JellyQuestFocus

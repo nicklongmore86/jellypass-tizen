@@ -2230,12 +2230,15 @@
         return new Promise(function (resolve, reject) {
             var target;
             // The catch below has to name a binding because ES5 -- the
-            // dialect this file ships in, for Tizen 4.6's Chromium --
-            // has no optional catch binding, and it then deliberately
-            // discards it: whatever the URL parser objected to, the only
-            // actionable problem for the caller is that no usable bridge
-            // URL is configured, so that is what gets reported. Hence the
-            // narrow eslint-disable-line rather than a repo-wide rule.
+            // dialect this file ships in, for the Tizen 5.0 / Chromium
+            // M63 floor, where eval('try{}catch{}') was measured to
+            // throw SyntaxError (see the README's "Target hardware"
+            // section) -- has no optional catch binding, and it then
+            // deliberately discards it: whatever the URL parser objected
+            // to, the only actionable problem for the caller is that no
+            // usable bridge URL is configured, so that is what gets
+            // reported. Hence the narrow eslint-disable-line rather than
+            // a repo-wide rule.
             try {
                 // Resolved against the page's own URL rather than required
                 // to stand alone: production config is always an absolute

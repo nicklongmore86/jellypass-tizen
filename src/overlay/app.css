@@ -23,17 +23,19 @@ html, body {
    rendered UI underneath it. */
 #jellyquest-root {
     position: fixed;
-    /* `inset` shorthand only landed in Chromium 87 (2020); this
-       project's documented floor is Tizen 4.6 (Chromium ~M56-63). The
-       actual, confirmed root cause of #jellyquest-root not covering the
-       screen on real hardware (Phase 5 on-screen diagnostics): an old
-       WebKit silently drops the unsupported `inset: 0` declaration,
-       leaving top/right/bottom/left unset -- so the element falls back
-       to its static in-flow position and content-based width instead of
-       the viewport, while z-index/background (unaffected properties on
-       the same rule) still apply fine, exactly matching what was
-       observed (correct background-color and z-index, wrong
-       top/width). Longhand has been supported forever. */
+    /* `inset` shorthand only landed in Chromium 87; measured on both
+       sets, `CSS.supports('inset', '0')` is false (the floor is Tizen
+       5.0 / Chromium M63 -- see the README's "Target hardware"
+       section). The actual, confirmed root cause of #jellyquest-root
+       not covering the screen on real hardware (Phase 5 on-screen
+       diagnostics): that Chromium silently drops the unsupported
+       `inset: 0` declaration, leaving top/right/bottom/left unset -- so
+       the element falls back to its static in-flow position and
+       content-based width instead of the viewport, while
+       z-index/background (unaffected properties on the same rule) still
+       apply fine, exactly matching what was observed (correct
+       background-color and z-index, wrong top/width). Longhand has been
+       supported forever. */
     top: 0;
     right: 0;
     bottom: 0;
