@@ -114,7 +114,16 @@ test('locks generated Jellyfin Web configuration to Farmhouse', () => {
     assert.equal(metadata.household, 'farmhouse');
     assert.equal(metadata.requestsUrl, 'https://jellyseerr.starrgroup.io');
     assert.equal(metadata.requestsBridgeUrl, 'https://jelly-farmhouse.starrgroup.io/jellyquest-bridge/bridge.html');
-    assert.equal(metadata.requestsPageVersion, '1.0.2');
+    const appVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+    assert.equal(metadata.requestsPageVersion, appVersion);
+    // config.xml is the ONE file scripts/install-wgt.sh:10 reads to learn which
+    // version the TV registry must report back after an install; a bump that
+    // misses it leaves that check asserting a stale version, which passes even
+    // when the new build never landed. Parsed by handing config.xml to that
+    // script's own sed program verbatim, so this test cannot accept a manifest
+    // the installer would read differently.
+    const manifestVersion = spawnSync('sed', ['-n', 's/.*<widget[^>]*version="\\([^"]*\\)".*/\\1/p', path.join(root, 'config.xml')], { encoding: 'utf8' });
+    assert.equal(manifestVersion.stdout.trim(), appVersion);
     assert.match(metadata.jellyfinWebRef, /^[a-f0-9]{40}$/);
 });
 
