@@ -9,16 +9,21 @@ This build is a **blank-canvas rebuild**: the Tizen packaging pipeline (checkout
 The blank-canvas rebuild is merged into `master` and confirmed working on
 real hardware. Two things to know before you build it:
 
-- **One open bug.** On a real TV, D-pad Right along the profile row is
-  reported to reach only every other card. It does not reproduce in the
-  simulator or under Playwright, for structural reasons explained in
-  `docs/rebuild-plan.md`.
-- **A temporary diagnostic is compiled into every build.**
-  `src/overlay/keydown-diagnostics.js` draws a yellow panel in the
-  top-right corner of the TV showing what each keypress does. It is
-  read-only and cannot affect navigation, but it is not shippable —
-  delete it and its entry in `scripts/build-overlay.mjs` once the bug is
-  understood.
+- **The D-pad skipping bug is fixed** (1.0.3, confirmed on real
+  hardware). Cause: flex `gap` needs Chromium 84 and both TVs are below
+  it, so spacing measured 0px, adjacent cards touched, and the
+  spatial-navigation polyfill's `isInside()` filtered the neighbour out
+  of the candidate set. Fixed by replacing every flex `gap` with child
+  margins — see the spacing convention in `src/overlay/focus.css` before
+  changing any layout, and do **not** feature-detect `gap`.
+- **The temporary keydown diagnostic no longer ships** (removed in
+  1.0.4). It had been compiled into every build and rendered a yellow
+  panel over the real UI on a production TV. See "Diagnostic recovery"
+  in `docs/rebuild-plan.md` if a future hardware investigation needs it.
+- **One open bug.** At the Home screen the remote's Return key has no
+  exit path: focus is lost and restored, and no exit confirmation
+  appears. Samsung's certification policy requires an app-created
+  confirmation at the root screen.
 
 `docs/rebuild-plan.md`'s "Where this stands, and the path from here"
 section has the ordered next steps.
