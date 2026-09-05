@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 
 // Modern Chromium supports flex gap; disable it to measure the margins that
 // actually provide spacing on the target TVs. Never accept an empty fixture.
-export async function assertSiblingSpacing(page, selector, axis) {
+export async function assertSiblingSpacing(page, selector, axis, expectedContainers = 1) {
     await page.addStyleTag({ content: `${selector} { gap: 0 !important; }` });
+    const gaps = await page.locator(selector).evaluateAll((containers) =>
+        containers.map((container) => getComputedStyle(container).gap));
+    for (const gap of gaps) {
+        assert.equal(gap, '0px', `${selector}: gap suppression must take effect`);
+    }
     const groups = await page.locator(selector).evaluateAll((containers) => containers.map((container) =>
         Array.from(container.children).map((child) => {
             const { left, right, top, bottom, width, height } = child.getBoundingClientRect();
@@ -11,6 +16,7 @@ export async function assertSiblingSpacing(page, selector, axis) {
         })
     ));
     assert.ok(groups.length > 0, `${selector}: expected a rendered container`);
+    assert.equal(groups.length, expectedContainers, `${selector}: expected fixture container count`);
     let pairs = 0;
     for (const [group, rects] of groups.entries()) {
         for (const rect of rects) {
@@ -30,6 +36,8 @@ export async function assertSiblingSpacing(page, selector, axis) {
 
 export async function assertWrappedSpacing(page, selector) {
     await page.addStyleTag({ content: `${selector} { gap: 0 !important; }` });
+    assert.equal(await page.locator(selector).evaluate((container) => getComputedStyle(container).gap),
+        '0px', `${selector}: gap suppression must take effect`);
     const { rects, input } = await page.locator(selector).evaluate((container) => {
         const rect = (element) => {
             const { left, right, top, bottom } = element.getBoundingClientRect();
