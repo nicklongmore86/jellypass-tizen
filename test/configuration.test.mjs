@@ -71,6 +71,11 @@ process.exitCode = Number(process.env.FIXTURE_BUILD_STATUS);
     }
 });
 
+test('shipped bundle excludes the on-screen keydown diagnostics panel', () => {
+    const bundle = fs.readFileSync(path.join(root, 'jellyquest.js'), 'utf8');
+    assert.doesNotMatch(bundle, /jq-keydown-diagnostics/);
+});
+
 test('committed jellyquest.js/jellyquest.css match what src/overlay/* currently generates', () => {
     // jellyquest.js/jellyquest.css are generated (see scripts/build-overlay.mjs)
     // but committed directly, since gulpfile.babel.js/package-wgt.sh expect
