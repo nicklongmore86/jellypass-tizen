@@ -22,20 +22,26 @@
     var BACK_KEY_CODES = [10009, 461, 27];
     var currentBackHandler = null;
     var buildConfig = null;
+    var configurationPromise = null;
 
     // jellyquest-build.json is written by scripts/configure-jellyquest.mjs
     // next to index.html at packaging time (fetched here the same way the
     // old app's loadConfiguration() did); Requests is the only thing that
     // needs it; every other screen works with no configuration at all.
     function loadConfiguration() {
-        return fetch('jellyquest-build.json', { cache: 'no-store' }).then(function (response) {
+        if (configurationPromise) return configurationPromise;
+        configurationPromise = fetch('jellyquest-build.json', { cache: 'no-store' }).then(function (response) {
             if (!response.ok) throw new Error('configuration returned ' + response.status);
             return response.json();
         }).then(function (config) {
-            buildConfig = config;
+            buildConfig = config || {};
         }).catch(function (error) {
+            buildConfig = null;
             console.error('[JellyQuest] Requests configuration unavailable:', error);
+        }).then(function () {
+            configurationPromise = null;
         });
+        return configurationPromise;
     }
 
     function showProfiles(root) {
@@ -91,8 +97,10 @@
             },
             onPlayTrailer: function (playItem) {
                 var userId = window.ApiClient.getCurrentUserId();
-                window.ApiClient.getLocalTrailers(userId, playItem.Id).then(function (trailers) {
-                    if (trailers.length) window.playbackManager.play({ ids: [trailers[0].Id] });
+                return window.ApiClient.getLocalTrailers(userId, playItem.Id).then(function (trailers) {
+                    if (!trailers.length) return false;
+                    window.playbackManager.play({ ids: [trailers[0].Id] });
+                    return true;
                 });
             },
         });
@@ -100,11 +108,24 @@
 
     function showRequests() {
         currentBackHandler = showHome;
+        var container = window.JellyQuestShell.getContent();
         var user = window.JellyQuestSession.getCurrentProfile();
-        window.JellyQuestRequestsScreen.render(window.JellyQuestShell.getContent(), {
-            bridgeUrl: buildConfig && buildConfig.requestsBridgeUrl,
-            userId: user.Id,
-            userName: user.Name
+        container.innerHTML = '';
+        container.className = 'jq-requests-screen';
+        var loading = document.createElement('p');
+        loading.className = 'jq-requests-status';
+        loading.textContent = 'Loading Requests configuration…';
+        container.appendChild(loading);
+        var ready = buildConfig ? Promise.resolve() : loadConfiguration();
+        ready.then(function () {
+            if (loading.parentNode !== container) return; // navigated away while loading
+            window.JellyQuestRequestsScreen.render(container, {
+                bridgeUrl: buildConfig && buildConfig.requestsBridgeUrl,
+                configurationFailed: !buildConfig,
+                onRetryConfiguration: showRequests,
+                userId: user.Id,
+                userName: user.Name
+            });
         });
     }
 

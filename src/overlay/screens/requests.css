@@ -77,3 +77,8 @@ button.jq-request-card-action:disabled {
     color: #9aa0a8;
     font-size: 15px;
 }
+
+.jq-request-card-error {
+    color: #ff6b6b;
+    font-size: 15px;
+}

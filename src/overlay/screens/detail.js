@@ -12,7 +12,8 @@
 (function () {
     'use strict';
 
-    // callbacks: { onPlay(item, startTicks), onPlayTrailer(item) }
+    // callbacks: { onPlay(item, startTicks), onPlayTrailer(item) -> Promise<boolean> }
+    // Trailer lookup resolves false when no trailer exists, and rejects on failure.
     function renderDetail(container, item, callbacks) {
         container.innerHTML = '';
         container.className = 'jq-detail-screen';
@@ -52,10 +53,25 @@
         }
 
         if (item.LocalTrailerCount) {
+            var trailerStatus = document.createElement('p');
+            trailerStatus.className = 'jq-detail-error';
+            trailerStatus.hidden = true;
+            container.appendChild(trailerStatus);
             var trailerButton = document.createElement('button');
             trailerButton.className = 'jq-detail-action jq-focusable';
             trailerButton.textContent = 'Trailer';
-            trailerButton.addEventListener('click', function () { callbacks.onPlayTrailer(item); });
+            trailerButton.addEventListener('click', function () {
+                trailerStatus.hidden = true;
+                callbacks.onPlayTrailer(item).then(function (played) {
+                    if (played) return;
+                    trailerStatus.textContent = 'No trailer available.';
+                    trailerStatus.hidden = false;
+                }).catch(function (error) {
+                    trailerStatus.textContent = 'Could not load trailer. Try again.';
+                    trailerStatus.hidden = false;
+                    console.error('[JellyQuest] Trailer lookup failed:', error);
+                });
+            });
             actions.appendChild(trailerButton);
         }
 
@@ -64,7 +80,7 @@
         var isFavorite = Boolean(item.UserData && item.UserData.IsFavorite);
         favoriteButton.textContent = isFavorite ? 'Remove from My List' : 'Add to My List';
         var favoriteError = document.createElement('p');
-        favoriteError.className = 'jq-detail-overview';
+        favoriteError.className = 'jq-detail-error';
         favoriteError.hidden = true;
         container.appendChild(favoriteError);
         favoriteButton.addEventListener('click', function () {
