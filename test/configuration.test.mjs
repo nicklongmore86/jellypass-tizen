@@ -7,6 +7,70 @@ import test from 'node:test';
 
 const root = path.resolve(import.meta.dirname, '..');
 
+test('postinstall skips a missing Jellyfin Web build with actionable instructions', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-install-'));
+    try {
+        const result = spawnSync(process.execPath, [path.join(root, 'scripts/postinstall.mjs')], {
+            cwd: directory,
+            encoding: 'utf8',
+            env: { ...process.env, JELLYFIN_WEB_DIR: '', npm_execpath: path.join(directory, 'missing-npm.mjs') }
+        });
+        assert.equal(result.status, 0, result.stderr);
+        assert.match(result.stdout, /Skipping the jellyfin-web-dependent build/);
+        assert.match(result.stdout, /npm run build:full/);
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('postinstall reports actionable instructions when invoked without npm', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-install-'));
+    try {
+        const env = { ...process.env, JELLYFIN_WEB_DIR: directory };
+        delete env.npm_execpath;
+        const result = spawnSync(process.execPath, [path.join(root, 'scripts/postinstall.mjs')], {
+            cwd: directory,
+            encoding: 'utf8',
+            env
+        });
+        assert.equal(result.status, 1);
+        assert.match(result.stderr, /npm_execpath is unset/);
+        assert.match(result.stderr, /Run npm run postinstall/);
+        assert.doesNotMatch(result.stderr, /MODULE_NOT_FOUND/);
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('postinstall delegates to npm run build and preserves failures for default and overridden Web paths', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyquest-install-'));
+    try {
+        const npmPath = path.join(directory, 'npm.mjs');
+        fs.writeFileSync(npmPath, `import assert from 'node:assert/strict';
+assert.deepEqual(process.argv.slice(2), ['run', 'build']);
+console.log('fixture build invoked');
+process.exitCode = Number(process.env.FIXTURE_BUILD_STATUS);
+`);
+        for (const webPath of ['', 'custom-web/dist', path.join(directory, 'absolute-web/dist')]) {
+            const dist = path.resolve(directory, webPath || 'node_modules/jellyfin-web/dist');
+            fs.mkdirSync(dist, { recursive: true });
+            for (const status of [0, 7]) {
+                const result = spawnSync(process.execPath, [path.join(root, 'scripts/postinstall.mjs')], {
+                    cwd: directory,
+                    encoding: 'utf8',
+                    env: { ...process.env, JELLYFIN_WEB_DIR: webPath, npm_execpath: npmPath, FIXTURE_BUILD_STATUS: String(status) }
+                });
+                assert.equal(result.status, status, result.stderr);
+                assert.match(result.stdout, /fixture build invoked/);
+                assert.doesNotMatch(result.stdout, /Skipping/);
+            }
+            fs.rmSync(dist, { recursive: true });
+        }
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test('committed jellyquest.js/jellyquest.css match what src/overlay/* currently generates', () => {
     // jellyquest.js/jellyquest.css are generated (see scripts/build-overlay.mjs)
     // but committed directly, since gulpfile.babel.js/package-wgt.sh expect
