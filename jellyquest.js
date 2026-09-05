@@ -1813,12 +1813,35 @@
         // no cursor, and on a TV that reads as the app having died until the
         // user happens to press an arrow. The rail is always mounted and
         // always focusable, so it is the last resort.
+        //
+        // But only when focus really is nowhere. A render can finish long
+        // after the user gave up waiting and moved the cursor onto the rail
+        // themselves, and pulling it back to the rail's default item would
+        // discard a selection they just made -- the same
+        // asynchronous-completion-beats-newer-intent shape as a late render
+        // stealing focus from an open modal, with a rail selection in place
+        // of the dialog. If something real already holds focus, that is the
+        // newer intent and this render leaves it alone.
+        if (hasVisibleFocus()) return false;
         if (fallbackContainer
             && fallbackContainer !== container
             && document.body.contains(fallbackContainer)) {
             return focusInto(fallbackContainer);
         }
         return false;
+    }
+
+    // Whether the cursor is currently on something the user can actually see.
+    // Deliberately three narrow conditions -- attached, not <body>, and
+    // rendering a box -- because this decides whether to override what the
+    // user is looking at. getClientRects() is empty for anything inside a
+    // display:none subtree, which is the dismissed dialog's case.
+    function hasVisibleFocus() {
+        var active = document.activeElement;
+        if (!active || active === document.body) return false;
+        if (!document.body.contains(active)) return false;
+        if (typeof active.getClientRects !== 'function') return false;
+        return active.getClientRects().length > 0;
     }
 
     function focusInto(container) {

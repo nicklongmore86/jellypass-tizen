@@ -60,6 +60,15 @@ function focusState(page) {
     });
 }
 
+// Scope of the `rendered` check, recorded so it is not over-trusted:
+// getClientRects() is empty for anything in a `display: none` subtree, which
+// is what the dismissed dialog's backdrop uses and is sufficient for the two
+// defects these tests cover. It does NOT catch an element hidden by ancestor
+// `opacity: 0`, one clipped entirely out of view, or one moved offscreen by a
+// transform -- all of those still report boxes and would pass. Catching those
+// needs computed visibility, ancestor opacity, viewport intersection and
+// possibly elementFromPoint() sampling; that is deliberately not built here
+// because the focus targets involved are fixed, always-visible rail buttons.
 function assertVisiblyFocused(state, context) {
     assert.ok(state.connected, `${context}: focus was lost to ${state.tag} -- no focus ring, no cursor on the TV`);
     assert.ok(state.rendered,
@@ -167,6 +176,79 @@ test('dismissing the exit confirmation on an empty Home leaves focus on somethin
         // is still attached but inside the now-hidden backdrop: attached and
         // .jq-focusable, yet completely invisible.
         assertVisiblyFocused(await focusState(page), 'after dismissing the prompt on an empty Home');
+    } finally {
+        await browser.close();
+    }
+});
+
+test('a late empty render does not pull focus off a rail item the user has already selected', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await signInToEmptyHome(page);
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-profile-switch')), true);
+
+        // Hold Home's (empty) responses so its render lands after the user
+        // has had time to do something else -- the realistic shape of a slow
+        // server, and the same asynchronous-completion-beats-newer-intent
+        // problem as a late render stealing focus from an open modal.
+        await page.evaluate(() => {
+            const getItems = window.ApiClient.getItems.bind(window.ApiClient);
+            window.__held = [];
+            window.ApiClient.getItems = function () {
+                const args = arguments;
+                return new Promise((resolve) => {
+                    window.__held.push(() => resolve(getItems.apply(null, args)));
+                });
+            };
+        });
+        await page.evaluate(() => document.querySelector('.jq-nav-home').click());
+        await page.waitForFunction(() => window.__held.length > 0);
+
+        // Meanwhile the user walks the rail down to Search.
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('ArrowDown');
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-nav-search')), true);
+
+        await page.evaluate(() => window.__held.splice(0).forEach((release) => release()));
+        await page.waitForSelector('.jq-home-empty');
+
+        // The fallback exists for focus that is nowhere. Search is somewhere:
+        // moving off it would make the next Enter open profile selection, an
+        // action the user never asked for.
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-nav-search')), true,
+            'a late render must not override a selection the user has already made');
+    } finally {
+        await browser.close();
+    }
+});
+
+test('the fallback still runs when the saved focus target disappears while the prompt is open', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await signInToEmptyHome(page);
+        assert.equal(await page.evaluate(() => document.activeElement.className.includes('jq-profile-switch')), true);
+
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('.jq-exit-confirm', { state: 'visible' });
+
+        // The other dismissal test now has a live saved target to restore to,
+        // so closeModal() handles it and the fallback is never reached. Take
+        // the saved target away while the dialog is up -- standing in for the
+        // content underneath being replaced by an async refresh -- so that
+        // dismissal has to fall back on its own.
+        await page.evaluate(() => {
+            const saved = document.querySelector('.jq-profile-switch');
+            saved.parentNode.removeChild(saved);
+        });
+
+        await page.evaluate(() => document.querySelector('.jq-exit-no').click());
+        await page.waitForFunction(() => document.querySelector('.jq-exit-backdrop').hidden);
+
+        assertVisiblyFocused(await focusState(page), 'after dismissing with the saved target gone');
+        assert.equal(await page.evaluate(() => document.activeElement.closest('.jq-rail') !== null), true,
+            'the fallback should land on the rail, which is what always survives');
     } finally {
         await browser.close();
     }
