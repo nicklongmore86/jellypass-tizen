@@ -736,17 +736,27 @@ investigation.
 `claude/code-audit-issues-rha2bz`: **17 commits ahead of `master`, 0
 behind, never merged, no open PR.** `npm test` 7/7 and
 `npm run test:e2e` 29/29 green. The rebuild itself is confirmed working
-on real hardware. Two things are outstanding: the D-pad follow-up bug
-described at the end of Phase 5, and the **temporary on-screen
-diagnostic that is currently compiled into every build** (first entry of
-`JS_FILES` in `scripts/build-overlay.mjs`) — anyone packaging this
-branch right now gets a yellow panel in the top-right corner of the TV.
-That is deliberate and must be removed before this branch ships.
+on real hardware. Two things were outstanding at the time of writing:
+the D-pad follow-up bug described at the end of Phase 5, and the
+temporary on-screen diagnostic then compiled into every build (first
+entry of `JS_FILES` in `scripts/build-overlay.mjs`), which meant anyone
+packaging that branch got a yellow panel in the top-right corner of the
+TV.
+
+> **Both are now resolved — this section is a historical record.** The
+> D-pad bug was fixed in 1.0.3: the cause was unsupported flex `gap`
+> (measured 0px on both TVs), not the key-delivery hypothesis this
+> runbook was written to test. The diagnostic was removed in 1.0.4 after
+> it shipped to a production TV; see "Diagnostic recovery" at the end of
+> this section. **The photo-gathering steps below were never carried
+> out and are retained only to record what was planned.**
 
 **The path, in order.**
 
-1. **Get the photo.** This is the only step that needs real hardware,
-   and everything after it depends on what it says.
+1. **Get the photo.** *(Never carried out — see the note above. The
+   diagnostic this step depends on no longer ships.)* This is the only
+   step that needs real hardware, and everything after it depends on
+   what it says.
 
    ```sh
    npm run build:full && npm run package:wgt   # needs Tizen Studio
@@ -803,6 +813,23 @@ That is deliberate and must be removed before this branch ships.
    `npm run build:overlay`, and commit the regenerated `jellyquest.js`.
    The drift check in `test/configuration.test.mjs` catches a forgotten
    rebuild.
+
+   **Diagnostic recovery (removed in 1.0.4).** The on-screen keydown panel
+   showed per-key records with capture/late `defaultPrevented` flags,
+   before/late/after focus positions, and a `DOUBLE MOVE` marker. It may help
+   investigate which keycode the hardware emits for the remote's Return key
+   (jellyfin-web maps both 461 and 10009; JellyQuest's `BACK_KEY_CODES` is the
+   consumer), or the *unconfirmed* `cancelable:false` dual-navigation
+   hypothesis described earlier in this section — never measured, and left
+   undecided pending a photo that was never taken. It was removed because it
+   shipped to a production
+   TV at `z-index: 2147483647` and rendered over the real UI. The last commit
+   containing it before removal is `e5e286a428dd9712e1b579fc5d1ccf8506c7dec2`;
+   recover with `git show e5e286a428dd9712e1b579fc5d1ccf8506c7dec2:src/overlay/keydown-diagnostics.js`.
+   For a temporary hardware investigation, restore that file, re-add its
+   path to `JS_FILES` in `scripts/build-overlay.mjs`, rebuild with
+   `npm run build:overlay`, repackage, and install on an explicitly authorized
+   test TV. NEVER commit the diagnostic back into a release build.
 
 4. **Merge to `master`.** The whole rebuild has lived on this branch
    through all six phases and has never landed.
