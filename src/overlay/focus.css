@@ -7,8 +7,13 @@
  */
 
 /* SPACING CONVENTION -- read before changing flex spacing anywhere in
- * the overlay. Space between flex children is `> * + *` sibling margins
- * in each screen's stylesheet. Do NOT convert them back to flex `gap`.
+ * the overlay. Space between flex children comes from margins on the
+ * children, in each screen's stylesheet, in one of two shapes:
+ * `> * + *` sibling margins for a row or column that does not wrap, and
+ * for a wrapped layout `> *` margins on every child plus a compensating
+ * negative margin on the container, so both axes are spaced and the
+ * leading edge stays aligned (src/overlay/screens/requests.css is the
+ * wrapped case). Do NOT convert either shape back to flex `gap`.
  *
  * Flex `gap` shipped in Chromium 84 and both target TVs are below it:
  * UN55RU7100FXZA (Tizen 5.0, M63) and UN65TU7000FXZA (Tizen 5.5, M69).
@@ -17,15 +22,17 @@
  *
  * Feature detection is a trap. On M69 `gap` parses and computes
  * (`CSS.supports('gap', '20px')` -> true, computed style `20px 20px`)
- * and flex layout then ignores it. `CSS.supports('gap', ...)` and
+ * but measured spacing remains 0px. `CSS.supports('gap', ...)` and
  * `@supports (gap: ...)` are therefore UNSAFE here: they say false on
  * the 2019 set and true on the 2020 set while layout is broken on both,
  * so a gap-when-supported guard keeps the working margins on the older
  * TV and silently regresses on the newer one.
  *
- * The only valid detection is measuring geometry:
- * `next.getBoundingClientRect().left - prev.getBoundingClientRect().right`.
- * Grid `gap` differs -- see src/overlay/screens/library.css.
+ * Neither a support query nor the computed value can tell you, so
+ * verify flex-gap support with a controlled layout measurement: known
+ * children, no other spacing and no distributed alignment, then compare
+ * their measured edges. Grid behaves differently -- see
+ * src/overlay/screens/library.css.
  */
 
 /* Structural layout only -- colors, sizing, and spacing belong to each

@@ -16,7 +16,8 @@
     flex-wrap: wrap;
 }
 
-/* Sibling margins, not flex `gap` -- see the spacing convention in focus.css. */
+/* Child margins, not flex `gap` -- this is the wrapped case, so every child
+   is margined and the container above compensates; see focus.css. */
 .jq-requests-results > * {
     margin-top: 20px;
     margin-left: 20px;
