@@ -140,45 +140,61 @@ test('overlay injection points still target the app-owned files', () => {
 // Reading those globs back as patterns -- rather than regex-matching the script's
 // own text -- lets the keep-side test below check runtime paths against every
 // parsed exclusion, including spellings nobody thought to pin literally. It
-// checks the representative paths listed there, not every file that ships.
+// checks the representative paths listed there, not every file that ships, and
+// only the shell syntax the lexer below models (see that test for the limits).
 
 // Enough shell lexing to read one command's words: quotes, backslash-newline
-// continuations, and comments. Comments matter because a `# -e foo` note near
-// the command otherwise reads as a real exclusion.
+// continuations between words, and comments. Comments matter because a
+// `# -e foo` note near the command otherwise reads as a real exclusion.
+//
+// Each word keeps the raw source text it came from, so an exclusion value can be
+// checked for shell syntax this lexer does not model before it is trusted.
 function shellWords(command) {
     const words = [];
     let current = null;
+    let start = 0;
     let index = 0;
+
+    const flush = (end) => {
+        if (current === null) return;
+        words.push({ value: current, raw: command.slice(start, end) });
+        current = null;
+    };
 
     while (index < command.length) {
         const character = command[index];
 
-        if (character === '\\' && command[index + 1] === '\n') {
+        if (current === null && character === '\\' && command[index + 1] === '\n') {
             index += 2;
-        } else if (character === '#' && current === null) {
+        } else if (current === null && character === '#') {
             const lineEnd = command.indexOf('\n', index);
             index = lineEnd === -1 ? command.length : lineEnd;
         } else if (/\s/.test(character)) {
-            if (current !== null) {
-                words.push(current);
-                current = null;
-            }
+            flush(index);
             index += 1;
         } else if (character === '"' || character === '\'') {
+            if (current === null) start = index;
             const close = command.indexOf(character, index + 1);
             assert.notEqual(close, -1, `unterminated ${character} quote in the tizen build-web command`);
             current = (current ?? '') + command.slice(index + 1, close);
             index = close + 1;
         } else {
+            if (current === null) start = index;
             current = (current ?? '') + character;
             index += 1;
         }
     }
 
-    if (current !== null) words.push(current);
+    flush(index);
 
     return words;
 }
+
+// Shell syntax bash would act on and this lexer does not model. Refusing these
+// is the point: keeping a literal `$DROP`, a stray backslash or a trailing `;`
+// as if it were the filename means the test compares the wrong string and
+// reports green. What is NOT detected here is listed at the parser test.
+const UNMODELLED_SHELL_SYNTAX = /[\\$`;&|<>\n()]/;
 
 function packagerExclusions(packager) {
     const [command] = packager.match(/tizen build-web[\s\S]*?(?=\ntizen package)/) ?? [];
@@ -187,29 +203,39 @@ function packagerExclusions(packager) {
     const words = shellWords(command);
     const exclusions = [];
 
+    // A parser that silently mis-reads an exclusion is worse than one that
+    // refuses: a value this lexer cannot model means the test compares the wrong
+    // string while still reporting green. Fail loudly instead.
+    const take = (flag, word) => {
+        assert.ok(
+            word !== undefined && word.value !== '' && !word.value.startsWith('-'),
+            `malformed exclusion after ${flag} in scripts/package-wgt.sh: `
+                + (word === undefined ? '(end of command)' : JSON.stringify(word.value))
+        );
+        assert.doesNotMatch(
+            word.raw,
+            UNMODELLED_SHELL_SYNTAX,
+            `unmodelled shell syntax in the exclusion after ${flag} in scripts/package-wgt.sh: ${JSON.stringify(word.raw)}`
+        );
+
+        return word.value;
+    };
+
     for (let index = 0; index < words.length; index += 1) {
+        const { value, raw } = words[index];
         // Tizen documents --exclude as the long form of -e, so both are read here;
         // treating --exclude as an ordinary argument would silently hide it.
-        const inline = /^(?:-e|--exclude)=(.*)$/.exec(words[index]);
+        const inline = /^(?:-e|--exclude)=(.*)$/.exec(value);
 
         if (inline) {
-            assert.notEqual(inline[1], '', `empty exclusion value in scripts/package-wgt.sh: ${words[index]}`);
-            exclusions.push(inline[1]);
+            assert.notEqual(inline[1], '', `empty exclusion value in scripts/package-wgt.sh: ${value}`);
+            exclusions.push(take(value.split('=')[0], { value: inline[1], raw: raw.slice(raw.indexOf('=') + 1) }));
             continue;
         }
 
-        if (words[index] !== '-e' && words[index] !== '--exclude') continue;
+        if (value !== '-e' && value !== '--exclude') continue;
 
-        // A parser that silently mis-reads an exclusion is worse than one that
-        // refuses: a garbage value means this test no longer knows what ships,
-        // while still reporting green. Fail loudly instead.
-        const value = words[index + 1];
-        assert.ok(
-            value !== undefined && value !== '' && !value.startsWith('-'),
-            `malformed exclusion after ${words[index]} in scripts/package-wgt.sh: `
-                + (value === undefined ? '(end of command)' : JSON.stringify(value))
-        );
-        exclusions.push(value);
+        exclusions.push(take(value, words[index + 1]));
         index += 1;
     }
 
@@ -246,12 +272,31 @@ test('parses the packager exclusion flags without silently mis-reading them', ()
     assert.deepEqual(packagerExclusions(command('-e a.md\n# -e jellyquest.js')), ['a.md']);
     assert.deepEqual(packagerExclusions(command('-e a.md # -e jellyquest.js')), ['a.md']);
 
-    // Unsupported or malformed syntax is rejected loudly rather than guessed at.
+    // A quoted value may contain spaces; that much is modelled.
+    assert.deepEqual(packagerExclusions(command('-e "some dir/*"')), ['some dir/*']);
+
+    // Missing or malformed values fail loudly rather than being guessed at.
     assert.throws(() => packagerExclusions(command('-e')), /malformed exclusion after -e/);
     assert.throws(() => packagerExclusions(command('-e -t wgt')), /malformed exclusion after -e/);
     assert.throws(() => packagerExclusions(command('--exclude= -e a.md')), /empty exclusion value/);
     assert.throws(() => packagerExclusions(command('-e "unterminated')), /unterminated " quote/);
     assert.throws(() => packagerExclusions('tizen package -t wgt\n'), /no longer invokes tizen build-web/);
+
+    // Shell syntax bash would act on but this lexer does not model. Each of these
+    // means bash excludes www/config.json while a naive lexer reads some other
+    // string and reports green, so they are refused instead of accepted.
+    assert.throws(() => packagerExclusions(command('-e www/\\config.json')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e "www/confi\\\ng.json"')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e "$DROP"')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e www/config.json;')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('-e `printf x`')), /unmodelled shell syntax/);
+    assert.throws(() => packagerExclusions(command('--exclude=www/config.json;')), /unmodelled shell syntax/);
+
+    // What is NOT detected, and so limits what a green run here means: brace and
+    // tilde expansion, single- versus double-quote nuances, an exclusion assembled
+    // across several words, and any command built dynamically rather than written
+    // out literally. This test refuses the constructs above; it does not certify
+    // that every value it accepts is what bash would pass to tizen.
 });
 
 test('keeps development configuration and notes out of the TV package', () => {
@@ -338,9 +383,13 @@ test('keeps representative known runtime paths out of the packager exclusions', 
         'www/config.json'
     ];
 
-    // Positive controls. A negative result only means something if the parser
-    // actually produced working patterns; if these stop matching, the checks
-    // below are passing vacuously rather than because nothing is excluded.
+    // Positive controls: a floor, not a completeness proof. A negative result
+    // only means something if the parser produced working patterns at all, so if
+    // these stop matching, the checks below are passing vacuously. They do NOT
+    // prove the parser read every exclusion -- a parser returning just these three
+    // satisfies this test, and one that drops an additional dangerous exclusion
+    // leaves every check here green. The internal-path test catches some, not all,
+    // of that truncation.
     for (const sentinel of ['src/overlay/app.js', 'test/configuration.test.mjs', 'node_modules/jellyfin-web/dist/index.html']) {
         assert.ok(
             exclusions.some((pattern) => excludesPath(pattern, sentinel)),
