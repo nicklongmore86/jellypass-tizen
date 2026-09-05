@@ -24,6 +24,10 @@
 // Element convention:
 //   [data-jq-autofocus] -- marks the element a screen should focus first
 //                          when it becomes active.
+//
+// This module also keeps the focused element inside its scrollport (see
+// "Keeping the focused element on screen" below), which is what makes a
+// row or grid longer than the screen walkable with the remote at all.
 (function () {
     'use strict';
 
@@ -103,6 +107,144 @@
             'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
         );
     }
+
+    // ---- Keeping the focused element on screen --------------------------
+    //
+    // A Home row holds one card per library item, so it is routinely wider
+    // than the screen; .jq-home-screen and .jq-library-screen clip the
+    // overflow. Nothing scrolled, and the polyfill will not move focus to
+    // an element it cannot see -- its isVisible() ends in a hitTest() that
+    // probes the candidate with document.elementFromPoint(), which returns
+    // the clipping ancestor for anything outside the scrollport. So a
+    // Recently Added row of 8 cards plus "See All" dead-ended on card 7,
+    // the last one with any pixels on screen: card 8 and "See All" were
+    // unreachable by remote, permanently.
+    //
+    // The fix belongs here rather than in each screen because this is the
+    // one place every focus change passes through -- not just the
+    // focusFirst() calls above, but the polyfill's own arrow-key
+    // .focus(), closeModal()'s restore, and anything else that ever moves
+    // the cursor. A capture-phase 'focus' listener on document sees all of
+    // them (focus does not bubble; capture is how you observe it
+    // document-wide), so no screen has to remember to opt in, and the
+    // Library grid gets vertical scrolling from the same code that gives
+    // Home horizontal scrolling.
+    //
+    // Scrolling on focus is also what makes the NEXT element reachable:
+    // bringing the focused card fully into view drags its neighbour into
+    // view behind it, so the following key press has a visible candidate.
+    // That is why the reveal margin below is load-bearing, not cosmetic.
+    //
+    // COMPATIBILITY. Only scrollLeft/scrollTop assignment is used, which
+    // caniuse dates to Chrome 4 (https://caniuse.com/mdn-api_element_scrollleft)
+    // -- far below the measured Tizen 5.0 / Chromium M63 floor. The
+    // alternatives were rejected on purpose:
+    //   * scrollIntoView() with an options object: caniuse marks Chrome
+    //     4-60 partial and only 61+ full (https://caniuse.com/scrollintoview),
+    //     which puts the floor two releases under M63 -- too thin a margin
+    //     on hardware nobody can retest, and this repo has already been
+    //     bitten by a property that parsed and computed correctly while
+    //     doing nothing (see the flex `gap` note in focus.css). It also
+    //     walks every scrollable ancestor including the document, and
+    //     JellyQuest does not own jellyfin-web's page scroll.
+    //   * CSS scroll-behavior / behavior: 'smooth': Chrome 61, disabled by
+    //     default in 41-60 (https://caniuse.com/css-scroll-behavior).
+    //     Same thin margin, and no functional need.
+    // Containers are `overflow: hidden` rather than auto/scroll: the TV has
+    // no pointer, scrollbars would be visible chrome, and the polyfill's
+    // own isScrollable() deliberately excludes `hidden` ("the element can
+    // be only programmically scrollable"), so it leaves these containers
+    // to us instead of nudging them 40px at a time via moveScroll().
+
+    // How much room to keep past the focused element's edges, in CSS px.
+    //
+    // Load-bearing, not padding: the polyfill's hitTest() probes a
+    // candidate at `left + offsetWidth / 10` from its leading edge, so for
+    // a 220px .jq-media-card the probe sits 22px in, behind a 20px sibling
+    // margin. Reveal less than ~42px past the focused card and the next
+    // one is still invisible to the polyfill and focus dead-ends exactly
+    // where it does today. 64px clears that comfortably while showing only
+    // a sliver of the next card, which is also the conventional TV cue
+    // that a row continues.
+    var REVEAL_PX = 64;
+
+    function revealFocus(element) {
+        if (!element || element.nodeType !== 1) return;
+        // Stops at <body>: everything above #jellyquest-root belongs to
+        // jellyfin-web, and its page scroll is not ours to move.
+        var node = element.parentNode;
+        while (node && node.nodeType === 1 && node !== document.body) {
+            revealInto(node, element);
+            node = node.parentNode;
+        }
+    }
+
+    function revealInto(container, element) {
+        var scrollsX = container.scrollWidth > container.clientWidth;
+        var scrollsY = container.scrollHeight > container.clientHeight;
+        // Assigning scrollLeft/scrollTop to a non-scrolling box is a no-op,
+        // but skipping the geometry reads keeps this cheap on the deep
+        // ancestor chains every focus change walks.
+        if (!scrollsX && !scrollsY) return;
+        var port = container.getBoundingClientRect();
+        var rect = element.getBoundingClientRect();
+        if (scrollsX) {
+            // clientLeft/clientTop discount a border, which offsets the
+            // scrollport from the border box getBoundingClientRect gives.
+            var portLeft = port.left + container.clientLeft;
+            container.scrollLeft = revealOffset(
+                container.scrollLeft,
+                rect.left - portLeft,
+                rect.right - portLeft - container.clientWidth
+            );
+        }
+        if (scrollsY) {
+            var portTop = port.top + container.clientTop;
+            container.scrollTop = revealOffset(
+                container.scrollTop,
+                rect.top - portTop,
+                rect.bottom - portTop - container.clientHeight
+            );
+        }
+    }
+
+    // The scroll offset one axis should take. `near` is how far the
+    // element's leading edge sits inside the scrollport's leading edge
+    // (negative once it has slipped off it) and `far` how far its trailing
+    // edge sits past the scrollport's trailing edge (positive once it has).
+    //
+    // Shifting the offset by d moves both by -d, so every offset in
+    // [lowest, highest] keeps the element on screen with REVEAL_PX to
+    // spare. The browser clamps whatever comes back to the scrollable
+    // range, which is also what carries the last element in a row all the
+    // way to the end: its trailing margin asks for more scroll than exists.
+    function revealOffset(offset, near, far) {
+        var lowest = offset + far + REVEAL_PX;
+        var highest = offset + near - REVEAL_PX;
+        // Empty range: the element is longer than the scrollport, so show
+        // its leading edge, where its label and focus ring are.
+        if (lowest > highest) return highest;
+        // Nothing carries the offset back the other way, though -- the
+        // margin is satisfied while the container's own leading chrome is
+        // still hidden above/left of the scrollport, and that chrome can be
+        // focusable: the Library screen's "< Back" sits above its first
+        // grid row and is only reachable by Up from it. Parking 80px short
+        // of the top would dead-end the cursor there in exactly the way
+        // this whole section exists to prevent. So when returning all the
+        // way to the start would still leave the element on screen, do
+        // that. The trailing end needs no such rule (see above) and must
+        // not have one: an element well short of the end usually also fits
+        // at the end, and jumping there would fling the row past the cards
+        // the viewer is walking through.
+        if (lowest <= 0 && highest >= 0) return 0;
+        if (offset < lowest) return lowest;
+        if (offset > highest) return highest;
+        return offset;
+    }
+
+    document.addEventListener('focus', function (event) {
+        revealFocus(event.target);
+    }, true);
 
     // Tracks the currently-open modal's own close handler so the
     // hardware Back button can close it first, before any screen-level
