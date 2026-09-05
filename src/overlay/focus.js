@@ -113,67 +113,91 @@
     // A Home row holds one card per library item, so it is routinely wider
     // than the screen; .jq-home-screen and .jq-library-screen clip the
     // overflow. Nothing scrolled, and the polyfill will not move focus to
-    // an element it cannot see -- its isVisible() ends in a hitTest() that
-    // probes the candidate with document.elementFromPoint(), which returns
-    // the clipping ancestor for anything outside the scrollport. So a
-    // Recently Added row of 8 cards plus "See All" dead-ended on card 7,
-    // the last one with any pixels on screen: card 8 and "See All" were
-    // unreachable by remote, permanently.
+    // an element it cannot see. So a Recently Added row of 8 cards plus
+    // "See All" dead-ended on card 7, the last one with any pixels on
+    // screen: card 8 and "See All" were unreachable by remote, permanently.
     //
     // The fix belongs here rather than in each screen because this is the
     // one place every focus change passes through -- not just the
-    // focusFirst() calls above, but the polyfill's own arrow-key
-    // .focus(), closeModal()'s restore, and anything else that ever moves
-    // the cursor. A capture-phase 'focus' listener on document sees all of
-    // them (focus does not bubble; capture is how you observe it
-    // document-wide), so no screen has to remember to opt in, and the
-    // Library grid gets vertical scrolling from the same code that gives
-    // Home horizontal scrolling.
+    // focusFirst() calls above, but the polyfill's own arrow-key .focus(),
+    // closeModal()'s restore, and anything else that ever moves the cursor.
+    // A capture-phase 'focus' listener on document sees all of them (focus
+    // does not bubble; capture is how you observe it document-wide), so no
+    // screen has to remember to opt in, and the Library grid gets vertical
+    // scrolling from the same code that gives Home horizontal scrolling.
     //
-    // Scrolling on focus is also what makes the NEXT element reachable:
-    // bringing the focused card fully into view drags its neighbour into
-    // view behind it, so the following key press has a visible candidate.
-    // That is why the reveal margin below is load-bearing, not cosmetic.
+    // WHAT THE POLYFILL NEEDS TO SEE. Scrolling on focus is also what makes
+    // the NEXT element reachable: bringing the focused card into view drags
+    // its neighbour in behind it, so the following key press has a visible
+    // candidate. How much of that neighbour has to be showing is decided by
+    // hitTest(), and it is not symmetric:
     //
-    // COMPATIBILITY. Only scrollLeft/scrollTop assignment is used, which
-    // caniuse dates to Chrome 4 (https://caniuse.com/mdn-api_element_scrollleft)
-    // -- far below the measured Tizen 5.0 / Chromium M63 floor. The
-    // alternatives were rejected on purpose:
-    //   * scrollIntoView() with an options object: caniuse marks Chrome
-    //     4-60 partial and only 61+ full (https://caniuse.com/scrollintoview),
-    //     which puts the floor two releases under M63 -- too thin a margin
-    //     on hardware nobody can retest, and this repo has already been
-    //     bitten by a property that parsed and computed correctly while
-    //     doing nothing (see the flex `gap` note in focus.css). It also
-    //     walks every scrollable ancestor including the document, and
-    //     JellyQuest does not own jellyfin-web's page scroll.
-    //   * CSS scroll-behavior / behavior: 'smooth': Chrome 61, disabled by
-    //     default in 41-60 (https://caniuse.com/css-scroll-behavior).
-    //     Same thin margin, and no functional need.
+    //   1. hitTest() rejects outright on the candidate's TOP-LEFT CORNER --
+    //      `elementRect.top < 0 || elementRect.left < 0` -- before it looks
+    //      at any visible portion at all.
+    //   2. Only if that passes does it probe three points (centre, a
+    //      top-left inset at offsetWidth/10 and offsetHeight/10, and the
+    //      mirrored bottom-right inset) with elementFromPoint().
+    //
+    // So a neighbour BEHIND the cursor is the hard case: its top-left corner
+    // is its far corner from us, and revealing anything less than the whole
+    // of it fails rule 1 no matter how much is on screen. A neighbour AHEAD
+    // is cheap: its top-left corner is the near one, so the gap plus its own
+    // leading tenth -- where probe 2's top-left inset sits -- is enough.
+    // revealMargin() below is that asymmetry, and it is the whole reason
+    // Up could not walk back out of a scrolled grid: a fixed margin left the
+    // row above spanning y = -86 to y = 44, which rule 1 discards.
+    //
+    // API CHOICE. Direct scrollLeft/scrollTop assignment, present since the
+    // earliest Chromium releases (MDN's compat data lists Chrome 1), so
+    // support is not in question anywhere in the supported range. Neither is
+    // it in question for the alternatives -- scrollIntoView() with an
+    // options object and CSS scroll-behavior are both Chrome 61
+    // (https://caniuse.com/scrollintoview,
+    // https://caniuse.com/css-scroll-behavior), which PRECEDES the measured
+    // Tizen 5.0 / Chromium M63 floor; both target sets can run them. This is
+    // not a support decision. It is chosen for behaviour:
+    //   * scrollIntoView() walks every scrollable ancestor up to and
+    //     including the document, and jellyfin-web's page scroll is not ours
+    //     to move (see revealFocus()'s overlay scoping below). Assigning
+    //     offsets scrolls exactly the containers we choose.
+    //   * scrollIntoView() offers no control over HOW MUCH to reveal, and a
+    //     computed amount is the entire mechanism here -- `block: 'nearest'`
+    //     reveals the minimum, which is precisely the dead-end being fixed.
+    //   * The reveal has to be complete before the next key press is
+    //     searched for candidates. Offset assignment is unconditionally
+    //     synchronous; a smooth scroll animates, so the polyfill would run
+    //     its hitTest() against geometry still in motion.
+    //
     // Containers are `overflow: hidden` rather than auto/scroll: the TV has
     // no pointer, scrollbars would be visible chrome, and the polyfill's
     // own isScrollable() deliberately excludes `hidden` ("the element can
     // be only programmically scrollable"), so it leaves these containers
     // to us instead of nudging them 40px at a time via moveScroll().
 
-    // How much room to keep past the focused element's edges, in CSS px.
-    //
-    // Load-bearing, not padding: the polyfill's hitTest() probes a
-    // candidate at `left + offsetWidth / 10` from its leading edge, so for
-    // a 220px .jq-media-card the probe sits 22px in, behind a 20px sibling
-    // margin. Reveal less than ~42px past the focused card and the next
-    // one is still invisible to the polyfill and focus dead-ends exactly
-    // where it does today. 64px clears that comfortably while showing only
-    // a sliver of the next card, which is also the conventional TV cue
-    // that a row continues.
-    var REVEAL_PX = 64;
+    // Slack added on top of a neighbour's own extent. It has to exceed the
+    // spacing between items -- 20px everywhere in this overlay, whether
+    // sibling margin or grid-gap -- and the surplus leaves the visible
+    // sliver of the next card that tells a viewer the row continues.
+    var GAP_PX = 64;
 
     function revealFocus(element) {
         if (!element || element.nodeType !== 1) return;
-        // Stops at <body>: everything above #jellyquest-root belongs to
-        // jellyfin-web, and its page scroll is not ours to move.
+        // Scoped to the overlay, deliberately. jellyfin-web is still mounted
+        // underneath #jellyquest-root -- its router, its own view tree, and
+        // dialogHelper, which blurs and restores focus of its own accord --
+        // and its scroll containers are emphatically not ours to move. A
+        // document-wide listener would scroll them on any focus jellyfin-web
+        // performs for its own reasons. No simulator test can catch that,
+        // because the simulator loads no jellyfin-web at all, so the
+        // boundary is enforced here explicitly rather than assumed from
+        // "the overlay owns the screen".
+        var root = document.getElementById('jellyquest-root');
+        if (!root || !root.contains(element)) return;
         var node = element.parentNode;
-        while (node && node.nodeType === 1 && node !== document.body) {
+        // contains() is reflexive, so this walks up to and including the
+        // root and stops there -- never <body> or <html>.
+        while (node && node.nodeType === 1 && root.contains(node)) {
             revealInto(node, element);
             node = node.parentNode;
         }
@@ -193,50 +217,67 @@
             // scrollport from the border box getBoundingClientRect gives.
             var portLeft = port.left + container.clientLeft;
             container.scrollLeft = revealOffset(
-                container.scrollLeft,
-                rect.left - portLeft,
-                rect.right - portLeft - container.clientWidth
+                container.scrollLeft, rect.left, rect.right,
+                portLeft, portLeft + container.clientWidth
             );
         }
         if (scrollsY) {
             var portTop = port.top + container.clientTop;
             container.scrollTop = revealOffset(
-                container.scrollTop,
-                rect.top - portTop,
-                rect.bottom - portTop - container.clientHeight
+                container.scrollTop, rect.top, rect.bottom,
+                portTop, portTop + container.clientHeight
             );
         }
     }
 
-    // The scroll offset one axis should take. `near` is how far the
-    // element's leading edge sits inside the scrollport's leading edge
-    // (negative once it has slipped off it) and `far` how far its trailing
-    // edge sits past the scrollport's trailing edge (positive once it has).
+    // How much room to keep on each side of an element of `size` along one
+    // axis, given `spare` px of scrollport left over once the element itself
+    // is placed. See "WHAT THE POLYFILL NEEDS TO SEE" above for why `lead`
+    // covers a whole neighbour and `trail` only a tenth of one; rows and
+    // grids here are uniform, so the focused element's own size stands in
+    // for its neighbour's.
+    function revealMargin(size, spare) {
+        var lead = size + GAP_PX;
+        var trail = GAP_PX + size / 10;
+        // Both margins and the element itself have to fit inside the
+        // scrollport. When they cannot, give up the trailing margin first --
+        // it is the one asking for the least -- and then the leading one.
+        if (lead > spare) return { lead: spare > 0 ? spare : 0, trail: 0 };
+        if (lead + trail > spare) return { lead: lead, trail: spare - lead };
+        return { lead: lead, trail: trail };
+    }
+
+    // The scroll offset one axis should take, given where the element sits
+    // now (`start`/`end`) relative to the scrollport (`portStart`/`portEnd`)
+    // in viewport coordinates.
     //
-    // Shifting the offset by d moves both by -d, so every offset in
-    // [lowest, highest] keeps the element on screen with REVEAL_PX to
-    // spare. The browser clamps whatever comes back to the scrollable
-    // range, which is also what carries the last element in a row all the
-    // way to the end: its trailing margin asks for more scroll than exists.
-    function revealOffset(offset, near, far) {
-        var lowest = offset + far + REVEAL_PX;
-        var highest = offset + near - REVEAL_PX;
-        // Empty range: the element is longer than the scrollport, so show
-        // its leading edge, where its label and focus ring are.
+    // Shifting the offset by d moves the element by -d, so every offset in
+    // [lowest, highest] leaves the element on screen with its margins. The
+    // browser clamps whatever comes back to the scrollable range, which is
+    // also what carries the last element in a row all the way to the end:
+    // its trailing margin asks for more scroll than exists.
+    function revealOffset(offset, start, end, portStart, portEnd) {
+        var size = end - start;
+        var margin = revealMargin(size, (portEnd - portStart) - size);
+        var lowest = offset + (end - portEnd) + margin.trail;
+        var highest = offset + (start - portStart) - margin.lead;
+        // revealMargin() keeps the range non-empty whenever the element
+        // fits at all, so this is the element-longer-than-the-scrollport
+        // case: show its leading edge, where its label and focus ring are.
         if (lowest > highest) return highest;
-        // Nothing carries the offset back the other way, though -- the
-        // margin is satisfied while the container's own leading chrome is
-        // still hidden above/left of the scrollport, and that chrome can be
-        // focusable: the Library screen's "< Back" sits above its first
-        // grid row and is only reachable by Up from it. Parking 80px short
-        // of the top would dead-end the cursor there in exactly the way
-        // this whole section exists to prevent. So when returning all the
-        // way to the start would still leave the element on screen, do
-        // that. The trailing end needs no such rule (see above) and must
-        // not have one: an element well short of the end usually also fits
-        // at the end, and jumping there would fling the row past the cards
-        // the viewer is walking through.
-        if (lowest <= 0 && highest >= 0) return 0;
+        // Otherwise the nearest acceptable offset, so a key press scrolls as
+        // little as it can get away with.
+        //
+        // There was a special case here that jumped straight to 0 whenever
+        // the element still fitted there, to expose a container's leading
+        // chrome -- the Library screen's "< Back" above its first grid row.
+        // It was load-bearing when the leading margin was a flat 64px; it is
+        // not any more, because a margin that reveals a whole neighbouring
+        // row reaches that chrome by itself. Measured with it removed: every
+        // traversal is unchanged and every test still passes, while an Up
+        // press moves one row (150px) instead of occasionally teleporting
+        // over five (701px). Fewer viewport crossings, too, which matters to
+        // anything that loads or discards artwork as cards cross the edge.
         if (offset < lowest) return lowest;
         if (offset > highest) return highest;
         return offset;

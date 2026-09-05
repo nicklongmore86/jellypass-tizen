@@ -12,6 +12,14 @@
 // So these tests navigate with ArrowLeft/Right/Up/Down and Enter only. No
 // .click() on anything they are trying to reach, and no page.evaluate() that
 // moves focus -- otherwise they would pass against the broken build too.
+//
+// Both directions matter, and the reverse one is the harder half. The
+// polyfill's hitTest() rejects a candidate on its TOP-LEFT CORNER
+// (`elementRect.top < 0 || elementRect.left < 0`) before it examines any
+// visible portion, so a row above the scrollport that is half revealed is
+// discarded outright and Up dead-ends -- which a grid only a couple of
+// screens tall never shows, because the return trip reaches the top before
+// the margin can strand anything.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chromium } from 'playwright';
@@ -239,6 +247,115 @@ test('Library: ArrowDown reaches the bottom row of a grid taller than the screen
         assert.equal(await page.evaluate(() => document.activeElement.classList.contains('jq-back-button')), true);
         assert.equal(await page.evaluate(() => document.querySelector('.jq-library-screen').scrollTop), 0,
             'reaching the top of the grid must scroll the screen back to its beginning');
+    } finally {
+        await browser.close();
+    }
+});
+
+// The reverse trip over a grid many screens tall. Down was never the hard
+// direction: it settles the cursor near the bottom of the scrollport, which
+// leaves the row above fully revealed for free. Up is the one that strands,
+// and only past the point where the return trip can still reach the top of
+// the container in one step -- so a 7-row grid cannot show it and this one
+// is 25 rows. Card heights cover today's 130px .jq-media-card and the 330px
+// poster and 124px still that card artwork introduces.
+for (const cardHeight of [130, 330, 124]) {
+    test(`Library: ArrowUp walks a 25-row grid of 220x${cardHeight} cards back to the top`, async () => {
+        const browser = await chromium.launch();
+        const viewport = { width: 1920, height: 1080 };
+        try {
+            const page = await browser.newPage({ viewport });
+            await signInAsAlice(page);
+            if (cardHeight !== 130) {
+                await page.addStyleTag({ content: `.jq-media-card { height: ${cardHeight}px; }` });
+            }
+            // Setup only; every move below is a key press. See the note on
+            // the 28-item test above for why a taller grid cannot be
+            // reached through the UI or produced by any fixture change.
+            await page.evaluate(() => {
+                const items = [];
+                for (let i = 1; i <= 100; i++) items.push({ Id: 'grid-' + i, Name: 'Item ' + i, Type: 'Movie' });
+                window.JellyQuestLibraryScreen.render(
+                    window.JellyQuestShell.getContent(),
+                    { title: 'Everything', fetch: () => Promise.resolve({ Items: items }) },
+                    { onSelectItem() {}, onBack() {} }
+                );
+            });
+            await page.waitForSelector('.jq-library-grid .jq-media-card');
+
+            const screenHeight = await page.evaluate(() => {
+                const screen = document.querySelector('.jq-library-screen');
+                return screen.scrollHeight / screen.clientHeight;
+            });
+            assert.ok(screenHeight > 2.5,
+                `the grid must be several screens tall to strand the return trip: ${screenHeight} screens`);
+
+            // 100 cards in 4 columns is 25 rows; Down must reach every one.
+            const down = await walk(page, 'ArrowDown', viewport);
+            assert.equal(down.length, 25, `ArrowDown must reach all 25 rows, got ${down.join(' -> ')}`);
+            assert.equal(down[down.length - 1], 'grid-97');
+
+            // ...and Up must bring the cursor all the way back, one row per
+            // press, ending on "< Back" above the grid with the screen
+            // scrolled home. Before the leading margin was sized to reveal a
+            // whole neighbouring row, this stranded at grid-73 with the row
+            // above spanning y = -86 to y = 44.
+            const up = await walk(page, 'ArrowUp', viewport);
+            assert.deepEqual(up.slice(0, 25), down.slice().reverse(),
+                'ArrowUp must retrace every row it came down through');
+            assert.equal(await page.evaluate(() => document.activeElement.classList.contains('jq-back-button')), true,
+                'ArrowUp must finish on "< Back" above the first row');
+            assert.equal(await page.evaluate(() => document.querySelector('.jq-library-screen').scrollTop), 0,
+                'reaching the top of the grid must scroll the screen back to its beginning');
+        } finally {
+            await browser.close();
+        }
+    });
+}
+
+// The overlay must never scroll the page underneath it. jellyfin-web stays
+// mounted below #jellyquest-root on a real TV -- its router, its view tree
+// and dialogHelper, which blurs and restores focus on its own -- and this
+// listener is document-wide by necessity. The simulator loads no
+// jellyfin-web, so it cannot reproduce the real hazard; this stands in for
+// it with a scroll container of the same shape outside the overlay root.
+test('focus outside #jellyquest-root never scrolls the host page', async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+        await signInAsAlice(page);
+
+        const scrolled = await page.evaluate(() => {
+            const host = document.createElement('div');
+            host.id = 'host-scroller';
+            host.style.cssText = 'position:fixed;top:0;left:0;width:400px;height:300px;overflow:hidden;z-index:0';
+            const tall = document.createElement('div');
+            tall.style.cssText = 'height:3000px;position:relative';
+            const button = document.createElement('button');
+            button.id = 'host-button';
+            button.style.cssText = 'position:absolute;top:1200px;left:0;width:200px;height:60px';
+            tall.appendChild(button);
+            host.appendChild(tall);
+            document.body.appendChild(host);
+            // preventScroll so the browser's own focus scrolling cannot be
+            // mistaken for -- or mask -- the overlay's handler.
+            button.focus({ preventScroll: true });
+            return {
+                hostScrollTop: host.scrollTop,
+                bodyScrollTop: document.body.scrollTop,
+                documentScrollTop: document.documentElement.scrollTop,
+                focused: document.activeElement.id,
+                overflows: host.scrollHeight > host.clientHeight,
+                insideOverlay: document.getElementById('jellyquest-root').contains(button),
+            };
+        });
+
+        assert.equal(scrolled.insideOverlay, false, 'the fixture must sit outside the overlay root');
+        assert.equal(scrolled.overflows, true, 'the fixture must be scrollable, or it proves nothing');
+        assert.equal(scrolled.focused, 'host-button', 'the fixture must actually have taken focus');
+        assert.equal(scrolled.hostScrollTop, 0, 'the overlay must not scroll a host container it does not own');
+        assert.equal(scrolled.bodyScrollTop, 0);
+        assert.equal(scrolled.documentScrollTop, 0);
     } finally {
         await browser.close();
     }
