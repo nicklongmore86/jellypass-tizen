@@ -3069,11 +3069,18 @@
 // Also owns the remote's hardware Back button: every screen but Home
 // registers a "go back to where I came from" handler here, so Back
 // behaves the way every other TV app's does, distinct from (and in
-// addition to) Left-into-the-rail spatial navigation.
+// addition to) Left-into-the-rail spatial navigation. Home -- the top of
+// the navigation stack -- answers Back with the exit confirmation below.
 (function () {
     'use strict';
 
-    var BACK_KEY_CODES = [10009, 27]; // Tizen hardware Back; Escape for desktop/simulator testing.
+    // 10009 is Tizen's documented hardware Back. jellyfin-web's own
+    // keyboardnavigation maps BOTH 461 and 10009 to Back, so some sets are
+    // expected to emit 461 instead; which one this hardware sends is
+    // UNVERIFIED (it needs a TV), and listening for both costs nothing --
+    // if it emits 461, JellyQuest's listener would otherwise never fire on
+    // any screen. 27/Escape is for desktop/simulator testing.
+    var BACK_KEY_CODES = [10009, 461, 27];
     var currentBackHandler = null;
     var buildConfig = null;
 
@@ -3111,7 +3118,7 @@
     }
 
     function showHome() {
-        currentBackHandler = null; // top of the navigation stack
+        currentBackHandler = confirmExit; // top of the navigation stack: Back offers to quit
         window.JellyQuestRequestsBridge.close();
         window.JellyQuestHomeScreen.render(window.JellyQuestShell.getContent(), {
             onSelectItem: function (item) { showDetail(item, showHome); },
@@ -3162,6 +3169,141 @@
         });
     }
 
+    // ---- Root-level Back: the exit confirmation -------------------------
+    //
+    // Samsung's certification policy (CO-US-05, "Terminating Applications")
+    // requires that a short Return press on the app's root screen shows an
+    // app-created HTML confirmation, and that only an affirmative answer
+    // terminates the app. Home is that root screen.
+    //
+    // Leaving Back unhandled here does NOT get that behaviour for free.
+    // jellyfin-web does show its own Samsung-style confirmation when its
+    // router cannot go back, but #jellyquest-root sits at z-index
+    // 2147483000 with an opaque background (see app.css) while
+    // jellyfin-web's .dialogContainer is z-index 999999, so that dialog
+    // renders behind the overlay and is invisible. What the user sees is
+    // only its side effect: opening the dialog blurs the outside
+    // activeElement (removing the .jq-focusable:focus outline that IS the
+    // cursor) and closing it restores focus to the same element -- the
+    // reported "cursor disappears, then comes back to the same spot".
+    //
+    // So JellyQuest owns the prompt, built on the same modal primitives
+    // every other JellyQuest dialog uses (focus.js's openModal/closeModal/
+    // closeOnBack and the .jq-modal conventions).
+    var exitConfirm = null;
+
+    function buildExitConfirm(root) {
+        var backdrop = document.createElement('div');
+        backdrop.className = 'jq-modal-backdrop jq-exit-backdrop';
+        backdrop.hidden = true;
+
+        var modal = document.createElement('div');
+        modal.className = 'jq-modal jq-exit-confirm';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-label', 'Exit JellyQuest');
+        backdrop.appendChild(modal);
+
+        var heading = document.createElement('h2');
+        heading.className = 'jq-exit-title';
+        heading.textContent = 'Exit JellyQuest?';
+        modal.appendChild(heading);
+
+        var message = document.createElement('p');
+        message.className = 'jq-exit-message';
+        message.textContent = 'Closing the app will stop anything that is playing.';
+        modal.appendChild(message);
+
+        var actions = document.createElement('div');
+        actions.className = 'jq-exit-actions';
+        modal.appendChild(actions);
+
+        // "No" is autofocused deliberately: Back is a frequently-pressed key
+        // and the press that opens this dialog is often followed by a reflex
+        // Enter, which must not be able to quit the app by accident.
+        var no = document.createElement('button');
+        no.className = 'jq-modal-option jq-focusable jq-exit-no';
+        no.textContent = 'No';
+        no.setAttribute('data-jq-autofocus', '');
+        no.addEventListener('click', dismissExit);
+        actions.appendChild(no);
+
+        var yes = document.createElement('button');
+        yes.className = 'jq-modal-option jq-focusable jq-exit-yes';
+        yes.textContent = 'Yes, exit';
+        yes.addEventListener('click', function () {
+            dismissExit();
+            exitApp();
+        });
+        actions.appendChild(yes);
+
+        root.appendChild(backdrop);
+        return { backdrop: backdrop, modal: modal, restoreTarget: null };
+    }
+
+    // Built lazily, once, on the first root-level Back and reused after
+    // that: showHome() runs on every navigation back to Home, and the
+    // dialog lives on #jellyquest-root rather than inside the shell's
+    // content area, which each screen clears when it renders.
+    function confirmExit() {
+        if (!exitConfirm) {
+            var root = document.getElementById('jellyquest-root');
+            if (!root) return;
+            exitConfirm = buildExitConfirm(root);
+        }
+        exitConfirm.restoreTarget = document.activeElement;
+        exitConfirm.backdrop.hidden = false;
+        window.JellyQuestFocus.openModal(exitConfirm.modal, dismissExit);
+    }
+
+    function dismissExit() {
+        if (!exitConfirm) return;
+        var restore = exitConfirm.restoreTarget;
+        exitConfirm.restoreTarget = null;
+        exitConfirm.backdrop.hidden = true;
+        if (restore && restore !== document.body && document.body.contains(restore)) {
+            window.JellyQuestFocus.closeModal(exitConfirm.modal, restore);
+            return;
+        }
+        // Nothing focusable to go back to -- either the element that had
+        // focus is gone (a re-render while the dialog was open), or nothing
+        // was focused at all and activeElement was <body>, which focus()
+        // cannot meaningfully restore. Fall back to whatever the current
+        // screen focuses first rather than leaving the TV with no cursor.
+        window.JellyQuestFocus.closeModal(exitConfirm.modal, null);
+        window.JellyQuestFocus.focusFirst(window.JellyQuestShell.getContent());
+    }
+
+    // NativeShell.AppHost.exit() is tizen.js's shim over
+    // tizen.application.getCurrentApplication().exit(). It is genuinely
+    // absent in any embedding that does not load tizen.js, and in the
+    // simulator dev/fixtures/tizen-stub.js supplies an exit() that only
+    // logs -- so guard rather than assume, and never let a missing or
+    // throwing host API take the UI down with it.
+    function exitApp() {
+        var appHost = window.NativeShell && window.NativeShell.AppHost;
+        if (!appHost || typeof appHost.exit !== 'function') {
+            console.warn('[JellyQuest] No AppHost.exit() available -- cannot terminate.');
+            return;
+        }
+        try {
+            appHost.exit();
+        } catch (err) {
+            console.error('[JellyQuest] AppHost.exit() failed:', err);
+        }
+    }
+
+    // Consuming Back means consuming it for everyone. preventDefault() alone
+    // is not enough: jellyfin-web installs its own Back handling
+    // (keyboardnavigation -> inputManager.handleCommand('back') ->
+    // appRouter.back() or appHost.exit()), and it acts on the press it
+    // receives whether or not the default was prevented. stopPropagation()
+    // keeps the event from reaching that listener at all, and -- unlike
+    // preventDefault() -- it does not depend on the event being cancelable.
+    function consumeBack(event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
     document.addEventListener('keydown', function (event) {
         if (BACK_KEY_CODES.indexOf(event.keyCode) === -1) return;
         // An open modal (e.g. Detail's Playback Options) owns Back first,
@@ -3169,11 +3311,11 @@
         // see DETAIL_ACTIONS.md's "Left or Back returns one level before
         // closing" rule.
         if (window.JellyQuestFocus.closeOnBack()) {
-            event.preventDefault();
+            consumeBack(event);
             return;
         }
         if (!currentBackHandler) return;
-        event.preventDefault();
+        consumeBack(event);
         currentBackHandler();
     });
 
