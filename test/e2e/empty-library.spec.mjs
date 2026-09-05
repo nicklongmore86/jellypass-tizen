@@ -41,9 +41,12 @@ async function signInToEmptyHome(page) {
     await page.waitForSelector('.jq-home-empty');
 }
 
-// "Somewhere sensible" on a TV means: an element that is actually in the
-// document and carries the focus ring. Anything else -- <body> above all --
-// means no visible cursor, which is the symptom this whole PR started from.
+// "Somewhere sensible" on a TV means an element that is in the document, is
+// actually RENDERED, and carries the focus ring. All three matter: <body>
+// gives no cursor at all, and an element that is still attached but inside a
+// hidden subtree gives no cursor either while looking fine to a naive
+// activeElement check -- focus parked on the dismissed dialog's own button is
+// exactly that case, and an earlier version of this helper passed it.
 function focusState(page) {
     return page.evaluate(() => {
         const active = document.activeElement;
@@ -52,8 +55,17 @@ function focusState(page) {
             className: active ? active.className : '',
             focusable: Boolean(active && active.classList && active.classList.contains('jq-focusable')),
             connected: Boolean(active && active !== document.body && document.body.contains(active)),
+            rendered: Boolean(active && active.getClientRects && active.getClientRects().length > 0),
         };
     });
+}
+
+function assertVisiblyFocused(state, context) {
+    assert.ok(state.connected, `${context}: focus was lost to ${state.tag} -- no focus ring, no cursor on the TV`);
+    assert.ok(state.rendered,
+        `${context}: focus is on ${state.tag}.${state.className}, which is attached but not rendered -- still no visible cursor`);
+    assert.ok(state.focusable,
+        `${context}: focus landed on ${state.tag}.${state.className}, which carries no focus ring`);
 }
 
 test('an empty library renders the Home placeholder with no cards and no page error', async () => {
@@ -85,8 +97,7 @@ test('the rail stays mounted and navigable when the library is empty', async () 
 
         // Booting into an empty Home must not strand the user: the rail was
         // focused before Home rendered, and the empty render must not undo it.
-        const booted = await focusState(page);
-        assert.ok(booted.focusable && booted.connected, `focus after boot was ${booted.tag}.${booted.className}`);
+        assertVisiblyFocused(await focusState(page), 'after booting into an empty Home');
 
         // And the remote can still walk the rail to Search/Requests.
         await page.keyboard.press('ArrowDown');
@@ -112,9 +123,7 @@ test('returning to an empty Home from Search leaves focus on something visible',
         await page.keyboard.press('Escape');
         await page.waitForSelector('.jq-home-empty');
 
-        const state = await focusState(page);
-        assert.ok(state.connected, `focus was lost to ${state.tag} -- no focus ring, no cursor on the TV`);
-        assert.ok(state.focusable, `focus landed on ${state.tag}.${state.className}, which carries no focus ring`);
+        assertVisiblyFocused(await focusState(page), 'after Back from Search to an empty Home');
     } finally {
         await browser.close();
     }
@@ -154,9 +163,10 @@ test('dismissing the exit confirmation on an empty Home leaves focus on somethin
         await page.evaluate(() => document.querySelector('.jq-exit-no').click());
         await page.waitForFunction(() => document.querySelector('.jq-exit-backdrop').hidden);
 
-        const state = await focusState(page);
-        assert.ok(state.connected, `focus was lost to ${state.tag} after dismissing the prompt`);
-        assert.ok(state.focusable, `focus landed on ${state.tag}.${state.className}, which carries no focus ring`);
+        // Without a fallback this lands on the dialog's own No button, which
+        // is still attached but inside the now-hidden backdrop: attached and
+        // .jq-focusable, yet completely invisible.
+        assertVisiblyFocused(await focusState(page), 'after dismissing the prompt on an empty Home');
     } finally {
         await browser.close();
     }
